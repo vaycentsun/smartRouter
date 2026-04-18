@@ -1,0 +1,45 @@
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
+public/
+.deploy*/
+_multiconfig.yml
+db.json
+.env/
+__pycache__/
+.pytest_cache
+
+# 环境变量文件（包含敏感信息）
+.env
+.env.local
+.env.*.local
+
+# Agent 相关目录（保留配置文件，仅忽略可能包含凭证的运行时文件）
+.cursor/
+.claude/
+.vscode/
+.qwen/
+.gemini/
+.codex/
+
+# Agent 运行时生成的凭证/令牌文件（如果存在）
+.agents/.credentials
+.agents/.tokens
+.agents/*.secret
+
+# Python 虚拟环境
+venv/
+.venv/
+env/
+
+# IDE 配置
+.idea/
+*.swp
+*.swo
+*~
+
+# 生成的临时文件
+*.xlsx
+*.excel
+*.tmp

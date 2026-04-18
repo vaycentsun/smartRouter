@@ -1,0 +1,26 @@
+[project]
+name = "smart-router"
+version = "0.1.0"
+description = "智能模型路由网关 — 基于 LiteLLM 的多服务商自动路由 CLI 工具"
+requires-python = ">=3.9"
+dependencies = [
+    "litellm>=1.0",
+    "typer>=0.12",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+smart-router = "smart_router.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

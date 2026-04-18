@@ -1,0 +1,137 @@
+# Smart Router 默认配置
+# 复制此文件到工作目录，按需修改
+
+server:
+  port: 4000
+  host: "127.0.0.1"
+  master_key: "sk-smart-router-local"
+
+model_list:
+  # OpenAI
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+
+  # Anthropic
+  - model_name: claude-3-sonnet
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: claude-3-opus
+    litellm_params:
+      model: anthropic/claude-3-opus-20240229
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # DeepSeek
+  - model_name: deepseek-chat
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+
+  - model_name: deepseek-r1
+    litellm_params:
+      model: deepseek/deepseek-reasoner
+      api_key: os.environ/DEEPSEEK_API_KEY
+
+  # 阿里 Qwen
+  - model_name: qwen-turbo
+    litellm_params:
+      model: dashscope/qwen-turbo
+      api_key: os.environ/DASHSCOPE_API_KEY
+
+  - model_name: qwen-max
+    litellm_params:
+      model: dashscope/qwen-max
+      api_key: os.environ/DASHSCOPE_API_KEY
+
+  # Moonshot Kimi
+  - model_name: kimi-k2
+    litellm_params:
+      model: moonshot/moonshot-v1-8k
+      api_key: os.environ/MOONSHOT_API_KEY
+
+  # MiniMax
+  - model_name: minimax-m2
+    litellm_params:
+      model: minimax/MiniMax-Text-01
+      api_key: os.environ/MINIMAX_API_KEY
+
+  # 智谱 GLM（OpenAI-compatible）
+  - model_name: glm-5
+    litellm_params:
+      model: openai/glm-5
+      api_base: https://open.bigmodel.cn/api/paas/v4
+      api_key: os.environ/ZHIPU_API_KEY
+
+smart_router:
+  default_strategy: auto
+
+  stage_routing:
+    brainstorming:
+      easy: ["qwen-turbo", "gpt-4o-mini"]
+      medium: ["kimi-k2", "gpt-4o"]
+      hard: ["claude-3-sonnet", "qwen-max"]
+
+    code_review:
+      easy: ["gpt-4o-mini"]
+      medium: ["claude-3-sonnet", "glm-5"]
+      hard: ["claude-3-opus", "deepseek-chat"]
+
+    writing:
+      easy: ["qwen-turbo"]
+      medium: ["gpt-4o", "kimi-k2"]
+      hard: ["claude-3-sonnet"]
+
+    reasoning:
+      easy: ["gpt-4o"]
+      medium: ["deepseek-chat", "kimi-k2"]
+      hard: ["claude-3-opus", "deepseek-r1"]
+
+    chat:
+      easy: ["qwen-turbo", "gpt-4o-mini"]
+      medium: ["gpt-4o", "kimi-k2"]
+      hard: ["claude-3-sonnet"]
+
+  classification_rules:
+    - pattern: '(?i)(review|审查|code.*quality|bug|lint)'
+      task_type: code_review
+      difficulty: medium
+
+    - pattern: '(?i)(prove|证明|formal|theorem|形式化|verify)'
+      task_type: reasoning
+      difficulty: hard
+
+    - pattern: '(?i)(write|draft|生成|撰写|compose)'
+      task_type: writing
+      difficulty: easy
+
+    - pattern: '(?i)(brainstorm|头脑风暴|ideation|想一些)'
+      task_type: brainstorming
+      difficulty: easy
+
+    - pattern: '(?i)(explain|解释|什么是|how to|怎么|如何)'
+      task_type: chat
+      difficulty: easy
+
+  embedding_match:
+    enabled: true
+    custom_types: []
+
+  fallback_chain:
+    gpt-4o-mini: ["gpt-4o", "claude-3-sonnet"]
+    qwen-turbo: ["qwen-max", "claude-3-sonnet"]
+    kimi-k2: ["glm-5", "claude-3-sonnet"]
+    gpt-4o: ["claude-3-sonnet", "qwen-max"]
+
+  timeout:
+    default: 30
+    hard_tasks: 60
+
+  max_fallback_retries: 2
