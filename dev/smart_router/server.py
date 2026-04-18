@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from fastapi import Request
 from rich.console import Console
 
 from .config.loader import load_config, validate_config
@@ -48,8 +49,22 @@ def start_server(config_path: Optional[Path] = None):
         
         import uvicorn
         from litellm.proxy.proxy_server import app
+        from starlette.middleware.base import BaseHTTPMiddleware
         
         app.state.smart_router = router
+        
+        # 添加中间件设置响应头
+        class SmartRouterHeaderMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request: Request, call_next):
+                response = await call_next(request)
+                # 添加实际使用的模型到响应头
+                if hasattr(app.state, 'smart_router') and app.state.smart_router.last_selected_model:
+                    response.headers["X-Smart-Router-Model-Used"] = app.state.smart_router.last_selected_model
+                return response
+        
+        # 确保中间件只添加一次
+        if not any(isinstance(m, SmartRouterHeaderMiddleware) for m in app.user_middleware):
+            app.add_middleware(SmartRouterHeaderMiddleware)
         
         uvicorn.run(
             app,

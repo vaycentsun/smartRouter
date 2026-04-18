@@ -963,7 +963,8 @@ fallback_chain:
 
 - [LiteLLM 文档](https://docs.litellm.ai/)
 - [OpenAI API 文档](https://platform.openai.com/docs)
-- [项目 SPEC](dev/specs/active/2026-04-18--smart-router.md)
+- [项目 SPEC](../specs/active/2026-04-18--smart-router.md)
+- [快速开始指南](../README.md#5-分钟快速开始) - 回到主 README
 
 ---
 

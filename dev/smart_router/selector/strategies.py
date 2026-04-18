@@ -66,12 +66,22 @@ class ModelSelector:
         return candidates
     
     def _select_by_speed(self, candidates: List[str]) -> str:
-        """速度优先：选择列表中靠前的小模型"""
-        return candidates[0] if candidates else ""
+        """速度优先：根据 MODEL_PROFILES 选择速度评分最高的模型"""
+        if not candidates:
+            return ""
+        # 按速度评分降序排序，选择最快的
+        scored = [(c, MODEL_PROFILES.get(c, {}).get("speed", 5)) for c in candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[0][0]
     
     def _select_by_cost(self, candidates: List[str]) -> str:
-        """成本优先：选择列表中靠前的小模型"""
-        return candidates[0] if candidates else ""
+        """成本优先：根据 MODEL_PROFILES 选择成本评分最高的模型"""
+        if not candidates:
+            return ""
+        # 按成本评分降序排序，选择最便宜的
+        scored = [(c, MODEL_PROFILES.get(c, {}).get("cost", 5)) for c in candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[0][0]
     
     def _select_by_quality(self, candidates: List[str]) -> str:
         """质量优先：选择列表中最后一个（最强模型）"""

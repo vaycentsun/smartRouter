@@ -4,6 +4,8 @@ from typing import List, Dict, Optional
 
 from .types import ClassificationResult
 
+# 相似度阈值：低于此值认为匹配无效，返回 None
+SIMILARITY_THRESHOLD = 0.1
 
 # 预定义的任务类型示例（内置）
 BUILTIN_TYPE_EXAMPLES = {
@@ -130,8 +132,8 @@ class EmbeddingMatcher:
                 best_score = score
                 best_type = type_name
         
-        # 阈值：相似度需 > 0.1 才认为有效匹配
-        if best_score < 0.1:
+        # 阈值检查：相似度需大于阈值才认为有效匹配
+        if best_score < SIMILARITY_THRESHOLD:
             return None
         
         # 根据类型推断默认难度

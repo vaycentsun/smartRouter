@@ -19,6 +19,8 @@ class SmartRouter(Router):
     
     def __init__(self, config: Config, *args, **kwargs):
         self.sr_config = config
+        # 存储最后选中的模型，用于响应头
+        self.last_selected_model: Optional[str] = None
         
         self.classifier = TaskClassifier(
             rules=[r.model_dump() for r in config.smart_router.classification_rules],
@@ -72,6 +74,9 @@ class SmartRouter(Router):
             strategy=self.sr_config.smart_router.default_strategy,
             model_list=available_models
         )
+        
+        # 存储选中的模型用于响应头
+        self.last_selected_model = selected
         
         return await super().get_available_deployment(
             model=selected, messages=messages, request_kwargs=request_kwargs

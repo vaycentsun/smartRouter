@@ -21,21 +21,25 @@ def test_select_quality():
 
 
 def test_select_speed():
+    """测试速度优先策略：选择速度评分最高的模型"""
     selector = ModelSelector(
-        routing_rules={"code_review": {"medium": ["gpt-4o", "claude-3-sonnet"]}},
+        routing_rules={"code_review": {"medium": ["gpt-4o-mini", "gpt-4o", "claude-3-sonnet"]}},
         fallback_chain={}
     )
-    selected = selector.select("code_review", "medium", "speed", ["gpt-4o", "claude-3-sonnet"])
-    assert selected == "gpt-4o"
+    # gpt-4o-mini 速度最快 (speed=9)
+    selected = selector.select("code_review", "medium", "speed", ["gpt-4o-mini", "gpt-4o", "claude-3-sonnet"])
+    assert selected == "gpt-4o-mini"
 
 
 def test_select_cost():
+    """测试成本优先策略：选择成本评分最高的模型"""
     selector = ModelSelector(
-        routing_rules={"code_review": {"medium": ["gpt-4o", "claude-3-sonnet"]}},
+        routing_rules={"code_review": {"medium": ["gpt-4o-mini", "gpt-4o", "claude-3-sonnet"]}},
         fallback_chain={}
     )
-    selected = selector.select("code_review", "medium", "cost", ["gpt-4o", "claude-3-sonnet"])
-    assert selected == "gpt-4o"
+    # gpt-4o-mini 成本最低 (cost=9)
+    selected = selector.select("code_review", "medium", "cost", ["gpt-4o-mini", "gpt-4o", "claude-3-sonnet"])
+    assert selected == "gpt-4o-mini"
 
 
 def test_select_empty_candidates():
