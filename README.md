@@ -20,7 +20,32 @@ A multi-provider model intelligent routing CLI tool based on LiteLLM. Exposes a 
 
 ### 1. Installation
 
+Choose one of the following methods:
+
+#### Option A: pip install (Recommended)
+
 ```bash
+pip install smart-router
+```
+
+#### Option B: One-line curl install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/install-remote.sh | bash
+```
+
+#### Option C: Homebrew (macOS/Linux)
+
+```bash
+brew tap vaycent/smart-router
+brew install smart-router
+```
+
+#### Option D: Local install (from source)
+
+```bash
+git clone https://github.com/vaycent/smartRouter.git
+cd smartRouter
 ./script/install.sh
 ```
 
