@@ -60,7 +60,7 @@ def version(
 @app.command()
 def init(
     output_dir: Path = typer.Option(
-        Path("."),
+        Path.home() / ".smart-router",
         "--output", "-o",
         help="配置文件输出目录"
     )

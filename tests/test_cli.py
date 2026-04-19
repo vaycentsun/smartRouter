@@ -32,7 +32,7 @@ class TestInitCommand:
     """init 命令测试"""
     
     def test_init_creates_config(self):
-        """测试 init 生成三文件配置"""
+        """测试 init 生成三文件配置到指定目录"""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(app, ["init", "--output", str(tmpdir)])
             
@@ -53,6 +53,13 @@ class TestInitCommand:
             
             assert result.exit_code == 0
             assert "已取消" in result.stdout
+    
+    def test_init_default_to_home_smart_router(self):
+        """测试 init 默认输出目录是 ~/.smart-router/"""
+        # 验证帮助信息中显示默认路径
+        result = runner.invoke(app, ["init", "--help"])
+        assert result.exit_code == 0
+        assert ".smart-router" in result.stdout
 
 
 class TestDoctorCommand:

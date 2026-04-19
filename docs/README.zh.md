@@ -73,13 +73,16 @@ rm -rf ~/.smart-router
 ### 2. 初始化配置
 
 ```bash
-# 生成配置文件
+# 生成配置文件（默认目录：~/.smart-router/）
 smart-router init
 
+# 或指定自定义目录
+smart-router init --output ./my-config
+
 # 编辑三个配置文件
-vim providers.yaml  # API Key 和基础 URL
-vim models.yaml     # 模型能力声明
-vim routing.yaml    # 任务定义和路由策略
+vim ~/.smart-router/providers.yaml  # API Key 和基础 URL
+vim ~/.smart-router/models.yaml     # 模型能力声明
+vim ~/.smart-router/routing.yaml    # 任务定义和路由策略
 ```
 
 Smart Router 采用三文件解耦架构：

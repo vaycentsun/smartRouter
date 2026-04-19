@@ -73,13 +73,16 @@ rm -rf ~/.smart-router
 ### 2. Initialize Configuration
 
 ```bash
-# Generate config files
+# Generate config files (default: ~/.smart-router/)
 smart-router init
 
+# Or specify a custom directory
+smart-router init --output ./my-config
+
 # Edit the three config files
-vim providers.yaml  # API keys and base URLs
-vim models.yaml     # Model capabilities
-vim routing.yaml    # Task definitions and routing strategies
+vim ~/.smart-router/providers.yaml  # API keys and base URLs
+vim ~/.smart-router/models.yaml     # Model capabilities
+vim ~/.smart-router/routing.yaml    # Task definitions and routing strategies
 ```
 
 Smart Router uses a three-file decoupled architecture:
