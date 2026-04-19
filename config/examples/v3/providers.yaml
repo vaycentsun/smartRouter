@@ -1,7 +1,8 @@
-# V3 服务商配置示例
-# 配置各 LLM 服务商的连接信息
+# Providers Configuration
+# API 服务商连接配置
 
 providers:
+  # ==================== 国际服务商 ====================
   openai:
     api_base: https://api.openai.com/v1
     api_key: os.environ/OPENAI_API_KEY
@@ -12,8 +13,9 @@ providers:
     api_key: os.environ/ANTHROPIC_API_KEY
     timeout: 30
     
+  # ==================== 国产服务商 ====================
   moonshot:
-    api_base: https://api.moonshot.ai/v1
+    api_base: https://api.moonshot.cn/v1
     api_key: os.environ/MOONSHOT_API_KEY
     timeout: 30
     
@@ -21,3 +23,24 @@ providers:
     api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/DASHSCOPE_API_KEY
     timeout: 30
+    
+  zhipu:
+    api_base: https://open.bigmodel.cn/api/paas/v4
+    api_key: os.environ/ZHIPU_API_KEY
+    timeout: 30
+    
+  minimax:
+    api_base: https://api.minimax.chat/v1
+    api_key: os.environ/MINIMAX_API_KEY
+    timeout: 30
+    
+  # ------------------ 其他可选服务商 ------------------
+  # deepseek:
+  #   api_base: https://api.deepseek.com
+  #   api_key: os.environ/DEEPSEEK_API_KEY
+  #   timeout: 30
+  #
+  # baichuan:
+  #   api_base: https://api.baichuan-ai.com/v1
+  #   api_key: os.environ/BAICHUAN_API_KEY
+  #   timeout: 30

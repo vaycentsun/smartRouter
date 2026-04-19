@@ -1,7 +1,8 @@
-# V3 模型配置示例
-# 声明各模型的能力和支持的任务
+# Models Configuration
+# 模型能力声明配置
 
 models:
+  # ==================== OpenAI ====================
   gpt-4o:
     provider: openai
     litellm_model: openai/gpt-4o
@@ -10,8 +11,8 @@ models:
       speed: 8
       cost: 3
       context: 128000
-    supported_tasks: [chat, code_review, writing, reasoning, brainstorming]
-    difficulty_support: [easy, medium, hard]
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
     
   gpt-4o-mini:
     provider: openai
@@ -21,60 +22,132 @@ models:
       speed: 9
       cost: 9
       context: 128000
-    supported_tasks: [chat, writing, brainstorming]
+    supported_tasks: [writing, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium]
+    
+  # ==================== Anthropic ====================
+  claude-3-5-sonnet:
+    provider: anthropic
+    litellm_model: anthropic/claude-3-5-sonnet-20241022
+    capabilities:
+      quality: 9
+      speed: 7
+      cost: 4
+      context: 200000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
     
   claude-3-opus:
     provider: anthropic
     litellm_model: anthropic/claude-3-opus-20240229
     capabilities:
       quality: 10
-      speed: 4
+      speed: 5
       cost: 2
       context: 200000
-    supported_tasks: [code_review, writing, reasoning]
-    difficulty_support: [medium, hard]
+    supported_tasks: [code_review, writing, creative, reasoning, analysis]
+    difficulty_support: [hard, expert]
     
-  claude-3-sonnet:
-    provider: anthropic
-    litellm_model: anthropic/claude-3-5-sonnet-20241022
-    capabilities:
-      quality: 8
-      speed: 7
-      cost: 4
-      context: 200000
-    supported_tasks: [chat, code_review, writing, reasoning]
-    difficulty_support: [easy, medium, hard]
-    
+  # ==================== Moonshot (月之暗面) ====================
   kimi-k2:
     provider: moonshot
-    litellm_model: moonshot/moonshot-v1-8k
+    litellm_model: openai/moonshot-v1-8k
     capabilities:
       quality: 7
       speed: 8
       cost: 7
       context: 8000
-    supported_tasks: [chat, writing, brainstorming]
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
     difficulty_support: [easy, medium]
     
+  kimi-k2-32k:
+    provider: moonshot
+    litellm_model: openai/moonshot-v1-32k
+    capabilities:
+      quality: 7
+      speed: 8
+      cost: 6
+      context: 32000
+    supported_tasks: [coding, code_review, writing, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  # ==================== 阿里通义千问 ====================
   qwen-max:
     provider: aliyun
-    litellm_model: dashscope/qwen-max
+    litellm_model: openai/qwen-max
     capabilities:
       quality: 8
       speed: 7
       cost: 6
       context: 32000
-    supported_tasks: [chat, code_review, writing, reasoning]
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard]
     
   qwen-turbo:
     provider: aliyun
-    litellm_model: dashscope/qwen-turbo
+    litellm_model: openai/qwen-turbo
     capabilities:
       quality: 6
       speed: 9
       cost: 9
       context: 8000
-    supported_tasks: [chat, brainstorming]
-    difficulty_support: [easy]
+    supported_tasks: [writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  # ==================== 智谱 GLM ====================
+  glm-4-plus:
+    provider: zhipu
+    litellm_model: openai/glm-4-plus
+    capabilities:
+      quality: 8
+      speed: 7
+      cost: 5
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  glm-4-flash:
+    provider: zhipu
+    litellm_model: openai/glm-4-flash
+    capabilities:
+      quality: 6
+      speed: 9
+      cost: 9
+      context: 128000
+    supported_tasks: [writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  # ==================== MiniMax ====================
+  minimax-text-01:
+    provider: minimax
+    litellm_model: openai/MiniMax-Text-01
+    capabilities:
+      quality: 7
+      speed: 8
+      cost: 7
+      context: 8000
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  # ==================== DeepSeek (可选) ====================
+  # deepseek-chat:
+  #   provider: deepseek
+  #   litellm_model: openai/deepseek-chat
+  #   capabilities:
+  #     quality: 8
+  #     speed: 6
+  #     cost: 8
+  #     context: 64000
+  #   supported_tasks: [coding, code_review, writing, reasoning, analysis, explanation, chat]
+  #   difficulty_support: [easy, medium, hard]
+  #
+  # deepseek-reasoner:
+  #   provider: deepseek
+  #   litellm_model: openai/deepseek-reasoner
+  #   capabilities:
+  #     quality: 9
+  #     speed: 4
+  #     cost: 7
+  #     context: 64000
+  #   supported_tasks: [reasoning, analysis, code_review]
+  #   difficulty_support: [medium, hard, expert]

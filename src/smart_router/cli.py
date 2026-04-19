@@ -85,9 +85,11 @@ def init(
     
     # providers.yaml
     providers_content = '''# Providers Configuration
-# 定义 API 服务商的连接信息
+# API 服务商连接配置
+# 取消注释你需要的 provider，并填写对应的 API Key
 
 providers:
+  # ==================== 国际服务商 ====================
   openai:
     api_base: https://api.openai.com/v1
     api_key: os.environ/OPENAI_API_KEY
@@ -98,8 +100,9 @@ providers:
     api_key: os.environ/ANTHROPIC_API_KEY
     timeout: 30
     
+  # ==================== 国产服务商 ====================
   moonshot:
-    api_base: https://api.moonshot.ai/v1
+    api_base: https://api.moonshot.cn/v1
     api_key: os.environ/MOONSHOT_API_KEY
     timeout: 30
     
@@ -107,23 +110,46 @@ providers:
     api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/DASHSCOPE_API_KEY
     timeout: 30
+    
+  zhipu:
+    api_base: https://open.bigmodel.cn/api/paas/v4
+    api_key: os.environ/ZHIPU_API_KEY
+    timeout: 30
+    
+  minimax:
+    api_base: https://api.minimax.chat/v1
+    api_key: os.environ/MINIMAX_API_KEY
+    timeout: 30
+    
+  # ------------------ 其他可选服务商 ------------------
+  # deepseek:
+  #   api_base: https://api.deepseek.com
+  #   api_key: os.environ/DEEPSEEK_API_KEY
+  #   timeout: 30
+  #
+  # baichuan:
+  #   api_base: https://api.baichuan-ai.com/v1
+  #   api_key: os.environ/BAICHUAN_API_KEY
+  #   timeout: 30
 '''
     
     # models.yaml
     models_content = '''# Models Configuration
-# 定义模型的能力和支持的任务
+# 模型能力声明配置
+# 根据你实际拥有的 API Key，取消注释对应的模型
 
 models:
+  # ==================== OpenAI ====================
   gpt-4o:
     provider: openai
     litellm_model: openai/gpt-4o
     capabilities:
-      quality: 9    # 1-10，质量评分
-      speed: 8      # 1-10，响应速度
-      cost: 3       # 1-10，成本（10=最便宜）
+      quality: 9
+      speed: 8
+      cost: 3
       context: 128000
-    supported_tasks: [chat, code_review, writing, reasoning, brainstorming]
-    difficulty_support: [easy, medium, hard]
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
     
   gpt-4o-mini:
     provider: openai
@@ -133,19 +159,135 @@ models:
       speed: 9
       cost: 9
       context: 128000
-    supported_tasks: [chat, writing, brainstorming]
+    supported_tasks: [writing, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium]
+    
+  # ==================== Anthropic ====================
+  claude-3-5-sonnet:
+    provider: anthropic
+    litellm_model: anthropic/claude-3-5-sonnet-20241022
+    capabilities:
+      quality: 9
+      speed: 7
+      cost: 4
+      context: 200000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
     
   claude-3-opus:
     provider: anthropic
     litellm_model: anthropic/claude-3-opus-20240229
     capabilities:
       quality: 10
-      speed: 4
+      speed: 5
       cost: 2
       context: 200000
-    supported_tasks: [code_review, reasoning, writing]
-    difficulty_support: [medium, hard]
+    supported_tasks: [code_review, writing, creative, reasoning, analysis]
+    difficulty_support: [hard, expert]
+    
+  # ==================== Moonshot (月之暗面) ====================
+  kimi-k2:
+    provider: moonshot
+    litellm_model: openai/moonshot-v1-8k
+    capabilities:
+      quality: 7
+      speed: 8
+      cost: 7
+      context: 8000
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  kimi-k2-32k:
+    provider: moonshot
+    litellm_model: openai/moonshot-v1-32k
+    capabilities:
+      quality: 7
+      speed: 8
+      cost: 6
+      context: 32000
+    supported_tasks: [coding, code_review, writing, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  # ==================== 阿里通义千问 ====================
+  qwen-max:
+    provider: aliyun
+    litellm_model: openai/qwen-max
+    capabilities:
+      quality: 8
+      speed: 7
+      cost: 6
+      context: 32000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  qwen-turbo:
+    provider: aliyun
+    litellm_model: openai/qwen-turbo
+    capabilities:
+      quality: 6
+      speed: 9
+      cost: 9
+      context: 8000
+    supported_tasks: [writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  # ==================== 智谱 GLM ====================
+  glm-4-plus:
+    provider: zhipu
+    litellm_model: openai/glm-4-plus
+    capabilities:
+      quality: 8
+      speed: 7
+      cost: 5
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  glm-4-flash:
+    provider: zhipu
+    litellm_model: openai/glm-4-flash
+    capabilities:
+      quality: 6
+      speed: 9
+      cost: 9
+      context: 128000
+    supported_tasks: [writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  # ==================== MiniMax ====================
+  minimax-text-01:
+    provider: minimax
+    litellm_model: openai/MiniMax-Text-01
+    capabilities:
+      quality: 7
+      speed: 8
+      cost: 7
+      context: 8000
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  # ------------------ 其他可选模型 ------------------
+  # deepseek-chat:
+  #   provider: deepseek
+  #   litellm_model: openai/deepseek-chat
+  #   capabilities:
+  #     quality: 8
+  #     speed: 6
+  #     cost: 8
+  #     context: 64000
+  #   supported_tasks: [coding, code_review, writing, reasoning, analysis, explanation, chat]
+  #   difficulty_support: [easy, medium, hard]
+  #
+  # deepseek-reasoner:
+  #   provider: deepseek
+  #   litellm_model: openai/deepseek-reasoner
+  #   capabilities:
+  #     quality: 9
+  #     speed: 4
+  #     cost: 7
+  #     context: 64000
+  #   supported_tasks: [reasoning, analysis, code_review]
+  #   difficulty_support: [medium, hard, expert]
 '''
     
     # routing.yaml
