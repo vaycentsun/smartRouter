@@ -130,7 +130,7 @@ class TestModelConfig:
         assert config.difficulty_support == ["easy", "medium", "hard"]
     
     def test_difficulty_must_be_valid_literal(self):
-        """Test difficulty must be easy/medium/hard"""
+        """Test difficulty must be easy/medium/hard/expert (4 levels)"""
         with pytest.raises(ValidationError):
             ModelConfig(
                 provider="openai",
@@ -139,8 +139,21 @@ class TestModelConfig:
                     quality=9, speed=8, cost=3, context=128000
                 ),
                 supported_tasks=["chat"],
-                difficulty_support=["easy", "impossible"]  # Invalid
+                difficulty_support=["easy", "invalid"]  # Invalid
             )
+    
+    def test_all_difficulty_levels(self):
+        """Test all 4 valid difficulty levels"""
+        config = ModelConfig(
+            provider="openai",
+            litellm_model="openai/gpt-4o",
+            capabilities=ModelCapabilities(
+                quality=9, speed=8, cost=3, context=128000
+            ),
+            supported_tasks=["chat"],
+            difficulty_support=["easy", "medium", "hard", "expert"]
+        )
+        assert config.difficulty_support == ["easy", "medium", "hard", "expert"]
     
     def test_model_with_single_difficulty(self):
         """Test model supporting only one difficulty"""

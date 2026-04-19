@@ -1,78 +1,138 @@
-# V3 路由配置示例
-# 定义任务类型、难度等级和路由策略
+# V3 路由配置示例 - 4级难度版本
+# 任务路由策略配置 - 适配多场景 AI 任务
 
-# 任务类型定义
 tasks:
-  chat:
-    name: "普通对话"
-    description: "日常问答和聊天"
+  # ------------------ 编程开发类 ------------------
+  coding:
+    name: "代码生成"
+    description: "编写代码、实现功能、算法设计、Debug调试、代码重构"
     capability_weights:
-      quality: 0.4
-      speed: 0.4
-      cost: 0.2
+      quality: 0.55    # 代码质量重要但不需要顶级
+      speed: 0.35      # 编程交互需要快速响应
+      cost: 0.10
       
   code_review:
     name: "代码审查"
-    description: "代码质量审查、bug 发现、改进建议"
+    description: "代码质量审查、bug发现、架构评估、性能优化建议、安全审计"
     capability_weights:
-      quality: 0.6
-      speed: 0.2
-      cost: 0.2
+      quality: 0.70    # 审查质量至关重要
+      speed: 0.20
+      cost: 0.10
       
+  # ------------------ 内容创作类 ------------------
   writing:
-    name: "写作"
-    description: "文章、邮件、报告撰写"
+    name: "内容写作"
+    description: "文章撰写、邮件起草、报告编写、技术文档、商业文案"
     capability_weights:
-      quality: 0.5
-      speed: 0.3
-      cost: 0.2
+      quality: 0.60    # 内容质量优先
+      speed: 0.25
+      cost: 0.15
       
+  creative:
+    name: "创意写作"
+    description: "故事创作、诗歌、广告创意、营销文案、剧本"
+    capability_weights:
+      quality: 0.65    # 创意需要高质量
+      speed: 0.20
+      cost: 0.15
+      
+  # ------------------ 分析推理类 ------------------
   reasoning:
     name: "逻辑推理"
-    description: "数学、逻辑、复杂问题求解"
+    description: "数学问题、逻辑谜题、证明推导、算法分析、复杂问题求解"
     capability_weights:
-      quality: 0.7
-      speed: 0.1
-      cost: 0.2
+      quality: 0.75    # 推理任务质量最关键
+      speed: 0.10
+      cost: 0.15
+      
+  analysis:
+    name: "数据分析"
+    description: "数据解读、趋势分析、商业分析、技术评估、竞争分析"
+    capability_weights:
+      quality: 0.60
+      speed: 0.20
+      cost: 0.20
+      
+  # ------------------ 学习辅助类 ------------------
+  explanation:
+    name: "知识讲解"
+    description: "概念解释、教程编写、答疑解惑、知识梳理、学习辅导"
+    capability_weights:
+      quality: 0.50
+      speed: 0.35      # 讲解需要较快响应
+      cost: 0.15
+      
+  translation:
+    name: "翻译"
+    description: "文本翻译、本地化、多语言转换、术语校对"
+    capability_weights:
+      quality: 0.60    # 翻译准确性重要
+      speed: 0.25
+      cost: 0.15
+      
+  # ------------------ 通用交互类 ------------------
+  chat:
+    name: "日常对话"
+    description: "闲聊、简单问答、日常交流、情感陪伴"
+    capability_weights:
+      quality: 0.30    # 对话质量要求不高
+      speed: 0.50      # 对话最看重速度
+      cost: 0.20
       
   brainstorming:
     name: "头脑风暴"
-    description: "创意、想法、方案生成"
+    description: "想法生成、方案讨论、创意发散、问题解决"
     capability_weights:
-      quality: 0.3
-      speed: 0.5
-      cost: 0.2
+      quality: 0.40
+      speed: 0.40      # 需要快速产生想法
+      cost: 0.20
 
-# 难度定义
+# ==================== 难度等级定义 (4级) ====================
 difficulties:
   easy:
-    description: "简单任务，适合轻量级模型"
+    name: "简单"
+    description: "基础问答、简单解释、短文本生成、单轮对话"
     max_tokens: 2000
     
   medium:
-    description: "中等复杂度"
+    name: "中等"
+    description: "多轮对话、中等长度内容、标准编程任务、常规分析"
     max_tokens: 8000
     
   hard:
-    description: "复杂任务，需要高质量模型"
+    name: "困难"
+    description: "长文创作、复杂推理、架构设计、深度分析"
+    max_tokens: 16000
+    
+  expert:
+    name: "专家"
+    description: "研究级问题、深度分析、创新设计、复杂证明"
     max_tokens: 32000
 
-# 路由策略
+# ==================== 路由策略 ====================
 strategies:
   auto:
-    description: "综合评分，自动平衡质量/速度/成本"
+    name: "智能自动"
+    description: "根据任务类型和难度动态计算最佳模型"
     
   quality:
-    description: "质量优先，选择 quality 最高的模型"
+    name: "质量优先"
+    description: "选择 capability.quality 最高的模型"
     
   speed:
-    description: "速度优先，选择 speed 最高的模型"
+    name: "速度优先"
+    description: "选择 capability.speed 最高的模型"
     
   cost:
-    description: "成本优先，选择 cost 最高的模型（最便宜）"
+    name: "成本优先"
+    description: "选择 capability.cost 最高的模型（最便宜）"
+    
+  balanced:
+    name: "平衡模式"
+    description: "quality和speed权重相等"
 
-# Fallback 配置
+# ==================== Fallback 配置 ====================
 fallback:
   mode: auto
-  # 自动推导规则：quality 差异 <= similarity_threshold 的模型互为 fallback
   similarity_threshold: 2
+  max_attempts: 3

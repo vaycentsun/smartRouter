@@ -40,7 +40,7 @@ class ModelConfig(BaseModel):
     litellm_model: str                # LiteLLM 格式，如 "openai/gpt-4o"
     capabilities: ModelCapabilities
     supported_tasks: List[str]
-    difficulty_support: List[Literal["easy", "medium", "hard"]]
+    difficulty_support: List[Literal["easy", "medium", "hard", "expert"]]
 
 
 class TaskConfig(BaseModel):
