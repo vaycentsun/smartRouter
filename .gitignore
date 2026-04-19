@@ -44,3 +44,4 @@ venv/
 *.log
 smart-router.yaml
 !config/smart-router.yaml
+/smart-router.yaml
