@@ -12,6 +12,10 @@ from .classifier import TaskClassifier
 from .selector.strategies import ModelSelector
 from .utils.markers import parse_markers
 from .daemon import start_daemon, stop_daemon, restart_daemon, check_status, view_logs
+from .coffee_qr import (
+    get_qr_code_path, QR_CODE_PATH,
+    open_image_terminal, open_image_system, copy_to_clipboard
+)
 
 app = typer.Typer(name="smart-router", help="智能模型路由网关")
 console = Console()
@@ -367,6 +371,172 @@ def doctor():
             border_style="red"
         ))
         sys.exit(1)
+
+
+@app.command()
+def coffee(
+    link: Optional[str] = typer.Option(
+        None,
+        "--link", "-l",
+        help="自定义赞助链接（用于生成二维码）"
+    ),
+    ascii: bool = typer.Option(
+        False,
+        "--ascii", "-a",
+        help="纯文字模式（不显示图片）"
+    ),
+    open: bool = typer.Option(
+        False,
+        "--open", "-o",
+        help="使用系统默认程序打开图片"
+    )
+):
+    """☕ 请作者喝一杯咖啡，支持项目持续发展"""
+    from rich.panel import Panel
+    from rich.align import Align
+    from rich.text import Text
+    from rich import box
+    import os
+    
+    # 获取二维码路径
+    qr_path = get_qr_code_path()
+    
+    # 如果指定了链接，生成新的二维码
+    if link:
+        from .coffee_qr import generate_qr_code
+        qr_path = generate_qr_code(link)
+    
+    # 显示方式选择
+    if ascii:
+        # ASCII 模式：纯文字提示（无图片）
+        content = Text()
+        content.append("感谢您的使用！\n\n", style="bold cyan")
+        content.append("Smart Router 是一个免费开源项目\n", style="dim")
+        content.append("您的支持将帮助项目持续改进和维护\n\n", style="dim")
+        
+        # 显示文字提示，而不是假二维码
+        content.append("\n")
+        content.append("─" * 40 + "\n", style="dim")
+        content.append("\n")
+        content.append("  ☕ 喜欢这个项目？请支持作者！\n\n", style="bold yellow")
+        content.append("  运行以下命令查看微信收款二维码:\n", style="dim")
+        content.append("\n")
+        content.append("    ", style="dim")
+        content.append("smr coffee --open\n", style="bold cyan")
+        content.append("\n")
+        
+    elif open:
+        # 使用系统打开图片
+        content = Text()
+        content.append("感谢您的使用！\n\n", style="bold cyan")
+        content.append("Smart Router 是一个免费开源项目\n", style="dim")
+        content.append("您的支持将帮助项目持续改进和维护\n\n", style="dim")
+        
+        if qr_path and qr_path.exists():
+            if open_image_system(qr_path):
+                content.append(f"\n[green]✅ 已打开二维码图片[/green]\n")
+                content.append(f"[dim]图片路径: {qr_path}[/dim]\n")
+            else:
+                content.append(f"\n[yellow]⚠️ 无法自动打开，请手动打开图片:[/yellow]\n")
+                content.append(f"[cyan]{qr_path}[/cyan]\n")
+        else:
+            content.append("\n[red]❌ 未找到二维码图片[/red]\n")
+            
+    else:
+        # 默认：先输出所有文字，最后显示图片
+        if qr_path and qr_path.exists():
+            # 构建文字内容（不包含图片）
+            content = Text()
+            content.append("感谢您的使用！\n\n", style="bold cyan")
+            content.append("Smart Router 是一个免费开源项目\n", style="dim")
+            content.append("您的支持将帮助项目持续改进和维护\n\n", style="dim")
+            
+            # 添加赞助方式说明（在图片之前）
+            content.append("\n")
+            content.append("─" * 40 + "\n", style="dim")
+            content.append("💚 赞助方式:\n", style="bold green")
+            content.append("   • 微信支付: 扫描下方二维码\n", style="dim")
+            content.append("   • GitHub Sponsors: github.com/sponsors\n", style="dim")
+            content.append("   • 分享给更多朋友使用\n", style="dim")
+            
+            # 创建面板并显示（只有文字）
+            panel = Panel(
+                Align.center(content),
+                title="[bold yellow]☕ Buy Me a Coffee[/bold yellow]",
+                subtitle="[dim]每一份支持都是前进的动力[/dim]",
+                border_style="bright_yellow",
+                box=box.ROUNDED,
+                padding=(1, 4)
+            )
+            console.print(panel)
+            
+            # 面板输出后，再显示图片
+            from .coffee_qr import display_image_terminal
+            console.print("\n")
+            console.print("请使用微信扫描下方二维码:", style="dim")
+            console.print("")
+            
+            if not display_image_terminal(qr_path, width=150):
+                # 终端不支持图片显示，显示提示
+                console.print("")
+                console.print("┌" + "─" * 38 + "┐", style="yellow")
+                console.print("│" + " " * 38 + "│", style="yellow")
+                console.print("│  📱 请运行以下命令查看二维码:" + " " * 7 + "│", style="bold yellow")
+                console.print("│" + " " * 38 + "│", style="yellow")
+                console.print("│     ", style="yellow", end="")
+                console.print("smr coffee --open", style="bold cyan reverse", end="")
+                console.print(" " * 16 + "│", style="yellow")
+                console.print("│" + " " * 38 + "│", style="yellow")
+                console.print("└" + "─" * 38 + "┘", style="yellow")
+                console.print("")
+                console.print("其他方式:", style="dim")
+                console.print(f"  • 图片路径: {qr_path}", style="dim")
+                
+                # 尝试复制到剪贴板
+                if copy_to_clipboard(str(qr_path)):
+                    console.print("  • 路径已复制到剪贴板", style="dim")
+                
+                console.print("  • 终端工具: brew install chafa (可选)", style="dim")
+            
+            # 已经直接输出过了，不需要再创建面板
+            return
+            
+        else:
+            # 没有二维码图片，显示友好提示
+            content = Text()
+            content.append("感谢您的使用！\n\n", style="bold cyan")
+            content.append("Smart Router 是一个免费开源项目\n", style="dim")
+            content.append("您的支持将帮助项目持续改进和维护\n\n", style="dim")
+            
+            content.append("\n")
+            content.append("─" * 40 + "\n", style="dim")
+            content.append("\n")
+            content.append("  ☕ 喜欢这个项目？请支持作者！\n\n", style="bold yellow")
+            content.append("  运行以下命令查看微信收款二维码:\n", style="dim")
+            content.append("\n")
+            content.append("    ", style="dim")
+            content.append("smr coffee --open\n", style="bold cyan")
+            content.append("\n")
+    
+    # 添加赞助方式说明
+    content.append("\n")
+    content.append("─" * 40 + "\n", style="dim")
+    content.append("💚 赞助方式:\n", style="bold green")
+    content.append("   • 微信支付: 扫描上方二维码\n", style="dim")
+    content.append("   • GitHub Sponsors: github.com/sponsors\n", style="dim")
+    content.append("   • 分享给更多朋友使用\n", style="dim")
+    
+    # 创建面板
+    panel = Panel(
+        Align.center(content),
+        title="[bold yellow]☕ Buy Me a Coffee[/bold yellow]",
+        subtitle="[dim]每一份支持都是前进的动力[/dim]",
+        border_style="bright_yellow",
+        box=box.ROUNDED,
+        padding=(1, 4)
+    )
+    
+    console.print(panel)
 
 
 def main():
