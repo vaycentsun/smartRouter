@@ -102,11 +102,20 @@ providers:
     timeout: 30
     
   # ==================== 国产服务商 ====================
-  moonshot:
+  # ------------------ Moonshot (月之暗面) ------------------
+  # 国内版 (api.moonshot.cn)
+  moonshot-cn:
     api_base: https://api.moonshot.cn/v1
-    api_key: os.environ/MOONSHOT_API_KEY
+    api_key: os.environ/MOONSHOT_CN_API_KEY
     timeout: 30
     
+  # 国际版 (api.moonshot.ai) - 适合海外用户
+  moonshot-ai:
+    api_base: https://api.moonshot.ai/v1
+    api_key: os.environ/MOONSHOT_AI_API_KEY
+    timeout: 30
+    
+  # ------------------ 阿里通义千问 ------------------
   aliyun:
     api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/DASHSCOPE_API_KEY
@@ -187,8 +196,9 @@ models:
     difficulty_support: [hard, expert]
     
   # ==================== Moonshot (月之暗面) ====================
-  kimi-k2:
-    provider: moonshot
+  # 国内版 (api.moonshot.cn)
+  kimi-k2-cn:
+    provider: moonshot-cn
     litellm_model: openai/moonshot-v1-8k
     capabilities:
       quality: 7
@@ -198,8 +208,31 @@ models:
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
     difficulty_support: [easy, medium]
     
-  kimi-k2-32k:
-    provider: moonshot
+  kimi-k2-32k-cn:
+    provider: moonshot-cn
+    litellm_model: openai/moonshot-v1-32k
+    capabilities:
+      quality: 7
+      speed: 8
+      cost: 6
+      context: 32000
+    supported_tasks: [coding, code_review, writing, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  # 国际版 (api.moonshot.ai)
+  kimi-k2-ai:
+    provider: moonshot-ai
+    litellm_model: openai/moonshot-v1-8k
+    capabilities:
+      quality: 7
+      speed: 8
+      cost: 7
+      context: 8000
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  kimi-k2-32k-ai:
+    provider: moonshot-ai
     litellm_model: openai/moonshot-v1-32k
     capabilities:
       quality: 7
