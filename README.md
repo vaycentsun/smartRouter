@@ -51,8 +51,34 @@ cd smartRouter
 
 ### 2. Initialize Configuration
 
+Smart Router supports two configuration formats:
+
+#### Option A: V3 Configuration (Recommended - New!)
+
+Three-file decoupled architecture for better maintainability:
+
 ```bash
-# Generate config file
+# Generate V3 config files
+smart-router init-v3
+
+# Edit the three config files
+vim providers.yaml  # API keys and base URLs
+vim models.yaml     # Model capabilities
+vim routing.yaml    # Task definitions and routing strategies
+```
+
+**Benefits of V3:**
+- **Provider-Model separation**: API keys defined once per provider
+- **Capability-based routing**: Models declare quality/speed/cost scores
+- **Dynamic model selection**: No more manual maintenance of 15 routing lists
+- **Auto fallback derivation**: Fallback chains calculated automatically
+
+See [V3 Configuration Guide](#v3-configuration) for details.
+
+#### Option B: Legacy Configuration (V2)
+
+```bash
+# Generate single config file
 smart-router init
 
 # Edit config and add your API Keys
@@ -149,7 +175,8 @@ response = client.chat.completions.create(
 
 | Command | Description |
 |---------|-------------|
-| `smart-router init` | Generate default configuration |
+| `smart-router init` | Generate default configuration (V2) |
+| `smart-router init-v3` | Generate V3 three-file configuration (Recommended) |
 | `smart-router doctor` | Run health check (includes config validation) |
 | `smart-router dry-run "prompt text"` | Test routing decision |
 
@@ -186,11 +213,89 @@ More details: [Stage Marker System](docs/GUIDE.md#stage-marker-system)
 
 ## ⚙️ Configuration
 
-See detailed comments in `templates/smart-router.yaml`.
+### V3 Configuration (Recommended)
+
+V3 uses a three-file decoupled architecture:
+
+```
+config/
+├── providers.yaml    # Provider connection settings
+├── models.yaml       # Model capability declarations  
+└── routing.yaml      # Task definitions and routing rules
+```
+
+#### providers.yaml
+
+Define API endpoints and authentication once per provider:
+
+```yaml
+providers:
+  openai:
+    api_base: https://api.openai.com/v1
+    api_key: os.environ/OPENAI_API_KEY
+    timeout: 30
+    
+  anthropic:
+    api_base: https://api.anthropic.com
+    api_key: os.environ/ANTHROPIC_API_KEY
+```
+
+#### models.yaml
+
+Declare model capabilities (quality/speed/cost scores 1-10):
+
+```yaml
+models:
+  gpt-4o:
+    provider: openai              # References provider above
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9                  # Quality score (1-10)
+      speed: 8                    # Response speed (1-10)
+      cost: 3                     # Cost efficiency (10=cheapest)
+      context: 128000             # Context window
+    supported_tasks: [chat, code_review, writing]
+    difficulty_support: [easy, medium, hard]
+```
+
+#### routing.yaml
+
+Define tasks and routing strategies:
+
+```yaml
+tasks:
+  code_review:
+    name: "Code Review"
+    description: "Review code quality"
+    capability_weights:           # How to weight capabilities
+      quality: 0.6                # 60% weight on quality
+      speed: 0.2                  # 20% weight on speed
+      cost: 0.2                   # 20% weight on cost
+
+strategies:
+  auto:     # Uses task weights to calculate composite score
+  quality:  # Selects highest quality model
+  speed:    # Selects fastest model
+  cost:     # Selects most cost-effective model
+
+fallback:
+  mode: auto
+  similarity_threshold: 2  # Models within ±2 quality are fallbacks
+```
+
+**Key advantages:**
+- Add/remove models by editing only `models.yaml`
+- Routing is dynamically calculated - no manual list maintenance
+- Fallback chains auto-derived from capability similarity
+- Clear separation of concerns
+
+### Legacy Configuration (V2)
+
+See detailed comments in `config/smart-router.yaml`.
 
 ### Routing Strategies
 
-- `auto`: Use default recommendations from config
+- `auto`: Use weighted capability scores to select best model
 - `speed`: Select fastest responding model
 - `cost`: Select most cost-effective model
 - `quality`: Select highest quality model
@@ -245,8 +350,10 @@ More troubleshooting: [Troubleshooting Guide](docs/GUIDE.md#troubleshooting)
 | Document | Content |
 |----------|---------|
 | [Complete Guide](docs/GUIDE.md) | Detailed CLI commands, configuration, best practices |
-| [Config Template](config/smart-router.yaml) | Complete configuration example |
-| [Design Doc](specs/active/2026-04-18--smart-router.md) | Architecture design and technical specs |
+| [V3 Config Examples](config/examples/v3/) | V3 three-file configuration examples |
+| [V3 Design Spec](specs/active/2026-04-19--config-v3-refactor.md) | V3 architecture design and migration guide |
+| [Legacy Config](config/smart-router.yaml) | V2 single-file configuration example |
+| [Design Doc](specs/active/2026-04-18--smart-router.md) | Original architecture design and technical specs |
 
 ### Quick Navigation
 
@@ -273,11 +380,15 @@ User Request → LiteLLM Proxy → SmartRouter Plugin
 ### Components
 
 - `src/smart_router/cli.py` - CLI entry commands
-- `src/smart_router/plugin.py` - SmartRouter core plugin
+- `src/smart_router/plugin.py` - SmartRouter core plugin (V2 config)
+- `src/smart_router/plugin_v3_adapter.py` - V3 configuration adapter
 - `src/smart_router/server.py` - LiteLLM Proxy wrapper
 - `src/smart_router/config/` - Configuration loading and validation
+  - `v3_schema.py` - V3 Pydantic schemas
+  - `v3_loader.py` - V3 three-file config loader
 - `src/smart_router/classifier/` - Task classifier (L1 Rules + L2 Embedding)
 - `src/smart_router/selector/` - Model selection strategies
+  - `v3_selector.py` - V3 capability-based selector
 - `src/smart_router/utils/` - Utility functions
 
 ---

@@ -26,8 +26,34 @@
 
 ### 2. 初始化配置
 
+Smart Router 支持两种配置格式：
+
+#### 方案 A: V3 配置（推荐 - 全新！）
+
+三文件解耦架构，更易维护：
+
 ```bash
-# 生成配置文件
+# 生成 V3 配置文件
+smart-router init-v3
+
+# 编辑三个配置文件
+vim providers.yaml  # API Key 和基础 URL
+vim models.yaml     # 模型能力声明
+vim routing.yaml    # 任务定义和路由策略
+```
+
+**V3 优势：**
+- **Provider-Model 分离**：每个服务商的 API Key 只需定义一次
+- **基于能力的路由**：模型声明 quality/speed/cost 评分
+- **动态模型选择**：无需手动维护 15 个路由列表
+- **自动 Fallback 推导**：Fallback 链自动计算
+
+详见 [V3 配置说明](#v3-配置说明)。
+
+#### 方案 B: 传统配置（V2）
+
+```bash
+# 生成单文件配置
 smart-router init
 
 # 编辑配置，填入你的 API Key
@@ -124,7 +150,8 @@ response = client.chat.completions.create(
 
 | 命令 | 说明 |
 |------|------|
-| `smart-router init` | 生成默认配置 |
+| `smart-router init` | 生成默认配置（V2） |
+| `smart-router init-v3` | 生成 V3 三文件配置（推荐） |
 | `smart-router doctor` | 运行健康检查（包含配置验证） |
 | `smart-router dry-run "提示文本"` | 测试路由决策 |
 
@@ -161,11 +188,89 @@ response = client.chat.completions.create(
 
 ## ⚙️ 配置说明
 
-详见 `templates/smart-router.yaml` 中的详细注释。
+### V3 配置（推荐）
+
+V3 采用三文件解耦架构：
+
+```
+config/
+├── providers.yaml    # 服务商连接设置
+├── models.yaml       # 模型能力声明
+└── routing.yaml      # 任务定义和路由规则
+```
+
+#### providers.yaml
+
+每个服务商只需定义一次 API 端点和认证信息：
+
+```yaml
+providers:
+  openai:
+    api_base: https://api.openai.com/v1
+    api_key: os.environ/OPENAI_API_KEY
+    timeout: 30
+    
+  anthropic:
+    api_base: https://api.anthropic.com
+    api_key: os.environ/ANTHROPIC_API_KEY
+```
+
+#### models.yaml
+
+声明模型能力（quality/speed/cost 评分 1-10）：
+
+```yaml
+models:
+  gpt-4o:
+    provider: openai              # 引用上面的 provider
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9                  # 质量评分（1-10）
+      speed: 8                    # 响应速度（1-10）
+      cost: 3                     # 成本效率（10=最便宜）
+      context: 128000             # 上下文窗口
+    supported_tasks: [chat, code_review, writing]
+    difficulty_support: [easy, medium, hard]
+```
+
+#### routing.yaml
+
+定义任务和路由策略：
+
+```yaml
+tasks:
+  code_review:
+    name: "代码审查"
+    description: "审查代码质量"
+    capability_weights:           # 能力权重配置
+      quality: 0.6                # 质量占 60%
+      speed: 0.2                  # 速度占 20%
+      cost: 0.2                   # 成本占 20%
+
+strategies:
+  auto:     # 使用任务权重计算综合得分
+  quality:  # 选择质量最高的模型
+  speed:    # 选择最快的模型
+  cost:     # 选择最经济的模型
+
+fallback:
+  mode: auto
+  similarity_threshold: 2  # quality 差异 ±2 的模型互为 fallback
+```
+
+**核心优势：**
+- 只需编辑 `models.yaml` 即可增删模型
+- 路由动态计算，无需手动维护列表
+- Fallback 链根据能力相似度自动推导
+- 关注点分离，配置更清晰
+
+### 传统配置（V2）
+
+详见 `config/smart-router.yaml` 中的详细注释。
 
 ### 路由策略
 
-- `auto`：使用配置的默认推荐
+- `auto`：使用加权能力评分选择最佳模型
 - `speed`：选择响应速度最快的模型
 - `cost`：选择成本最低的模型
 - `quality`：选择质量最高的模型
@@ -220,8 +325,10 @@ curl http://localhost:4000/v1/models \
 | 文档 | 内容 |
 |------|------|
 | [完整使用指南](GUIDE.md) | 详细的 CLI 命令说明、配置详解、最佳实践 |
-| [配置模板](../config/smart-router.yaml) | 完整的配置文件示例 |
-| [设计文档](specs/active/2026-04-18--smart-router.md) | 架构设计和技术规格 |
+| [V3 配置示例](../config/examples/v3/) | V3 三文件配置示例 |
+| [V3 设计规格](specs/active/2026-04-19--config-v3-refactor.md) | V3 架构设计和迁移指南 |
+| [传统配置模板](../config/smart-router.yaml) | V2 单文件配置示例 |
+| [设计文档](specs/active/2026-04-18--smart-router.md) | 原始架构设计和技术规格 |
 
 ### 快速导航
 
@@ -248,11 +355,15 @@ curl http://localhost:4000/v1/models \
 ### 组件
 
 - `cli.py` - CLI 入口命令
-- `plugin.py` - SmartRouter 核心插件
+- `plugin.py` - SmartRouter 核心插件（V2 配置）
+- `plugin_v3_adapter.py` - V3 配置适配器
 - `server.py` - LiteLLM Proxy 封装
 - `config/` - 配置加载和验证
+  - `v3_schema.py` - V3 Pydantic 模型定义
+  - `v3_loader.py` - V3 三文件配置加载器
 - `classifier/` - 任务分类器 (L1规则 + L2 Embedding)
 - `selector/` - 模型选择策略
+  - `v3_selector.py` - V3 基于能力的选择器
 - `utils/` - 工具函数
 
 ---

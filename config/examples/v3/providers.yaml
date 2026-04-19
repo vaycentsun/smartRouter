@@ -1,0 +1,23 @@
+# V3 服务商配置示例
+# 配置各 LLM 服务商的连接信息
+
+providers:
+  openai:
+    api_base: https://api.openai.com/v1
+    api_key: os.environ/OPENAI_API_KEY
+    timeout: 30
+    
+  anthropic:
+    api_base: https://api.anthropic.com
+    api_key: os.environ/ANTHROPIC_API_KEY
+    timeout: 30
+    
+  moonshot:
+    api_base: https://api.moonshot.ai/v1
+    api_key: os.environ/MOONSHOT_API_KEY
+    timeout: 30
+    
+  aliyun:
+    api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key: os.environ/DASHSCOPE_API_KEY
+    timeout: 30

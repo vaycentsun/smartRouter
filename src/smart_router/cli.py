@@ -77,6 +77,164 @@ def init(
     console.print("[dim]请编辑文件中的 API Key，然后运行 `smart-router start` 启动服务[/dim]")
 
 
+@app.command(name="init-v3")
+def init_v3(
+    output_dir: Path = typer.Option(
+        Path("."),
+        "--output", "-o",
+        help="V3 配置文件输出目录"
+    )
+):
+    """生成 V3 三文件配置模板 (providers.yaml + models.yaml + routing.yaml)"""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 检查文件是否已存在
+    existing_files = []
+    for filename in ["providers.yaml", "models.yaml", "routing.yaml"]:
+        if (output_dir / filename).exists():
+            existing_files.append(filename)
+    
+    if existing_files:
+        overwrite = typer.confirm(
+            f"以下文件已存在: {', '.join(existing_files)}\n是否覆盖？"
+        )
+        if not overwrite:
+            console.print("[yellow]已取消[/yellow]")
+            raise typer.Exit()
+    
+    # providers.yaml
+    providers_content = '''# V3 Providers Configuration
+# 定义 API 服务商的连接信息
+
+providers:
+  openai:
+    api_base: https://api.openai.com/v1
+    api_key: os.environ/OPENAI_API_KEY
+    timeout: 30
+    
+  anthropic:
+    api_base: https://api.anthropic.com
+    api_key: os.environ/ANTHROPIC_API_KEY
+    timeout: 30
+    
+  moonshot:
+    api_base: https://api.moonshot.ai/v1
+    api_key: os.environ/MOONSHOT_API_KEY
+    timeout: 30
+    
+  aliyun:
+    api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key: os.environ/DASHSCOPE_API_KEY
+    timeout: 30
+'''
+    
+    # models.yaml
+    models_content = '''# V3 Models Configuration
+# 定义模型的能力和支持的任务
+
+models:
+  gpt-4o:
+    provider: openai
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9    # 1-10，质量评分
+      speed: 8      # 1-10，响应速度
+      cost: 3       # 1-10，成本（10=最便宜）
+      context: 128000
+    supported_tasks: [chat, code_review, writing, reasoning, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  gpt-4o-mini:
+    provider: openai
+    litellm_model: openai/gpt-4o-mini
+    capabilities:
+      quality: 6
+      speed: 9
+      cost: 9
+      context: 128000
+    supported_tasks: [chat, writing, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  claude-3-opus:
+    provider: anthropic
+    litellm_model: anthropic/claude-3-opus-20240229
+    capabilities:
+      quality: 10
+      speed: 4
+      cost: 2
+      context: 200000
+    supported_tasks: [code_review, reasoning, writing]
+    difficulty_support: [medium, hard]
+'''
+    
+    # routing.yaml
+    routing_content = '''# V3 Routing Configuration
+# 定义任务类型和路由策略
+
+tasks:
+  chat:
+    name: "普通对话"
+    description: "日常问答和聊天"
+    capability_weights:
+      quality: 0.4
+      speed: 0.4
+      cost: 0.2
+      
+  code_review:
+    name: "代码审查"
+    description: "代码质量审查、bug 发现"
+    capability_weights:
+      quality: 0.6
+      speed: 0.2
+      cost: 0.2
+      
+  writing:
+    name: "写作"
+    description: "文章、邮件、报告撰写"
+    capability_weights:
+      quality: 0.5
+      speed: 0.3
+      cost: 0.2
+
+difficulties:
+  easy:
+    description: "简单任务，适合轻量级模型"
+    max_tokens: 2000
+  medium:
+    description: "中等复杂度"
+    max_tokens: 8000
+  hard:
+    description: "复杂任务，需要高质量模型"
+    max_tokens: 32000
+
+strategies:
+  auto:
+    description: "综合评分，平衡质量/速度/成本"
+  quality:
+    description: "质量优先"
+  speed:
+    description: "速度优先"
+  cost:
+    description: "成本优先"
+
+fallback:
+  mode: auto
+  similarity_threshold: 2
+'''
+    
+    # 写入文件
+    (output_dir / "providers.yaml").write_text(providers_content)
+    (output_dir / "models.yaml").write_text(models_content)
+    (output_dir / "routing.yaml").write_text(routing_content)
+    
+    console.print(f"[green]✓[/green] V3 配置文件已生成到: {output_dir.absolute()}")
+    console.print("  - providers.yaml")
+    console.print("  - models.yaml")
+    console.print("  - routing.yaml")
+    console.print("[dim]请编辑文件中的 API Key，了解配置格式请参考文档[/dim]")
+
+
 @app.command()
 def start(
     config: Optional[Path] = typer.Option(

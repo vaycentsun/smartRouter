@@ -1,0 +1,78 @@
+# V3 路由配置示例
+# 定义任务类型、难度等级和路由策略
+
+# 任务类型定义
+tasks:
+  chat:
+    name: "普通对话"
+    description: "日常问答和聊天"
+    capability_weights:
+      quality: 0.4
+      speed: 0.4
+      cost: 0.2
+      
+  code_review:
+    name: "代码审查"
+    description: "代码质量审查、bug 发现、改进建议"
+    capability_weights:
+      quality: 0.6
+      speed: 0.2
+      cost: 0.2
+      
+  writing:
+    name: "写作"
+    description: "文章、邮件、报告撰写"
+    capability_weights:
+      quality: 0.5
+      speed: 0.3
+      cost: 0.2
+      
+  reasoning:
+    name: "逻辑推理"
+    description: "数学、逻辑、复杂问题求解"
+    capability_weights:
+      quality: 0.7
+      speed: 0.1
+      cost: 0.2
+      
+  brainstorming:
+    name: "头脑风暴"
+    description: "创意、想法、方案生成"
+    capability_weights:
+      quality: 0.3
+      speed: 0.5
+      cost: 0.2
+
+# 难度定义
+difficulties:
+  easy:
+    description: "简单任务，适合轻量级模型"
+    max_tokens: 2000
+    
+  medium:
+    description: "中等复杂度"
+    max_tokens: 8000
+    
+  hard:
+    description: "复杂任务，需要高质量模型"
+    max_tokens: 32000
+
+# 路由策略
+strategies:
+  auto:
+    description: "综合评分，自动平衡质量/速度/成本"
+    
+  quality:
+    description: "质量优先，选择 quality 最高的模型"
+    
+  speed:
+    description: "速度优先，选择 speed 最高的模型"
+    
+  cost:
+    description: "成本优先，选择 cost 最高的模型（最便宜）"
+
+# Fallback 配置
+fallback:
+  mode: auto
+  # 自动推导规则：quality 差异 <= similarity_threshold 的模型互为 fallback
+  similarity_threshold: 2
