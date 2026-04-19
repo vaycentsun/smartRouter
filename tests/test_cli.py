@@ -72,6 +72,58 @@ class TestDoctorCommand:
         assert result.exit_code == 0
         assert "健康检查" in result.stdout
         assert "Python 版本" in result.stdout
+    
+    def test_doctor_v3_config_check(self):
+        """测试 doctor 支持 V3 配置检查"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # 创建 V3 配置文件
+            config_dir = Path(tmpdir)
+            (config_dir / "providers.yaml").write_text("""
+providers:
+  test:
+    api_base: http://test.com
+    api_key: test-key
+""")
+            (config_dir / "models.yaml").write_text("""
+models:
+  test-model:
+    provider: test
+    litellm_model: test/model
+    capabilities:
+      quality: 5
+      speed: 5
+      cost: 5
+      context: 1000
+    supported_tasks: [chat]
+    difficulty_support: [easy]
+""")
+            (config_dir / "routing.yaml").write_text("""
+tasks:
+  chat:
+    name: "Chat"
+    description: "Test"
+    capability_weights:
+      quality: 0.5
+      speed: 0.3
+      cost: 0.2
+
+difficulties:
+  easy:
+    description: "Easy"
+    max_tokens: 1000
+
+strategies:
+  auto:
+    description: "Auto"
+
+fallback:
+  mode: auto
+""")
+            
+            result = runner.invoke(app, ["doctor", "--config", str(config_dir)])
+            
+            assert result.exit_code == 0
+            assert "V3 配置" in result.stdout or "配置加载成功" in result.stdout
 
 
 class TestDryRunCommand:

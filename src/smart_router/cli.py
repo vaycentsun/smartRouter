@@ -14,6 +14,7 @@ from rich.text import Text
 from rich import box
 
 from .config.loader import load_config, validate_config
+from .config.v3_loader import ConfigV3Loader, ConfigV3Error
 from .classifier.task_classifier import TaskTypeClassifier
 from .classifier.difficulty_classifier import DifficultyClassifier
 from .selector.model_selector import ModelSelector
@@ -580,9 +581,9 @@ def dry_run(
 
 @app.command()
 def doctor(
-    config: Optional[Path] = typer.Option(None, "--config", "-c", help="配置文件路径")
+    config: Optional[Path] = typer.Option(None, "--config", "-c", help="配置文件目录路径")
 ):
-    """运行健康检查"""
+    """运行健康检查 - 支持 V3 三文件配置"""
     import os
     
     console.print(Panel.fit("🔍 Smart Router 健康检查", style="bold blue"))
@@ -599,25 +600,42 @@ def doctor(
         console.print(f"[red]✗[/red] Python 版本: {py_version.major}.{py_version.minor} (需要 3.9+)")
         checks_failed += 1
     
-    # 检查 2: 配置
-    try:
-        cfg = load_config(config)
-        console.print(f"[green]✓[/green] 配置加载成功 ({len(cfg.model_list)} 个模型)")
-        checks_passed += 1
-        
-        # 验证配置
-        errors = validate_config(cfg)
-        if errors:
-            console.print(f"[red]✗[/red] 配置验证失败:")
-            for err in errors:
-                console.print(f"  [red]-[/red] {err}")
-            checks_failed += 1
-        else:
-            console.print("[green]✓[/green] 配置验证通过")
-            checks_passed += 1
-    except Exception as e:
-        console.print(f"[red]✗[/red] 配置加载失败: {e}")
+    # 检查 2: V3 配置
+    config_dir = Path(config) if config else Path.home() / ".smart-router"
+    
+    # 检查 V3 配置文件是否存在
+    v3_files = ["providers.yaml", "models.yaml", "routing.yaml"]
+    missing_files = [f for f in v3_files if not (config_dir / f).exists()]
+    
+    if missing_files:
+        console.print(f"[red]✗[/red] V3 配置文件缺失: {', '.join(missing_files)}")
+        console.print(f"[dim]  请运行 `smart-router init` 生成配置[/dim]")
         checks_failed += 2
+    else:
+        try:
+            # 尝试加载 V3 配置
+            loader = ConfigV3Loader(config_dir)
+            cfg = loader.load()
+            console.print(f"[green]✓[/green] V3 配置加载成功 ({len(cfg.models)} 个模型)")
+            checks_passed += 1
+            
+            # 验证配置
+            errors = loader.validate()
+            if errors:
+                console.print(f"[red]✗[/red] 配置验证失败:")
+                for err in errors:
+                    console.print(f"  [red]-[/red] {err}")
+                checks_failed += 1
+            else:
+                console.print("[green]✓[/green] 配置验证通过")
+                checks_passed += 1
+                
+        except ConfigV3Error as e:
+            console.print(f"[red]✗[/red] V3 配置加载失败: {e}")
+            checks_failed += 2
+        except Exception as e:
+            console.print(f"[red]✗[/red] 配置加载失败: {e}")
+            checks_failed += 2
     
     # 检查 3: 服务状态
     from .daemon import _get_pid, _is_process_running
