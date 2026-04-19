@@ -1156,7 +1156,7 @@ def init(
     
     shutil.copy(DEFAULT_CONFIG, path)
     console.print(f"[green]✓[/green] 配置文件已生成: {path}")
-    console.print("[dim]请编辑文件中的 API Key 环境变量名，然后运行 `smart-router serve`[/dim]")
+    console.print("[dim]请编辑文件中的 API Key，然后运行 `smart-router start` 启动服务[/dim]")
 
 
 @app.command()
@@ -1280,7 +1280,7 @@ if __name__ == "__main__":
 
 **验证**:
 - [ ] `smart-router init` 生成配置文件
-- [ ] `smart-router validate` 验证通过/失败时正确输出
+- [ ] `smart-router doctor` 运行健康检查，包含配置验证
 - [ ] `smart-router dry-run "[stage:writing] 写邮件"` 输出选中模型为 writing 阶段配置
 - [ ] `smart-router --help` 显示所有命令
 
@@ -1548,7 +1548,7 @@ model_list:
 
 ```bash
 export OPENAI_API_KEY="your-key"
-smart-router serve
+smart-router start
 ```
 
 服务运行在 `http://localhost:4000`

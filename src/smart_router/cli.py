@@ -22,6 +22,40 @@ console = Console()
 
 DEFAULT_CONFIG = Path(__file__).parent.parent.parent / "config" / "smart-router.yaml"
 
+# 版本号（与 pyproject.toml 保持一致）
+__version__ = "0.1.0"
+
+
+@app.command()
+def version(
+    short: bool = typer.Option(
+        False,
+        "--short", "-s",
+        help="仅显示版本号"
+    )
+):
+    """显示 Smart Router 版本信息"""
+    from rich.panel import Panel
+    from rich.text import Text
+    
+    if short:
+        console.print(__version__)
+    else:
+        content = Text()
+        content.append("Smart Router\n", style="bold cyan")
+        content.append(f"版本: {__version__}\n", style="green")
+        content.append("\n")
+        content.append("智能模型路由网关\n", style="dim")
+        content.append("统一 API 入口，自动路由到最优模型\n", style="dim")
+        
+        panel = Panel(
+            content,
+            title="[bold yellow]ℹ️ 版本信息[/bold yellow]",
+            border_style="cyan",
+            padding=(1, 4)
+        )
+        console.print(panel)
+
 
 @app.command()
 def init(
@@ -40,7 +74,7 @@ def init(
     
     shutil.copy(DEFAULT_CONFIG, path)
     console.print(f"[green]✓[/green] 配置文件已生成: {path}")
-    console.print("[dim]请编辑文件中的 API Key 环境变量名，然后运行 `smart-router serve`[/dim]")
+    console.print("[dim]请编辑文件中的 API Key，然后运行 `smart-router start` 启动服务[/dim]")
 
 
 @app.command()
@@ -137,48 +171,6 @@ def logs(
 
 
 @app.command()
-def serve(
-    config: Optional[Path] = typer.Option(
-        None,
-        "--config", "-c",
-        help="配置文件路径（默认向上查找 smart-router.yaml）"
-    )
-):
-    """启动代理服务（前台运行，保留用于兼容）"""
-    from .server import start_server
-    start_server(config_path=config)
-
-
-@app.command()
-def validate(
-    config: Optional[Path] = typer.Option(
-        None,
-        "--config", "-c",
-        help="配置文件路径"
-    )
-):
-    """验证配置文件的完整性"""
-    try:
-        cfg = load_config(config)
-    except Exception as e:
-        console.print(f"[red]配置加载失败: {e}[/red]")
-        raise typer.Exit(1)
-    
-    errors = validate_config(cfg)
-    
-    if errors:
-        console.print("[red]✗ 配置验证失败[/red]")
-        for err in errors:
-            console.print(f"  [red]-[/red] {err}")
-        raise typer.Exit(1)
-    else:
-        console.print("[green]✓ 配置验证通过[/green]")
-        console.print(f"  模型数: {len(cfg.model_list)}")
-        console.print(f"  阶段数: {len(cfg.smart_router.stage_routing)}")
-        console.print(f"  规则数: {len(cfg.smart_router.classification_rules)}")
-
-
-@app.command()
 def dry_run(
     prompt: str = typer.Argument(..., help="测试路由的提示文本"),
     config: Optional[Path] = typer.Option(
@@ -244,7 +236,7 @@ def dry_run(
 
 @app.command()
 def doctor():
-    """运行健康检查，诊断常见问题"""
+    """运行健康检查（包含配置验证）"""
     import sys
     import os
     from rich.panel import Panel
@@ -302,7 +294,7 @@ def doctor():
             console.print(f"[red]✗[/red] 功能测试失败: {e}")
             checks_failed += 1
     
-    # 检查 4: 配置文件
+    # 检查 4: 配置文件（包含完整验证）
     with console.status("[bold green]检查配置文件..."):
         config_files = ['smart-router.yaml', '../config/smart-router.yaml']
         found_config = None
@@ -320,13 +312,25 @@ def doctor():
                 cfg = load_config(Path(found_config))
                 console.print(f"[green]✓[/green] 配置加载成功 ({len(cfg.model_list)} 个模型)")
                 checks_passed += 1
+                
+                # 详细验证配置（原 validate 命令的功能）
+                errors = validate_config(cfg)
+                if errors:
+                    console.print(f"[red]✗[/red] 配置验证失败 ({len(errors)} 个问题)")
+                    for err in errors:
+                        console.print(f"  [red]-[/red] {err}")
+                    checks_failed += 1
+                else:
+                    console.print(f"[green]✓[/green] 配置验证通过")
+                    console.print(f"  [dim]模型数: {len(cfg.model_list)}, 阶段数: {len(cfg.smart_router.stage_routing)}, 规则数: {len(cfg.smart_router.classification_rules)}[/dim]")
+                    checks_passed += 1
+                    
             except Exception as e:
                 console.print(f"[red]✗[/red] 配置加载失败: {e}")
                 checks_failed += 1
         else:
             console.print("[yellow]⚠[/yellow] 未找到配置文件，运行 `smart-router init` 生成")
             warnings.append("未找到配置文件")
-            checks_passed += 1  # 这不是致命错误
     
     # 检查 5: 环境变量
     with console.status("[bold green]检查环境变量..."):

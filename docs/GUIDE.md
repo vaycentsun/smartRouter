@@ -435,17 +435,17 @@ smart-router logs -f
 
 ### `serve` - 前台启动（兼容）
 
-前台启动服务（保留用于兼容旧版本）：
+前台启动服务（用于调试）：
 
 ```bash
 # 使用默认配置
-smart-router serve
+smart-router start --foreground
 
 # 指定配置文件
-smart-router serve --config ~/config/smart-router.yaml
+smart-router start --foreground --config ~/config/smart-router.yaml
 ```
 
-**注意**：此命令会阻塞终端，适合调试使用。生产环境建议使用 `smart-router start`。
+**注意**：此命令会阻塞终端，适合调试使用。生产环境建议使用 `smart-router start`（后台运行）。
 
 服务启动后：
 - API 端点：`http://localhost:4000/v1/chat/completions`
@@ -485,20 +485,21 @@ smart-router dry-run "解释量子计算" --config ~/my-config.yaml
 
 ### `validate` - 验证配置
 
-检查配置文件的正确性：
+运行健康检查（包含配置验证）：
 
 ```bash
-smart-router validate
-
-# 指定配置
-smart-router validate --config ~/my-config.yaml
+smart-router doctor
 ```
 
 输出示例：
 ```
+✓ Python 版本: 3.9.6
+✓ 核心模块导入正常
+✓ 核心功能测试通过
+✓ 配置文件存在: smart-router.yaml
+✓ 配置加载成功 (11 个模型)
 ✓ 配置验证通过
-  模型数: 8
-  阶段数: 5
+  模型数: 11, 阶段数: 5, 规则数: 5
   规则数: 5
 ```
 
@@ -792,8 +793,8 @@ lsof -i :4000 | grep LISTEN | awk '{print $2}' | xargs kill -9
 # 检查环境变量
 echo $OPENAI_API_KEY
 
-# 验证配置
-smart-router validate
+# 运行健康检查（包含配置验证）
+smart-router doctor
 
 # 测试时临时设置
 export OPENAI_API_KEY="sk-..."
@@ -819,8 +820,8 @@ smart-router logs -f
 # 使用 dry-run 测试
 smart-router dry-run "你的提示文本"
 
-# 检查分类规则
-smart-router validate
+# 运行健康检查
+smart-router doctor
 
 # 查看路由决策日志
 smart-router logs | grep "路由决策"
@@ -1025,7 +1026,7 @@ fallback_chain:
 
 如有问题或建议，请：
 1. 查看本使用指南
-2. 运行 `smart-router validate` 检查配置
+2. 运行 `smart-router doctor` 检查配置和运行状态
 3. 使用 `smart-router dry-run` 测试路由
 4. 提交 Issue 到项目仓库
 

@@ -88,8 +88,6 @@ smart-router status
 ```bash
 export OPENAI_API_KEY="your-key"
 smart-router start --foreground
-# or
-smart-router serve
 ```
 
 ### 4. Test Routing (No Model Call)
@@ -152,7 +150,7 @@ response = client.chat.completions.create(
 | Command | Description |
 |---------|-------------|
 | `smart-router init` | Generate default configuration |
-| `smart-router validate` | Validate configuration |
+| `smart-router doctor` | Run health check (includes config validation) |
 | `smart-router dry-run "prompt text"` | Test routing decision |
 
 ---
@@ -212,8 +210,8 @@ lsof -i :4000
 # View logs
 smart-router logs
 
-# Validate configuration
-smart-router validate
+# Run health check (includes config validation)
+smart-router doctor
 
 # Run in foreground to see detailed errors
 smart-router start --foreground

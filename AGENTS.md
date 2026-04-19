@@ -194,12 +194,12 @@ smart-router restart
 smr restart
 ```
 
-### 验证配置
+### 运行健康检查（包含配置验证）
 
 ```bash
-smart-router validate
+smart-router doctor
 # 或
-smr validate
+smr doctor
 ```
 
 ### 测试路由决策（dry-run）
@@ -262,9 +262,8 @@ SmartRouter.get_available_deployment()
 - `smart-router init` - 生成默认配置文件
 - `smart-router start [--foreground]` - 后台/前台启动服务
 - `smart-router stop/restart/status/logs` - 服务管理
-- `smart-router serve` - 前台启动（兼容命令）
+- `smart-router start --foreground` - 前台启动服务
 - `smart-router dry-run "prompt"` - 测试路由决策
-- `smart-router validate` - 验证配置
 - `smart-router doctor` - 运行健康检查
 - `smart-router uninstall` - 卸载（停止服务并清理数据）
 
@@ -352,7 +351,7 @@ smart_router:
 ## 故障排查
 
 - **服务无法启动**: 检查端口占用 `lsof -i :4000`，查看日志 `smart-router logs`
-- **配置错误**: 运行 `smart-router validate`
+- **配置错误**: 运行 `smart-router doctor` 查看详细错误
 - **路由不生效**: 使用 `smart-router dry-run "提示文本"` 测试
 - **后台进程残留**: 手动删除 `~/.smart-router/smart-router.pid`
 

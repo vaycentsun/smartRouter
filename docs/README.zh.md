@@ -63,8 +63,6 @@ smart-router status
 ```bash
 export OPENAI_API_KEY="your-key"
 smart-router start --foreground
-# 或
-smart-router serve
 ```
 
 ### 4. 测试路由（不调用模型）
@@ -127,7 +125,7 @@ response = client.chat.completions.create(
 | 命令 | 说明 |
 |------|------|
 | `smart-router init` | 生成默认配置 |
-| `smart-router validate` | 验证配置 |
+| `smart-router doctor` | 运行健康检查（包含配置验证） |
 | `smart-router dry-run "提示文本"` | 测试路由决策 |
 
 ---
@@ -187,8 +185,8 @@ lsof -i :4000
 # 查看日志
 smart-router logs
 
-# 验证配置
-smart-router validate
+# 运行健康检查（包含配置验证）
+smart-router doctor
 
 # 前台运行查看详细错误
 smart-router start --foreground

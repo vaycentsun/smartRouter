@@ -208,9 +208,9 @@ stage_routing:
 smart-router dry-run "你的输入文本"
 ```
 
-### 2. 验证配置
+### 2. 运行健康检查（包含配置验证）
 ```bash
-smart-router validate
+smart-router doctor
 ```
 
 ### 3. 查看日志

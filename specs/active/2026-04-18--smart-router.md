@@ -67,9 +67,9 @@ OpenAI  Anthropic  DashScope  Moonshot
 **接口**:
 ```python
 # smart-router init → 生成默认 smart-router.yaml
-# smart-router serve [--config path] → 启动代理服务
+# smart-router start [--foreground] [--config path] → 启动代理服务（后台/前台）
 # smart-router dry-run "prompt" → 测试路由决策
-# smart-router validate → 验证配置和模型连通性
+# smart-router doctor → 运行健康检查（包含配置验证）
 ```
 
 **依赖**:
@@ -200,7 +200,7 @@ SmartRouter.get_available_deployment()
 ### 错误处理
 
 - **配置错误**（启动时）: Pydantic 验证失败，打印具体错误位置，进程退出码 1
-- **模型不可达**（启动时 `validate`）: `smart-router validate` 逐个测试模型池连通性，输出不通的模型列表
+- **模型不可达**（启动时 `doctor`）: `smart-router doctor` 运行健康检查，包含配置验证和模型连通性测试
 - **单次请求失败**: 按 fallback_chain 重试，全部失败后返回标准 OpenAI 错误格式，附加 `smart_router_meta` 调试信息
 - **分类器失败**: 降级到默认模型（如 gpt-4o），不阻断请求
 
@@ -214,7 +214,7 @@ SmartRouter.get_available_deployment()
 ## 验收标准
 
 - [ ] `smart-router init` 能在当前目录生成可运行的默认配置文件
-- [ ] `smart-router serve` 能成功启动 LiteLLM Proxy 并加载 SmartRouter 插件
+- [ ] `smart-router start` 能成功启动 LiteLLM Proxy 并加载 SmartRouter 插件
 - [ ] 使用标准 OpenAI SDK 调用 localhost:4000，能被正确路由到配置中的模型
 - [ ] 在 prompt 中嵌入 `[stage:code_review]`，能跳过分类器直接路由到 code_review 预设模型
 - [ ] 当首选模型返回 429 / 超时时，能自动按 fallback_chain 升级模型并重试
