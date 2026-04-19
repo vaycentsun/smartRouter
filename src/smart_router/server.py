@@ -44,6 +44,17 @@ def start_server(config_path: Optional[Path] = None):
             }
         }
         
+        # 将配置写入临时文件
+        import json
+        import tempfile
+        config_fd, config_path_temp = tempfile.mkstemp(suffix='.json')
+        with os.fdopen(config_fd, 'w') as f:
+            json.dump(litellm_config, f)
+        
+        # 初始化 LiteLLM Proxy 配置
+        import asyncio
+        asyncio.run(initialize(config=config_path_temp))
+        
         console.print(f"[green]✓[/green] 配置加载完成，共 {len(config.model_list)} 个模型")
         console.print(f"[green]✓[/green] 启动服务于 http://{config.server.host}:{config.server.port}")
         
