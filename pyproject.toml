@@ -20,6 +20,10 @@ dev = [
 
 [project.scripts]
 smart-router = "smart_router.cli:main"
+smr = "smart_router.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/smart_router"]
 
 [build-system]
 requires = ["hatchling"]

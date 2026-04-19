@@ -21,8 +21,7 @@
 ### 1. 安装
 
 ```bash
-cd dev
-pip install -e ".[dev]"
+./script/install.sh
 ```
 
 ### 2. 初始化配置
@@ -158,7 +157,7 @@ response = client.chat.completions.create(
 | `reasoning` | 逻辑推理 | claude-3-opus |
 | `chat` | 普通对话 | qwen-turbo, gpt-4o-mini |
 
-更多详细说明见 [阶段标记系统](doc/GUIDE.md#阶段标记系统)。
+更多详细说明见 [阶段标记系统](GUIDE.md#阶段标记系统)。
 
 ---
 
@@ -173,7 +172,7 @@ response = client.chat.completions.create(
 - `cost`：选择成本最低的模型
 - `quality`：选择质量最高的模型
 
-更多配置说明见 [配置详解](doc/GUIDE.md#配置详解)。
+更多配置说明见 [配置详解](GUIDE.md#配置详解)。
 
 ---
 
@@ -214,7 +213,7 @@ curl http://localhost:4000/v1/models \
   -H "Authorization: Bearer sk-smart-router-local"
 ```
 
-更多故障排查见 [故障排查](doc/GUIDE.md#故障排查) 章节。
+更多故障排查见 [故障排查](GUIDE.md#故障排查) 章节。
 
 ---
 
@@ -222,17 +221,17 @@ curl http://localhost:4000/v1/models \
 
 | 文档 | 内容 |
 |------|------|
-| [完整使用指南](doc/GUIDE.md) | 详细的 CLI 命令说明、配置详解、最佳实践 |
-| [配置模板](dev/templates/smart-router.yaml) | 完整的配置文件示例 |
+| [完整使用指南](GUIDE.md) | 详细的 CLI 命令说明、配置详解、最佳实践 |
+| [配置模板](../config/smart-router.yaml) | 完整的配置文件示例 |
 | [设计文档](specs/active/2026-04-18--smart-router.md) | 架构设计和技术规格 |
 
 ### 快速导航
 
-- [CLI 命令详解](doc/GUIDE.md#cli-命令详解) - `start`, `stop`, `dry-run`, `validate` 等命令的完整说明
-- [客户端集成](doc/GUIDE.md#客户端集成) - Python, JavaScript, Cursor, Claude Code 的配置方法
-- [最佳实践](doc/GUIDE.md#最佳实践) - 配置管理、成本优化、服务管理建议
-- [高级用法](doc/GUIDE.md#高级用法) - 自定义任务类型、Fallback 链配置
-- [故障排查](doc/GUIDE.md#故障排查) - 详细的故障排查步骤
+- [CLI 命令详解](GUIDE.md#cli-命令详解) - `start`, `stop`, `dry-run`, `validate` 等命令的完整说明
+- [客户端集成](GUIDE.md#客户端集成) - Python, JavaScript, Cursor, Claude Code 的配置方法
+- [最佳实践](GUIDE.md#最佳实践) - 配置管理、成本优化、服务管理建议
+- [高级用法](GUIDE.md#高级用法) - 自定义任务类型、Fallback 链配置
+- [故障排查](GUIDE.md#故障排查) - 详细的故障排查步骤
 
 ---
 
@@ -263,8 +262,7 @@ curl http://localhost:4000/v1/models \
 ## 🧪 开发
 
 ```bash
-cd dev
-pip install -e ".[dev]"
+./script/install.sh
 
 pytest tests/ -v
 ```

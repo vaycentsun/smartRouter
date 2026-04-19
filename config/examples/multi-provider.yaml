@@ -1,0 +1,91 @@
+# 多服务商配置示例 - 同时使用国内外多家模型
+server:
+  port: 4000
+  host: "127.0.0.1"
+  master_key: "sk-smart-router-local"
+
+model_list:
+  # OpenAI
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+
+  # Anthropic
+  - model_name: claude-3-sonnet
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: claude-3-opus
+    litellm_params:
+      model: anthropic/claude-3-opus-20240229
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # DeepSeek
+  - model_name: deepseek-chat
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+
+  - model_name: deepseek-r1
+    litellm_params:
+      model: deepseek/deepseek-reasoner
+      api_key: os.environ/DEEPSEEK_API_KEY
+
+  # 阿里 Qwen
+  - model_name: qwen-turbo
+    litellm_params:
+      model: dashscope/qwen-turbo
+      api_key: os.environ/DASHSCOPE_API_KEY
+
+  - model_name: qwen-max
+    litellm_params:
+      model: dashscope/qwen-max
+      api_key: os.environ/DASHSCOPE_API_KEY
+
+  # Moonshot Kimi
+  - model_name: kimi-k2
+    litellm_params:
+      model: moonshot/moonshot-v1-8k
+      api_key: os.environ/MOONSHOT_API_KEY
+
+smart_router:
+  default_strategy: auto
+
+  stage_routing:
+    brainstorming:
+      easy: ["qwen-turbo", "gpt-4o-mini"]
+      medium: ["kimi-k2", "gpt-4o"]
+      hard: ["claude-3-sonnet", "qwen-max"]
+
+    code_review:
+      easy: ["gpt-4o-mini"]
+      medium: ["claude-3-sonnet"]
+      hard: ["claude-3-opus", "deepseek-chat"]
+
+    writing:
+      easy: ["qwen-turbo"]
+      medium: ["gpt-4o", "kimi-k2"]
+      hard: ["claude-3-sonnet"]
+
+    reasoning:
+      easy: ["gpt-4o"]
+      medium: ["deepseek-chat", "kimi-k2"]
+      hard: ["claude-3-opus", "deepseek-r1"]
+
+    chat:
+      easy: ["qwen-turbo", "gpt-4o-mini"]
+      medium: ["gpt-4o", "kimi-k2"]
+      hard: ["claude-3-sonnet"]
+
+  fallback_chain:
+    gpt-4o-mini: ["gpt-4o", "claude-3-sonnet"]
+    qwen-turbo: ["qwen-max", "claude-3-sonnet"]
+    kimi-k2: ["gpt-4o", "claude-3-sonnet"]
+    gpt-4o: ["claude-3-sonnet", "qwen-max"]

@@ -1,5 +1,5 @@
 <div align="right">
-  <strong>English</strong> | <a href="./README.zh.md">中文</a>
+  <strong>English</strong> | <a href="./docs/README.zh.md">中文</a>
 </div>
 
 # Smart Router — Intelligent Model Routing Gateway
@@ -21,8 +21,7 @@ A multi-provider model intelligent routing CLI tool based on LiteLLM. Exposes a 
 ### 1. Installation
 
 ```bash
-cd dev
-pip install -e ".[dev]"
+./script/install.sh
 ```
 
 ### 2. Initialize Configuration
@@ -158,7 +157,7 @@ Add markers to prompts for explicit routing control:
 | `reasoning` | Logical reasoning | claude-3-opus |
 | `chat` | General chat | qwen-turbo, gpt-4o-mini |
 
-More details: [Stage Marker System](doc/GUIDE.md#stage-marker-system)
+More details: [Stage Marker System](docs/GUIDE.md#stage-marker-system)
 
 ---
 
@@ -173,7 +172,7 @@ See detailed comments in `templates/smart-router.yaml`.
 - `cost`: Select most cost-effective model
 - `quality`: Select highest quality model
 
-More configuration details: [Configuration Guide](doc/GUIDE.md#configuration)
+More configuration details: [Configuration Guide](docs/GUIDE.md#configuration)
 
 ---
 
@@ -214,7 +213,7 @@ curl http://localhost:4000/v1/models \
   -H "Authorization: Bearer sk-smart-router-local"
 ```
 
-More troubleshooting: [Troubleshooting Guide](doc/GUIDE.md#troubleshooting)
+More troubleshooting: [Troubleshooting Guide](docs/GUIDE.md#troubleshooting)
 
 ---
 
@@ -222,17 +221,17 @@ More troubleshooting: [Troubleshooting Guide](doc/GUIDE.md#troubleshooting)
 
 | Document | Content |
 |----------|---------|
-| [Complete Guide](doc/GUIDE.md) | Detailed CLI commands, configuration, best practices |
-| [Config Template](dev/templates/smart-router.yaml) | Complete configuration example |
+| [Complete Guide](docs/GUIDE.md) | Detailed CLI commands, configuration, best practices |
+| [Config Template](config/smart-router.yaml) | Complete configuration example |
 | [Design Doc](specs/active/2026-04-18--smart-router.md) | Architecture design and technical specs |
 
 ### Quick Navigation
 
-- [CLI Commands](doc/GUIDE.md#cli-commands) - Complete guide for `start`, `stop`, `dry-run`, `validate`
-- [Client Integration](doc/GUIDE.md#client-integration) - Python, JavaScript, Cursor, Claude Code setup
-- [Best Practices](doc/GUIDE.md#best-practices) - Configuration management, cost optimization
-- [Advanced Usage](doc/GUIDE.md#advanced-usage) - Custom task types, Fallback chain config
-- [Troubleshooting](doc/GUIDE.md#troubleshooting) - Detailed troubleshooting steps
+- [CLI Commands](docs/GUIDE.md#cli-commands) - Complete guide for `start`, `stop`, `dry-run`, `validate`
+- [Client Integration](docs/GUIDE.md#client-integration) - Python, JavaScript, Cursor, Claude Code setup
+- [Best Practices](docs/GUIDE.md#best-practices) - Configuration management, cost optimization
+- [Advanced Usage](docs/GUIDE.md#advanced-usage) - Custom task types, Fallback chain config
+- [Troubleshooting](docs/GUIDE.md#troubleshooting) - Detailed troubleshooting steps
 
 ---
 
@@ -250,20 +249,19 @@ User Request → LiteLLM Proxy → SmartRouter Plugin
 
 ### Components
 
-- `cli.py` - CLI entry commands
-- `plugin.py` - SmartRouter core plugin
-- `server.py` - LiteLLM Proxy wrapper
-- `config/` - Configuration loading and validation
-- `classifier/` - Task classifier (L1 Rules + L2 Embedding)
-- `selector/` - Model selection strategies
-- `utils/` - Utility functions
+- `src/smart_router/cli.py` - CLI entry commands
+- `src/smart_router/plugin.py` - SmartRouter core plugin
+- `src/smart_router/server.py` - LiteLLM Proxy wrapper
+- `src/smart_router/config/` - Configuration loading and validation
+- `src/smart_router/classifier/` - Task classifier (L1 Rules + L2 Embedding)
+- `src/smart_router/selector/` - Model selection strategies
+- `src/smart_router/utils/` - Utility functions
 
 ---
 
 ## 🧪 Development
 
 ```bash
-cd dev
 pip install -e ".[dev]"
 
 pytest tests/ -v

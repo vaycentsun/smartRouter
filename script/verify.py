@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 import sys
-sys.path.insert(0, '.')
+from pathlib import Path
+
+# 添加 src 到路径（支持从任意目录运行）
+SCRIPT_DIR = Path(__file__).parent
+sys.path.insert(0, str(SCRIPT_DIR.parent / 'src'))
 
 from smart_router.utils.markers import parse_markers, strip_markers
 from smart_router.classifier import TaskClassifier

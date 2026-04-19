@@ -9,13 +9,14 @@
 1. [快速开始](#快速开始)
 2. [核心概念](#核心概念)
 3. [安装配置](#安装配置)
-4. [CLI 命令详解](#cli-命令详解)
-5. [阶段标记系统](#阶段标记系统)
-6. [路由策略](#路由策略)
-7. [客户端集成](#客户端集成)
-8. [配置详解](#配置详解)
-9. [故障排查](#故障排查)
-10. [最佳实践](#最佳实践)
+4. [命令速查表](#命令速查表)
+5. [CLI 命令详解](#cli-命令详解)
+6. [阶段标记系统](#阶段标记系统)
+7. [路由策略](#路由策略)
+8. [客户端集成](#客户端集成)
+9. [配置详解](#配置详解)
+10. [故障排查](#故障排查)
+11. [最佳实践](#最佳实践)
 
 ---
 
@@ -24,26 +25,20 @@
 ### 5 分钟上手
 
 ```bash
-# 1. 进入项目目录
-cd dev/cli-tools/smart-router
+# 1. 一键安装
+./script/install.sh
 
-# 2. 安装
-pip install -e ".[dev]"
-
-# 3. 初始化配置
-smart-router init
-
-# 4. 编辑配置，填入你的 API Key
+# 2. 编辑配置，填入你的 API Key
 vim smart-router.yaml
 
-# 5. 测试路由（不调用模型）
-smart-router dry-run "帮我写一段 Python 快速排序"
+# 3. 健康检查
+smr doctor
 
-# 6. 启动服务（后台运行）
-smart-router start
+# 4. 启动服务（后台运行）
+smr start
 
-# 7. 查看状态
-smart-router status
+# 5. 查看状态
+smr status
 ```
 
 服务启动后，在另一个终端测试：
@@ -62,23 +57,23 @@ curl http://localhost:4000/v1/chat/completions \
 
 ```bash
 # 启动服务（后台运行）
-smart-router start
+smr start
 
 # 前台运行（调试用）
-smart-router start --foreground
+smr start -f
 
 # 查看运行状态
-smart-router status
+smr status
 
 # 查看日志
-smart-router logs
-smart-router logs -f  # 持续跟踪
+smr logs
+smr logs -f  # 持续跟踪
 
 # 停止服务
-smart-router stop
+smr stop
 
 # 重启服务
-smart-router restart
+smr restart
 ```
 
 ---
@@ -125,15 +120,18 @@ Smart Router 接收请求
 ### 安装步骤
 
 ```bash
-# 克隆仓库后进入目录
-cd dev/cli-tools/smart-router
-
-# 安装（开发模式）
-pip install -e ".[dev]"
+# 一键安装
+./script/install.sh
 
 # 验证安装
-smart-router --help
+smr doctor
 ```
+
+安装脚本会自动完成：
+1. 检查 Python 3.9+ 环境
+2. 安装依赖（开发模式）
+3. 验证安装
+4. 生成默认配置文件
 
 ### 配置文件
 
@@ -278,6 +276,61 @@ export MINIMAX_API_KEY="..."
 # 智谱
 export ZHIPU_API_KEY="..."
 ```
+
+---
+
+## 命令速查表
+
+> 快速查找常用命令，详细说明见下方 [CLI 命令详解](#cli-命令详解)
+
+### 安装与卸载
+
+```bash
+./script/install.sh         # 一键安装
+./script/uninstall.sh       # 一键卸载
+```
+
+### 服务管理
+
+```bash
+smr start                   # 后台启动（推荐）
+smr start -f                # 前台运行（调试）
+smr stop                    # 停止服务
+smr restart                 # 重启服务
+smr status                  # 查看运行状态
+smr logs                    # 查看最后 50 行日志
+smr logs -f                 # 持续跟踪日志（tail -f）
+```
+
+### 配置管理
+
+```bash
+smr init                    # 生成默认配置文件
+smr init -o ~/config/my.yaml        # 指定输出路径
+smr validate                # 验证配置文件
+```
+
+### 路由测试
+
+```bash
+smr dry-run "帮我审查代码"          # 测试路由决策
+smr dry-run "写文章" -s quality     # 指定 quality 策略
+```
+
+### 诊断工具
+
+```bash
+smr doctor                  # 运行健康检查
+```
+
+### 查看帮助
+
+```bash
+smr --help                  # 查看所有命令
+smr start --help            # 查看具体命令帮助
+```
+
+> 💡 **提示**: `smr` 是 `smart-router` 的短命令别名，两者完全等价
 
 ---
 
@@ -849,7 +902,7 @@ messages = [
 #!/bin/bash
 export OPENAI_API_KEY="sk-..."
 export ANTHROPIC_API_KEY="sk-..."
-cd ~/aiLabGoGo/dev/cli-tools/smart-router
+cd ~/smartRouter
 smart-router start
 
 # 创建停止脚本 ~/stop-smart-router.sh
@@ -874,7 +927,7 @@ After=network.target
 [Service]
 Type=simple
 User=your-user
-WorkingDirectory=/home/your-user/aiLabGoGo/dev/cli-tools/smart-router
+WorkingDirectory=/home/your-user/smartRouter
 Environment="OPENAI_API_KEY=sk-..."
 Environment="ANTHROPIC_API_KEY=sk-..."
 ExecStart=/usr/local/bin/smart-router start --foreground
