@@ -59,33 +59,13 @@ def version(
 
 @app.command()
 def init(
-    path: Optional[Path] = typer.Option(
-        Path("smart-router.yaml"),
-        "--output", "-o",
-        help="输出配置文件路径"
-    )
-):
-    """在当前目录生成默认配置文件"""
-    if path.exists():
-        overwrite = typer.confirm(f"{path} 已存在，是否覆盖？")
-        if not overwrite:
-            console.print("[yellow]已取消[/yellow]")
-            raise typer.Exit()
-    
-    shutil.copy(DEFAULT_CONFIG, path)
-    console.print(f"[green]✓[/green] 配置文件已生成: {path}")
-    console.print("[dim]请编辑文件中的 API Key，然后运行 `smart-router start` 启动服务[/dim]")
-
-
-@app.command(name="init-v3")
-def init_v3(
     output_dir: Path = typer.Option(
         Path("."),
         "--output", "-o",
-        help="V3 配置文件输出目录"
+        help="配置文件输出目录"
     )
 ):
-    """生成 V3 三文件配置模板 (providers.yaml + models.yaml + routing.yaml)"""
+    """生成默认配置文件 (providers.yaml + models.yaml + routing.yaml)"""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -104,7 +84,7 @@ def init_v3(
             raise typer.Exit()
     
     # providers.yaml
-    providers_content = '''# V3 Providers Configuration
+    providers_content = '''# Providers Configuration
 # 定义 API 服务商的连接信息
 
 providers:
@@ -130,7 +110,7 @@ providers:
 '''
     
     # models.yaml
-    models_content = '''# V3 Models Configuration
+    models_content = '''# Models Configuration
 # 定义模型的能力和支持的任务
 
 models:
@@ -169,7 +149,7 @@ models:
 '''
     
     # routing.yaml
-    routing_content = '''# V3 Routing Configuration
+    routing_content = '''# Routing Configuration
 # 定义任务类型和路由策略
 
 tasks:
@@ -228,12 +208,11 @@ fallback:
     (output_dir / "models.yaml").write_text(models_content)
     (output_dir / "routing.yaml").write_text(routing_content)
     
-    console.print(f"[green]✓[/green] V3 配置文件已生成到: {output_dir.absolute()}")
+    console.print(f"[green]✓[/green] 配置文件已生成到: {output_dir.absolute()}")
     console.print("  - providers.yaml")
     console.print("  - models.yaml")
     console.print("  - routing.yaml")
-    console.print("[dim]请编辑文件中的 API Key，了解配置格式请参考文档[/dim]")
-
+    console.print("[dim]请编辑文件中的 API Key，然后运行 `smart-router start` 启动服务[/dim]")
 
 @app.command()
 def start(

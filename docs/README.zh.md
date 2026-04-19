@@ -72,15 +72,9 @@ rm -rf ~/.smart-router
 
 ### 2. 初始化配置
 
-Smart Router 支持两种配置格式：
-
-#### 方案 A: V3 配置（推荐 - 全新！）
-
-三文件解耦架构，更易维护：
-
 ```bash
-# 生成 V3 配置文件
-smart-router init-v3
+# 生成配置文件
+smart-router init
 
 # 编辑三个配置文件
 vim providers.yaml  # API Key 和基础 URL
@@ -88,32 +82,12 @@ vim models.yaml     # 模型能力声明
 vim routing.yaml    # 任务定义和路由策略
 ```
 
-**V3 优势：**
-- **Provider-Model 分离**：每个服务商的 API Key 只需定义一次
-- **基于能力的路由**：模型声明 quality/speed/cost 评分
-- **动态模型选择**：无需手动维护 15 个路由列表
-- **自动 Fallback 推导**：Fallback 链自动计算
+Smart Router 采用三文件解耦架构：
+- **providers.yaml** - 服务商的 API Key 和基础 URL
+- **models.yaml** - 模型能力声明（quality/speed/cost 评分）
+- **routing.yaml** - 任务定义和路由策略
 
-详见 [V3 配置说明](#v3-配置说明)。
-
-#### 方案 B: 传统配置（V2）
-
-```bash
-# 生成单文件配置
-smart-router init
-
-# 编辑配置，填入你的 API Key
-vim smart-router.yaml
-```
-
-配置示例：
-```yaml
-model_list:
-  - model_name: gpt-4o
-    litellm_params:
-      model: openai/gpt-4o
-      api_key: os.environ/OPENAI_API_KEY
-```
+详见 [配置说明](#配置说明)。
 
 ### 3. 启动服务（后台运行）
 
@@ -196,8 +170,7 @@ response = client.chat.completions.create(
 
 | 命令 | 说明 |
 |------|------|
-| `smart-router init` | 生成默认配置（V2） |
-| `smart-router init-v3` | 生成 V3 三文件配置（推荐） |
+| `smart-router init` | 生成默认配置 |
 | `smart-router doctor` | 运行健康检查（包含配置验证） |
 | `smart-router dry-run "提示文本"` | 测试路由决策 |
 
@@ -234,9 +207,7 @@ response = client.chat.completions.create(
 
 ## ⚙️ 配置说明
 
-### V3 配置（推荐）
-
-V3 采用三文件解耦架构：
+Smart Router 采用三文件解耦架构：
 
 ```
 config/
@@ -309,10 +280,6 @@ fallback:
 - 路由动态计算，无需手动维护列表
 - Fallback 链根据能力相似度自动推导
 - 关注点分离，配置更清晰
-
-### 传统配置（V2）
-
-详见 `config/smart-router.yaml` 中的详细注释。
 
 ### 路由策略
 

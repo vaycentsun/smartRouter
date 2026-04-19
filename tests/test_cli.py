@@ -32,24 +32,24 @@ class TestInitCommand:
     """init 命令测试"""
     
     def test_init_creates_config(self):
-        """测试 init 生成配置文件"""
+        """测试 init 生成三文件配置"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "test-config.yaml"
-            
-            result = runner.invoke(app, ["init", "--output", str(config_path)])
+            result = runner.invoke(app, ["init", "--output", str(tmpdir)])
             
             assert result.exit_code == 0
-            assert config_path.exists()
+            assert (Path(tmpdir) / "providers.yaml").exists()
+            assert (Path(tmpdir) / "models.yaml").exists()
+            assert (Path(tmpdir) / "routing.yaml").exists()
             assert "配置文件已生成" in result.stdout
     
     def test_init_prompts_on_existing(self):
         """测试已存在文件时提示"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "test-config.yaml"
-            config_path.write_text("dummy")
+            # 创建已存在的文件
+            (Path(tmpdir) / "providers.yaml").write_text("dummy")
             
             # 输入 'n' 取消覆盖
-            result = runner.invoke(app, ["init", "--output", str(config_path)], input="n\n")
+            result = runner.invoke(app, ["init", "--output", str(tmpdir)], input="n\n")
             
             assert result.exit_code == 0
             assert "已取消" in result.stdout

@@ -72,15 +72,9 @@ rm -rf ~/.smart-router
 
 ### 2. Initialize Configuration
 
-Smart Router supports two configuration formats:
-
-#### Option A: V3 Configuration (Recommended - New!)
-
-Three-file decoupled architecture for better maintainability:
-
 ```bash
-# Generate V3 config files
-smart-router init-v3
+# Generate config files
+smart-router init
 
 # Edit the three config files
 vim providers.yaml  # API keys and base URLs
@@ -88,32 +82,12 @@ vim models.yaml     # Model capabilities
 vim routing.yaml    # Task definitions and routing strategies
 ```
 
-**Benefits of V3:**
-- **Provider-Model separation**: API keys defined once per provider
-- **Capability-based routing**: Models declare quality/speed/cost scores
-- **Dynamic model selection**: No more manual maintenance of 15 routing lists
-- **Auto fallback derivation**: Fallback chains calculated automatically
+Smart Router uses a three-file decoupled architecture:
+- **providers.yaml** - API keys and base URLs per provider
+- **models.yaml** - Model capabilities (quality/speed/cost scores)
+- **routing.yaml** - Task definitions and routing strategies
 
-See [V3 Configuration Guide](#v3-configuration) for details.
-
-#### Option B: Legacy Configuration (V2)
-
-```bash
-# Generate single config file
-smart-router init
-
-# Edit config and add your API Keys
-vim smart-router.yaml
-```
-
-Example configuration:
-```yaml
-model_list:
-  - model_name: gpt-4o
-    litellm_params:
-      model: openai/gpt-4o
-      api_key: os.environ/OPENAI_API_KEY
-```
+See [Configuration Guide](#configuration) for details.
 
 ### 3. Start Service (Background)
 
@@ -196,8 +170,7 @@ response = client.chat.completions.create(
 
 | Command | Description |
 |---------|-------------|
-| `smart-router init` | Generate default configuration (V2) |
-| `smart-router init-v3` | Generate V3 three-file configuration (Recommended) |
+| `smart-router init` | Generate default configuration |
 | `smart-router doctor` | Run health check (includes config validation) |
 | `smart-router dry-run "prompt text"` | Test routing decision |
 
@@ -234,9 +207,7 @@ More details: [Stage Marker System](docs/GUIDE.md#stage-marker-system)
 
 ## ⚙️ Configuration
 
-### V3 Configuration (Recommended)
-
-V3 uses a three-file decoupled architecture:
+Smart Router uses a three-file decoupled architecture:
 
 ```
 config/
@@ -309,10 +280,6 @@ fallback:
 - Routing is dynamically calculated - no manual list maintenance
 - Fallback chains auto-derived from capability similarity
 - Clear separation of concerns
-
-### Legacy Configuration (V2)
-
-See detailed comments in `config/smart-router.yaml`.
 
 ### Routing Strategies
 
