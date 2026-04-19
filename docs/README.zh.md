@@ -20,8 +20,54 @@
 
 ### 1. 安装
 
+选择以下任一方式安装：
+
+#### 方式 A: pip 安装（推荐）
+
 ```bash
+pip install smart-router
+```
+
+#### 方式 B: 一行命令安装
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/install-remote.sh | bash
+```
+
+#### 方式 C: Homebrew (macOS/Linux)
+
+```bash
+brew tap vaycent/smart-router
+brew install smart-router
+```
+
+#### 方式 D: 本地安装（源码）
+
+```bash
+git clone https://github.com/vaycent/smartRouter.git
+cd smartRouter
 ./script/install.sh
+```
+
+#### 卸载
+
+一行命令卸载：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/uninstall.sh | bash
+```
+
+或手动卸载：
+
+```bash
+# 停止服务
+smart-router stop
+
+# 卸载包
+pip uninstall smart-router
+
+# 清理数据
+rm -rf ~/.smart-router
 ```
 
 ### 2. 初始化配置

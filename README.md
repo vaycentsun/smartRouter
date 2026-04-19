@@ -49,6 +49,27 @@ cd smartRouter
 ./script/install.sh
 ```
 
+### Uninstall
+
+One-line uninstall:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/uninstall.sh | bash
+```
+
+Or manually:
+
+```bash
+# Stop service
+smart-router stop
+
+# Uninstall package
+pip uninstall smart-router
+
+# Clean up data
+rm -rf ~/.smart-router
+```
+
 ### 2. Initialize Configuration
 
 Smart Router supports two configuration formats:
