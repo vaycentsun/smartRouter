@@ -7,68 +7,142 @@ server:
   master_key: "sk-smart-router-local"
 
 model_list:
-  # OpenAI
+  # ============================================================
+  # OpenAI (默认 api_base: https://api.openai.com/v1)
+  # ============================================================
   - model_name: gpt-4o-mini
     litellm_params:
       model: openai/gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
+      # api_base: https://api.openai.com/v1  # 默认，可省略
 
   - model_name: gpt-4o
     litellm_params:
       model: openai/gpt-4o
       api_key: os.environ/OPENAI_API_KEY
+      # api_base: https://api.openai.com/v1  # 默认，可省略
 
-  # Anthropic
+  # ============================================================
+  # Anthropic Claude (默认 api_base: https://api.anthropic.com)
+  # ============================================================
   - model_name: claude-3-sonnet
     litellm_params:
       model: anthropic/claude-3-5-sonnet-20241022
       api_key: os.environ/ANTHROPIC_API_KEY
+      # api_base: https://api.anthropic.com  # 默认，可省略
 
   - model_name: claude-3-opus
     litellm_params:
       model: anthropic/claude-3-opus-20240229
       api_key: os.environ/ANTHROPIC_API_KEY
+      # api_base: https://api.anthropic.com  # 默认，可省略
 
-  # DeepSeek
+  # ============================================================
+  # DeepSeek (默认 api_base: https://api.deepseek.com)
+  # ============================================================
   - model_name: deepseek-chat
     litellm_params:
       model: deepseek/deepseek-chat
       api_key: os.environ/DEEPSEEK_API_KEY
+      # api_base: https://api.deepseek.com/v1  # 默认，可省略
 
   - model_name: deepseek-r1
     litellm_params:
       model: deepseek/deepseek-reasoner
       api_key: os.environ/DEEPSEEK_API_KEY
+      # api_base: https://api.deepseek.com/v1  # 默认，可省略
 
-  # 阿里 Qwen
+  # ============================================================
+  # 阿里 Qwen (默认 api_base: https://dashscope.aliyuncs.com/compatible-mode/v1)
+  # ============================================================
   - model_name: qwen-turbo
     litellm_params:
       model: dashscope/qwen-turbo
       api_key: os.environ/DASHSCOPE_API_KEY
+      # api_base: https://dashscope.aliyuncs.com/compatible-mode/v1  # 默认，可省略
 
   - model_name: qwen-max
     litellm_params:
       model: dashscope/qwen-max
       api_key: os.environ/DASHSCOPE_API_KEY
+      # api_base: https://dashscope.aliyuncs.com/compatible-mode/v1  # 默认，可省略
 
-  # Moonshot Kimi
+  # ============================================================
+  # Moonshot Kimi (默认 api_base: https://api.moonshot.cn/v1)
+  # ============================================================
   - model_name: kimi-k2
     litellm_params:
       model: moonshot/moonshot-v1-8k
       api_key: os.environ/MOONSHOT_API_KEY
+      # api_base: https://api.moonshot.cn/v1  # 默认，可省略
 
-  # MiniMax
+  # ============================================================
+  # MiniMax (默认 api_base: https://api.minimaxi.chat/v1)
+  # ============================================================
   - model_name: minimax-m2
     litellm_params:
       model: minimax/MiniMax-Text-01
       api_key: os.environ/MINIMAX_API_KEY
+      # api_base: https://api.minimaxi.chat/v1  # 默认，可省略
 
-  # 智谱 GLM（OpenAI-compatible）
+  # ============================================================
+  # 智谱 GLM (OpenAI-compatible 格式，必须指定 api_base)
+  # ============================================================
   - model_name: glm-5
     litellm_params:
       model: openai/glm-5
       api_base: https://open.bigmodel.cn/api/paas/v4
       api_key: os.environ/ZHIPU_API_KEY
+
+  # ============================================================
+  # 其他国产模型（OpenAI-compatible，取消注释使用）
+  # ============================================================
+
+  # ---------- 百川 Baichuan (https://api.baichuan-ai.com/v1) ----------
+  # - model_name: baichuan-4
+  #   litellm_params:
+  #     model: openai/Baichuan4
+  #     api_base: https://api.baichuan-ai.com/v1
+  #     api_key: os.environ/BAICHUAN_API_KEY
+
+  # ---------- 零一万物 Yi (https://api.lingyiwanwu.com/v1) ----------
+  # - model_name: yi-large
+  #   litellm_params:
+  #     model: openai/yi-large
+  #     api_base: https://api.lingyiwanwu.com/v1
+  #     api_key: os.environ/YI_API_KEY
+
+  # ---------- 讯飞星火 Spark (https://spark-api-open.xf-yun.com/v1) ----------
+  # - model_name: spark-max
+  #   litellm_params:
+  #     model: openai/generalv3.5
+  #     api_base: https://spark-api-open.xf-yun.com/v1
+  #     api_key: os.environ/SPARK_API_KEY
+
+  # ============================================================
+  # 本地部署模型（取消注释使用）
+  # ============================================================
+
+  # ---------- Ollama (本地 http://localhost:11434) ----------
+  # - model_name: llama3-local
+  #   litellm_params:
+  #     model: ollama/llama3
+  #     api_base: http://localhost:11434
+  #     # api_key: "dummy"  # Ollama 不需要 API key
+
+  # ---------- vLLM (本地 http://localhost:8000/v1) ----------
+  # - model_name: qwen-local
+  #   litellm_params:
+  #     model: openai/Qwen-7B
+  #     api_base: http://localhost:8000/v1
+  #     # api_key: "dummy"  # 本地服务可能不需要 key
+
+  # ---------- LM Studio (本地 http://localhost:1234/v1) ----------
+  # - model_name: lmstudio-local
+  #   litellm_params:
+  #     model: openai/local-model
+  #     api_base: http://localhost:1234/v1
+  #     api_key: "dummy"
 
 smart_router:
   default_strategy: auto

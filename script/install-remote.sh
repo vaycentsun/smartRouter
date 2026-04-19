@@ -146,20 +146,69 @@ server:
   master_key: "sk-smart-router-local"
 
 model_list:
-  # OpenAI 示例配置
+  # ============================================================
+  # OpenAI (默认 api_base: https://api.openai.com/v1)
+  # ============================================================
   # - model_name: gpt-4o
   #   litellm_params:
   #     model: openai/gpt-4o
   #     api_key: os.environ/OPENAI_API_KEY
-  
-  # Anthropic 示例配置
+  #     # api_base: https://api.openai.com/v1  # 默认，可省略
+
+  # - model_name: gpt-4o-mini
+  #   litellm_params:
+  #     model: openai/gpt-4o-mini
+  #     api_key: os.environ/OPENAI_API_KEY
+  #     # api_base: https://api.openai.com/v1  # 默认，可省略
+
+  # ============================================================
+  # Anthropic Claude (默认 api_base: https://api.anthropic.com)
+  # ============================================================
   # - model_name: claude-3-sonnet
   #   litellm_params:
-  #     model: anthropic/claude-3-sonnet-20240229
+  #     model: anthropic/claude-3-5-sonnet-20241022
   #     api_key: os.environ/ANTHROPIC_API_KEY
+  #     # api_base: https://api.anthropic.com  # 默认，可省略
+
+  # ============================================================
+  # DeepSeek (默认 api_base: https://api.deepseek.com/v1)
+  # ============================================================
+  # - model_name: deepseek-chat
+  #   litellm_params:
+  #     model: deepseek/deepseek-chat
+  #     api_key: os.environ/DEEPSEEK_API_KEY
+  #     # api_base: https://api.deepseek.com/v1  # 默认，可省略
+
+  # ============================================================
+  # 阿里 Qwen (默认 api_base: https://dashscope.aliyuncs.com/compatible-mode/v1)
+  # ============================================================
+  # - model_name: qwen-turbo
+  #   litellm_params:
+  #     model: dashscope/qwen-turbo
+  #     api_key: os.environ/DASHSCOPE_API_KEY
+  #     # api_base: https://dashscope.aliyuncs.com/compatible-mode/v1  # 默认，可省略
+
+  # ============================================================
+  # Moonshot Kimi (默认 api_base: https://api.moonshot.cn/v1)
+  # ============================================================
+  # - model_name: kimi-k2
+  #   litellm_params:
+  #     model: moonshot/moonshot-v1-8k
+  #     api_key: os.environ/MOONSHOT_API_KEY
+  #     # api_base: https://api.moonshot.cn/v1  # 默认，可省略
+
+  # ============================================================
+  # 智谱 GLM (OpenAI-compatible 格式，必须指定 api_base)
+  # ============================================================
+  # - model_name: glm-5
+  #   litellm_params:
+  #     model: openai/glm-5
+  #     api_base: https://open.bigmodel.cn/api/paas/v4
+  #     api_key: os.environ/ZHIPU_API_KEY
 
 smart_router:
   default_strategy: auto
+
   stage_routing:
     code_review:
       easy: ["gpt-4o-mini"]

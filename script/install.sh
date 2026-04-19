@@ -18,7 +18,7 @@ fi
 
 # 安装依赖
 echo "📦 安装依赖..."
-pip install -q -e ".[dev]"
+python3 -m pip install -q -e ".[dev]"
 
 # 验证安装
 echo "✅ 验证安装..."
