@@ -3,6 +3,52 @@
 
 > 本文档供 AI 编码助手阅读，包含项目架构、开发约定和关键信息。
 
+## 开发工作流约定
+
+本项目使用 **sw-superpower** 技能集进行软件开发。所有代码修改必须遵循对应 skill 的流程：
+
+### 可用 Skills (位于 `skills/sw-superpower/`)
+
+| Skill | 用途 | 触发条件 |
+|-------|------|----------|
+| **sw-brainstorming** | 头脑风暴与需求分析 | 开始新功能开发 |
+| **sw-writing-specs** | 创建详细的实现计划 | 设计已批准，需要执行计划 |
+| **sw-subagent-development** | 使用子 Agent 执行计划 | 有实现计划，任务相对独立 |
+| **sw-test-driven-dev** | 强制 RED-GREEN-REFACTOR 循环 | 实现任何功能或修复 Bug |
+| **sw-code-review** | 两阶段代码审查 | 完成任务或功能后 |
+| **sw-systematic-debugging** | 系统化 Bug 调查 | 发现 Bug 或测试失败 |
+| **sw-verification-before-completion** | 标记完成前验证 | 准备标记任务完成 |
+| **sw-finishing-branch** | 验证、决策、清理分支 | 所有任务完成 |
+
+### 铁律
+
+1. **所有代码修改必须通过 sw-test-driven-dev**: RED → GREEN → REFACTOR
+2. **新功能必须先 sw-brainstorming**: 产出设计文档到 `specs/active/`
+3. **任务完成后必须 sw-code-review**: 两阶段审查后才能标记完成
+4. **完成前必须 sw-verification-before-completion**: 验证测试、文档、规范一致性
+
+### 标准工作流
+
+```
+开始新功能
+    ↓
+sw-brainstorming → 输出: specs/active/YYYY-MM-DD--feature.md
+    ↓
+sw-writing-specs → 输出: specs/active/plans/YYYY-MM-DD--feature-plan.md
+    ↓
+sw-subagent-development (使用 TDD 开发每个子任务)
+    ↓
+sw-code-review (两阶段审查)
+    ↓
+sw-verification-before-completion
+    ↓
+sw-finishing-branch (如需合并)
+```
+
+### 参考资料
+
+- [sw-superpower README](./skills/sw-superpower/README.zh.md)
+
 ## 项目概述
 
 Smart Router（智能模型路由网关）是一个基于 LiteLLM Proxy 的本地 CLI 工具，对外暴露统一的 OpenAI API 接口，根据任务类型、难度和阶段标记自动将请求路由到最合适的底层大模型。
