@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -9,6 +10,7 @@ from rich.console import Console
 from .config.loader import ConfigLoader
 from .config.schema import Config
 from .plugin import SmartRouter
+from .utils.markers import parse_markers
 
 console = Console()
 
@@ -97,18 +99,89 @@ def start_server(config_path: Optional[Path] = None):
         
         app.state.smart_router = router
         
-        # 添加中间件设置响应头
-        class SmartRouterHeaderMiddleware(BaseHTTPMiddleware):
-            async def dispatch(self, request: Request, call_next):
+        # 在应用启动时只添加一次中间件
+        if not hasattr(app.state, '_smart_router_middleware_added'):
+            app.state._smart_router_middleware_added = True
+            
+            # 添加智能路由中间件（在请求处理前）
+            @app.middleware("http")
+            async def smart_router_middleware(request: Request, call_next):
+                # 只处理 chat/completions 请求
+                if request.url.path == "/v1/chat/completions" and request.method == "POST":
+                    try:
+                        # 读取请求体
+                        body = await request.body()
+                        if body:
+                            data = json.loads(body)
+                            original_model = data.get("model", "")
+                            
+                            # 检查是否需要智能路由
+                            should_route = (
+                                original_model in ("auto", "smart-router", "default") or
+                                original_model.startswith("stage:")
+                            )
+                            
+                            if should_route and hasattr(app.state, 'smart_router'):
+                                messages = data.get("messages", [])
+                                
+                                # 解析阶段标记
+                                markers = parse_markers(messages)
+                                
+                                # 确定任务类型
+                                if original_model.startswith("stage:"):
+                                    task_type = original_model.replace("stage:", "")
+                                    difficulty = markers.difficulty or "medium"
+                                elif markers.stage:
+                                    task_type = markers.stage
+                                    difficulty = markers.difficulty or "medium"
+                                else:
+                                    # 使用分类器
+                                    classification = app.state.smart_router.classifier.classify(messages)
+                                    task_type = classification.task_type
+                                    difficulty = classification.estimated_difficulty
+                                
+                                console.print(f"[cyan]智能路由: {original_model} -> 任务:{task_type}, 难度:{difficulty}[/cyan]")
+                                
+                                # 选择模型
+                                selected_result = app.state.smart_router.selector.select(
+                                    task_type=task_type,
+                                    difficulty=difficulty,
+                                    strategy="auto"
+                                )
+                                selected = selected_result.model_name if hasattr(selected_result, 'model_name') else str(selected_result)
+                                
+                                console.print(f"[green]智能路由: 选择模型 {selected}[/green]")
+                                
+                                # 修改请求体
+                                data["model"] = selected
+                                
+                                # 保存到 request.state 供后续使用
+                                request.state.smart_router_selected = selected
+                                request.state.smart_router_original = original_model
+                                request.state.smart_router_task = task_type
+                                
+                                # 重新构建请求体
+                                modified_body = json.dumps(data).encode("utf-8")
+                                
+                                # 创建新的请求，使用修改后的 body
+                                async def receive():
+                                    return {"type": "http.request", "body": modified_body, "more_body": False}
+                                
+                                request = Request(request.scope, receive, request._send)
+                    except Exception as e:
+                        console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
+                        import traceback
+                        console.print(traceback.format_exc())
+                
                 response = await call_next(request)
-                # 添加实际使用的模型到响应头
-                if hasattr(app.state, 'smart_router') and app.state.smart_router.last_selected_model:
-                    response.headers["X-Smart-Router-Model-Used"] = app.state.smart_router.last_selected_model
+                
+                # 添加响应头
+                if hasattr(request.state, 'smart_router_selected'):
+                    response.headers["X-Smart-Router-Model"] = request.state.smart_router_selected
+                    response.headers["X-Smart-Router-Original"] = request.state.smart_router_original
+                    response.headers["X-Smart-Router-Task"] = request.state.smart_router_task
+                
                 return response
-        
-        # 确保中间件只添加一次
-        if not any(isinstance(m, SmartRouterHeaderMiddleware) for m in app.user_middleware):
-            app.add_middleware(SmartRouterHeaderMiddleware)
         
         uvicorn.run(
             app,

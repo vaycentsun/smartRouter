@@ -307,3 +307,39 @@ models:
   #     context: 64000
   #   supported_tasks: [reasoning, analysis, code_review]
   #   difficulty_support: [medium, hard, expert]
+
+  # ==================== 智能路由专用 ====================
+  # 用于触发智能路由的虚拟模型
+  # 使用方式: 将模型名设置为 "auto" 或 "smart-router"，系统会根据任务自动选择最佳模型
+  auto:
+    provider: aliyun
+    litellm_model: openai/qwen3.6-plus
+    capabilities:
+      quality: 9
+      speed: 7
+      cost: 6
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  smart-router:
+    provider: aliyun
+    litellm_model: openai/qwen3.6-plus
+    capabilities:
+      quality: 9
+      speed: 7
+      cost: 6
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  stage-default:
+    provider: aliyun
+    litellm_model: openai/qwen3.6-plus
+    capabilities:
+      quality: 9
+      speed: 7
+      cost: 6
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
