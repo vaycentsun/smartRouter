@@ -8,7 +8,6 @@ models:
     litellm_model: openai/gpt-4o
     capabilities:
       quality: 9
-      speed: 8
       cost: 3
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
@@ -19,7 +18,6 @@ models:
     litellm_model: openai/gpt-4o-mini
     capabilities:
       quality: 6
-      speed: 9
       cost: 9
       context: 128000
     supported_tasks: [writing, explanation, translation, chat, brainstorming]
@@ -31,7 +29,6 @@ models:
     litellm_model: anthropic/claude-3-5-sonnet-20241022
     capabilities:
       quality: 9
-      speed: 7
       cost: 4
       context: 200000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
@@ -42,7 +39,6 @@ models:
     litellm_model: anthropic/claude-3-opus-20240229
     capabilities:
       quality: 10
-      speed: 5
       cost: 2
       context: 200000
     supported_tasks: [code_review, writing, creative, reasoning, analysis]
@@ -55,7 +51,6 @@ models:
     litellm_model: openai/moonshot-v1-8k
     capabilities:
       quality: 7
-      speed: 8
       cost: 7
       context: 8000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
@@ -66,7 +61,6 @@ models:
     litellm_model: openai/moonshot-v1-32k
     capabilities:
       quality: 7
-      speed: 8
       cost: 6
       context: 32000
     supported_tasks: [coding, code_review, writing, analysis, explanation, chat, brainstorming]
@@ -79,7 +73,6 @@ models:
     litellm_model: moonshot/kimi-k2.5
     capabilities:
       quality: 10      # 最智能模型，开源 SoTA 表现
-      speed: 7
       cost: 5
       context: 256000  # 256k 上下文
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
@@ -91,7 +84,6 @@ models:
     litellm_model: moonshot/kimi-k2-0905-preview
     capabilities:
       quality: 9       # 增强 Agentic Coding 能力
-      speed: 7
       cost: 6
       context: 256000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
@@ -102,7 +94,6 @@ models:
     litellm_model: moonshot/kimi-k2-0711-preview
     capabilities:
       quality: 9       # MoE 架构，1T 参数，32B 激活
-      speed: 7
       cost: 7
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
@@ -113,7 +104,6 @@ models:
     litellm_model: moonshot/kimi-k2-turbo-preview
     capabilities:
       quality: 8
-      speed: 10      # 高速版本，60-100 tokens/秒
       cost: 8
       context: 256000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
@@ -124,7 +114,6 @@ models:
     litellm_model: moonshot/kimi-k2-thinking
     capabilities:
       quality: 10     # 长思考模型，深度推理
-      speed: 4
       cost: 5
       context: 256000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
@@ -135,7 +124,6 @@ models:
     litellm_model: moonshot/kimi-k2-thinking-turbo
     capabilities:
       quality: 9      # 长思考高速版
-      speed: 8
       cost: 6
       context: 256000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, chat]
@@ -153,7 +141,6 @@ models:
     litellm_model: openai/qwen3.6-plus
     capabilities:
       quality: 9
-      speed: 7
       cost: 6
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
@@ -165,7 +152,6 @@ models:
     litellm_model: openai/qwen3.5-plus-2026-02-15
     capabilities:
       quality: 8
-      speed: 8
       cost: 7
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
@@ -177,7 +163,6 @@ models:
     litellm_model: openai/qwen3.5-122b-a10b
     capabilities:
       quality: 9
-      speed: 5
       cost: 5
       context: 32000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
@@ -189,7 +174,6 @@ models:
     litellm_model: openai/qwen3.6-flash-2026-04-16
     capabilities:
       quality: 7
-      speed: 10
       cost: 9
       context: 128000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
@@ -201,7 +185,6 @@ models:
     litellm_model: openai/qwen3.5-27b
     capabilities:
       quality: 7
-      speed: 8
       cost: 8
       context: 32000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
@@ -213,7 +196,6 @@ models:
     litellm_model: openai/tongyi-xiaomi-analysis-flash
     capabilities:
       quality: 6
-      speed: 9
       cost: 9
       context: 8000
     supported_tasks: [analysis, explanation, chat]
@@ -230,7 +212,6 @@ models:
     litellm_model: openai/glm-5.1
     capabilities:
       quality: 9
-      speed: 7
       cost: 5
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
@@ -242,7 +223,6 @@ models:
     litellm_model: openai/glm-5
     capabilities:
       quality: 8
-      speed: 7
       cost: 6
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
@@ -256,7 +236,6 @@ models:
     litellm_model: openai/glm-4-plus
     capabilities:
       quality: 8
-      speed: 7
       cost: 5
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
@@ -267,7 +246,6 @@ models:
     litellm_model: openai/glm-4-flash
     capabilities:
       quality: 6
-      speed: 9
       cost: 9
       context: 128000
     supported_tasks: [writing, explanation, chat, brainstorming]
@@ -279,7 +257,6 @@ models:
     litellm_model: openai/MiniMax-Text-01
     capabilities:
       quality: 7
-      speed: 8
       cost: 7
       context: 8000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
@@ -291,7 +268,6 @@ models:
   #   litellm_model: openai/deepseek-chat
   #   capabilities:
   #     quality: 8
-  #     speed: 6
   #     cost: 8
   #     context: 64000
   #   supported_tasks: [coding, code_review, writing, reasoning, analysis, explanation, chat]
@@ -302,7 +278,6 @@ models:
   #   litellm_model: openai/deepseek-reasoner
   #   capabilities:
   #     quality: 9
-  #     speed: 4
   #     cost: 7
   #     context: 64000
   #   supported_tasks: [reasoning, analysis, code_review]
@@ -316,7 +291,6 @@ models:
     litellm_model: openai/qwen3.6-plus
     capabilities:
       quality: 9
-      speed: 7
       cost: 6
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
@@ -327,7 +301,6 @@ models:
     litellm_model: openai/qwen3.6-plus
     capabilities:
       quality: 9
-      speed: 7
       cost: 6
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
@@ -338,7 +311,31 @@ models:
     litellm_model: openai/qwen3.6-plus
     capabilities:
       quality: 9
-      speed: 7
+      cost: 6
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+
+  # ==================== 策略路由专用 ====================
+  # 用于指定路由策略的虚拟模型
+  # 使用方式:
+  #   strategy-quality -> 选择 quality 最高的模型（质量优先）
+  #   strategy-cost    -> 选择 cost 最高的模型（成本优先，越高越便宜）
+  strategy-quality:
+    provider: aliyun
+    litellm_model: openai/qwen3.6-plus
+    capabilities:
+      quality: 9
+      cost: 6
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  strategy-cost:
+    provider: aliyun
+    litellm_model: openai/qwen3.6-plus
+    capabilities:
+      quality: 9
       cost: 6
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]

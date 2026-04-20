@@ -2,7 +2,7 @@
 
 三层解耦架构：
 - Provider 层: 服务商连接信息（API Key、Base URL）
-- Model 层: 模型能力声明（quality、speed、cost、支持的任务/难度）
+- Model 层: 模型能力声明（quality、cost、支持的任务/难度）
 - Routing 层: 任务定义与路由策略
 """
 
@@ -26,7 +26,7 @@ class ProviderConfig(BaseModel):
 class ModelCapabilities(BaseModel):
     """模型能力评分 (1-10)"""
     quality: int = Field(ge=1, le=10, description="质量评分，10=最高质量")
-    speed: int = Field(ge=1, le=10, description="响应速度，10=最快")
+
     cost: int = Field(ge=1, le=10, description="成本效率，10=最便宜")
     context: int = Field(gt=0, description="上下文窗口大小")
 
@@ -47,7 +47,7 @@ class TaskConfig(BaseModel):
     """任务类型配置"""
     name: str
     description: str
-    capability_weights: Dict[str, float]  # quality/speed/cost 权重
+    capability_weights: Dict[str, float]  # quality/cost 权重
     
     @model_validator(mode='after')
     def check_weights_sum(self):
@@ -67,7 +67,7 @@ class DifficultyConfig(BaseModel):
 class StrategyConfig(BaseModel):
     """路由策略配置"""
     description: str
-    # auto/quality/speed/cost 策略的具体逻辑由代码实现
+    # auto/quality/cost 策略的具体逻辑由代码实现
 
 
 class FallbackConfig(BaseModel):

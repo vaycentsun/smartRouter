@@ -52,7 +52,10 @@ class ModelSelector:
         Args:
             task_type: 任务类型
             difficulty: 难度 (easy/medium/hard)
-            strategy: 策略 (目前只有 auto)
+            strategy: 策略
+                - auto: 默认，基于 priority（quality 越高 priority 越低）
+                - quality: 质量优先，选择 quality 最高的模型
+                - cost: 成本优先，选择 cost 最高的模型（cost 越高越便宜）
             
         Returns:
             ModelSelectionResult
@@ -71,12 +74,16 @@ class ModelSelector:
             if supported_tasks and task_type not in supported_tasks:
                 continue
             
-            # 获取优先级
+            # 获取排序指标
             priority = capability.get("priority", 99)
+            quality = capability.get("quality", 5)
+            cost = capability.get("cost", 5)
             
             candidates.append({
                 "model_name": model_name,
                 "priority": priority,
+                "quality": quality,
+                "cost": cost,
                 "capability": capability
             })
         
@@ -90,18 +97,29 @@ class ModelSelector:
                 reason=f"无匹配模型，使用默认 (task={task_type}, difficulty={difficulty})"
             )
         
-        # 按优先级排序（数字小的优先）
-        candidates.sort(key=lambda x: x["priority"])
-        
-        # 选择优先级最高的
-        selected = candidates[0]
+        # 根据策略排序
+        if strategy == "quality":
+            # 质量优先：quality 越高越好
+            candidates.sort(key=lambda x: x["quality"], reverse=True)
+            selected = candidates[0]
+            reason = f"质量优先策略: quality={selected['quality']}"
+        elif strategy == "cost":
+            # 成本优先：cost 越高越便宜
+            candidates.sort(key=lambda x: x["cost"], reverse=True)
+            selected = candidates[0]
+            reason = f"成本优先策略: cost={selected['cost']} (越高越便宜)"
+        else:
+            # auto: 按 priority 排序（数字小的优先）
+            candidates.sort(key=lambda x: x["priority"])
+            selected = candidates[0]
+            reason = f"自动策略: priority={selected['priority']}"
         
         return ModelSelectionResult(
             model_name=selected["model_name"],
             task_type=task_type,
             difficulty=difficulty,
             confidence=0.9 if len(candidates) > 0 else 0.5,
-            reason=f"优先级最高 (priority={selected['priority']})"
+            reason=reason
         )
     
     def get_candidates(

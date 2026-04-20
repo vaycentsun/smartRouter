@@ -184,17 +184,15 @@ tasks:
     name: "代码生成"
     description: "编写代码、实现功能"
     capability_weights:
-      quality: 0.55
-      speed: 0.35
-      cost: 0.10
+      quality: 0.60
+      cost: 0.40
       
   chat:
     name: "日常对话"
     description: "闲聊、简单问答"
     capability_weights:
-      quality: 0.30
-      speed: 0.50
-      cost: 0.20
+      quality: 0.40
+      cost: 0.60
 
 difficulties:
   easy:
@@ -277,7 +275,8 @@ def logs(
 def dry_run(
     prompt: str = typer.Argument(..., help="测试路由的提示文本"),
     config: Optional[Path] = typer.Option(None, "--config", "-c", help="配置文件目录路径"),
-    show_all: bool = typer.Option(False, "--all", "-a", help="显示所有候选模型")
+    show_all: bool = typer.Option(False, "--all", "-a", help="显示所有候选模型"),
+    strategy: str = typer.Option("auto", "--strategy", "-s", help="路由策略: auto(自动), quality(质量优先), cost(成本优先)")
 ):
     """测试路由决策（不实际调用模型）"""
     # V3 配置：config 是配置目录
@@ -344,7 +343,9 @@ def dry_run(
         capabilities[model_name] = {
             "difficulties": list(model_config.difficulty_support),
             "task_types": list(model_config.supported_tasks),
-            "priority": priority
+            "priority": priority,
+            "quality": model_config.capabilities.quality,
+            "cost": model_config.capabilities.cost
         }
     
     default_model = max(cfg.models.items(), key=lambda x: x[1].capabilities.quality)[0] if cfg.models else "gpt-4o"
@@ -354,11 +355,12 @@ def dry_run(
     
     selection_result = selector.select(
         task_type=task_result.task_type,
-        difficulty=difficulty_result.difficulty
+        difficulty=difficulty_result.difficulty,
+        strategy=strategy
     )
     
     # 显示结果
-    table = Table(title="路由决策详情")
+    table = Table(title=f"路由决策详情 [策略: {strategy}]")
     table.add_column("步骤", style="cyan")
     table.add_column("结果", style="green")
     table.add_column("详情", style="dim")
@@ -549,7 +551,6 @@ def list_models(
         model_table.add_column("Provider", style="cyan", min_width=12)
         model_table.add_column("状态", justify="center", width=8)
         model_table.add_column("Quality", justify="center", width=8)
-        model_table.add_column("Speed", justify="center", width=8)
         model_table.add_column("Cost", justify="center", width=8)
         model_table.add_column("Context", justify="right", width=10)
         model_table.add_column("支持任务", style="dim", min_width=20)
@@ -572,7 +573,6 @@ def list_models(
             
             # 使用表情符号表示评分
             quality_stars = "★" * (caps.quality // 2) + "☆" * (5 - caps.quality // 2)
-            speed_stars = "★" * (caps.speed // 2) + "☆" * (5 - caps.speed // 2)
             cost_stars = "★" * (caps.cost // 2) + "☆" * (5 - caps.cost // 2)  # cost 越高越便宜
             
             # 格式化 context
@@ -593,7 +593,6 @@ def list_models(
                 model.provider,
                 status_text,
                 quality_stars,
-                speed_stars,
                 cost_stars,
                 context_str,
                 tasks_str

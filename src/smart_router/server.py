@@ -118,7 +118,8 @@ def start_server(config_path: Optional[Path] = None):
                             # 检查是否需要智能路由
                             should_route = (
                                 original_model in ("auto", "smart-router", "default") or
-                                original_model.startswith("stage:")
+                                original_model.startswith("stage:") or
+                                original_model.startswith("strategy-")
                             )
                             
                             if should_route and hasattr(app.state, 'smart_router'):
@@ -127,8 +128,20 @@ def start_server(config_path: Optional[Path] = None):
                                 # 解析阶段标记
                                 markers = parse_markers(messages)
                                 
-                                # 确定任务类型
-                                if original_model.startswith("stage:"):
+                                # 确定任务类型和策略
+                                strategy = "auto"  # 默认策略
+                                
+                                if original_model.startswith("strategy-"):
+                                    # strategy-quality 或 strategy-cost
+                                    strategy = original_model.replace("strategy-", "")
+                                    if markers.stage:
+                                        task_type = markers.stage
+                                        difficulty = markers.difficulty or "medium"
+                                    else:
+                                        classification = app.state.smart_router.classifier.classify(messages)
+                                        task_type = classification.task_type
+                                        difficulty = classification.estimated_difficulty
+                                elif original_model.startswith("stage:"):
                                     task_type = original_model.replace("stage:", "")
                                     difficulty = markers.difficulty or "medium"
                                 elif markers.stage:
@@ -140,13 +153,13 @@ def start_server(config_path: Optional[Path] = None):
                                     task_type = classification.task_type
                                     difficulty = classification.estimated_difficulty
                                 
-                                console.print(f"[cyan]智能路由: {original_model} -> 任务:{task_type}, 难度:{difficulty}[/cyan]")
+                                console.print(f"[cyan]智能路由: {original_model} -> 任务:{task_type}, 难度:{difficulty}, 策略:{strategy}[/cyan]")
                                 
                                 # 选择模型
                                 selected_result = app.state.smart_router.selector.select(
                                     task_type=task_type,
                                     difficulty=difficulty,
-                                    strategy="auto"
+                                    strategy=strategy
                                 )
                                 selected = selected_result.model_name if hasattr(selected_result, 'model_name') else str(selected_result)
                                 
