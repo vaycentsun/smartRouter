@@ -6,7 +6,7 @@ from .utils.markers import parse_markers, strip_markers, MarkerResult
 from .classifier import TaskClassifier
 from .classifier.types import ClassificationResult, get_default_classification
 from .selector.strategies import ModelSelector
-from .config.schema import Config
+from .config.schema import Config, ModelConfig
 
 
 class SmartRouter(Router):
@@ -22,18 +22,50 @@ class SmartRouter(Router):
         # 存储最后选中的模型，用于响应头
         self.last_selected_model: Optional[str] = None
         
+        # 从 V3 配置构建分类规则
+        classification_rules = [
+            {
+                "pattern": f"(?i)({task_config.name.lower().replace('_', '|')})",
+                "task_type": task_id,
+                "difficulty": "medium"
+            }
+            for task_id, task_config in config.routing.tasks.items()
+        ]
+        
+        embedding_config = {
+            "enabled": True,
+            "threshold": 0.6,
+            "default_task": "chat"
+        }
+        
         self.classifier = TaskClassifier(
-            rules=[r.model_dump() for r in config.smart_router.classification_rules],
-            embedding_config=config.smart_router.embedding_match.model_dump()
-        )
-        self.selector = ModelSelector(
-            routing_rules={
-                k: v.model_dump() for k, v in config.smart_router.stage_routing.items()
-            },
-            fallback_chain=config.smart_router.fallback_chain
+            rules=classification_rules,
+            embedding_config=embedding_config
         )
         
-        litellm_model_list = [m.model_dump() for m in config.model_list]
+        # 从 V3 配置构建 model_pool
+        capabilities = {}
+        for model_name, model_cfg in config.models.items():
+            priority = 11 - model_cfg.capabilities.quality
+            capabilities[model_name] = {
+                "difficulties": list(model_cfg.difficulty_support),
+                "task_types": list(model_cfg.supported_tasks),
+                "priority": priority
+            }
+        
+        default_model = max(config.models.items(), key=lambda x: x[1].capabilities.quality)[0] if config.models else "gpt-4o"
+        model_pool = {"capabilities": capabilities, "default_model": default_model}
+        
+        self.selector = ModelSelector(model_pool=model_pool)
+        
+        # 构建 LiteLLM 模型列表
+        litellm_model_list = []
+        for model_name in config.models.keys():
+            litellm_params = config.get_litellm_params(model_name)
+            litellm_model_list.append({
+                "model_name": model_name,
+                "litellm_params": litellm_params
+            })
         
         super().__init__(
             model_list=litellm_model_list,
@@ -67,11 +99,11 @@ class SmartRouter(Router):
         
         classification = self._get_classification(markers, messages)
         
-        available_models = [m.model_name for m in self.sr_config.model_list]
+        available_models = list(self.sr_config.models.keys())
         selected = self.selector.select(
             task_type=classification.task_type,
             difficulty=classification.estimated_difficulty,
-            strategy=self.sr_config.smart_router.default_strategy,
+            strategy="auto",
             model_list=available_models
         )
         

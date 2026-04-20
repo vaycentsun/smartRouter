@@ -13,8 +13,7 @@ from rich.align import Align
 from rich.text import Text
 from rich import box
 
-from .config.loader import load_config, validate_config
-from .config.v3_loader import ConfigV3Loader, ConfigV3Error
+from .config.loader import ConfigLoader, ConfigError, load_config
 from .classifier.task_classifier import TaskTypeClassifier
 from .classifier.difficulty_classifier import DifficultyClassifier
 from .selector.model_selector import ModelSelector
@@ -533,20 +532,34 @@ def logs(
 @app.command()
 def dry_run(
     prompt: str = typer.Argument(..., help="测试路由的提示文本"),
-    config: Optional[Path] = typer.Option(None, "--config", "-c", help="配置文件路径"),
+    config: Optional[Path] = typer.Option(None, "--config", "-c", help="配置文件目录路径"),
     show_all: bool = typer.Option(False, "--all", "-a", help="显示所有候选模型")
 ):
     """测试路由决策（不实际调用模型）"""
-    cfg = load_config(config)
+    # V3 配置：config 是配置目录
+    if config is None:
+        config_dir = Path.home() / ".smart-router"
+    else:
+        config_path = Path(config)
+        config_dir = config_path if config_path.is_dir() else config_path.parent
+    
+    loader = ConfigLoader(config_dir)
+    cfg = loader.load()
     
     messages = [{"role": "user", "content": prompt}]
     markers = parse_markers(messages)
     
     # 1. 任务分类
-    task_classifier = TaskTypeClassifier({
-        k: v.model_dump() if hasattr(v, 'model_dump') else v
-        for k, v in cfg.smart_router.task_types.items()
-    })
+    # 从 V3 routing.tasks 构建任务分类器配置
+    task_types_config = {
+        task_id: {
+            "name": task_config.name,
+            "description": task_config.description,
+            "capability_weights": task_config.capability_weights
+        }
+        for task_id, task_config in cfg.routing.tasks.items()
+    }
+    task_classifier = TaskTypeClassifier(task_types_config)
     
     if markers.stage:
         task_result = type('obj', (object,), {
@@ -566,17 +579,34 @@ def dry_run(
             'matched_rule': None
         })()
     else:
-        difficulty_classifier = DifficultyClassifier([
-            r.model_dump() if hasattr(r, 'model_dump') else r
-            for r in cfg.smart_router.difficulty_rules
-        ])
+        # 从 V3 routing.difficulties 构建难度分类器配置
+        difficulty_config = [
+            {
+                "pattern": ".*",  # 默认匹配所有
+                "difficulty": diff_id,
+                "description": diff_config.description,
+                "max_tokens": diff_config.max_tokens
+            }
+            for diff_id, diff_config in cfg.routing.difficulties.items()
+        ]
+        difficulty_classifier = DifficultyClassifier(difficulty_config)
         difficulty_result = difficulty_classifier.classify(prompt, task_type=task_result.task_type)
     
     # 3. 模型选择
-    selector = ModelSelector(
-        cfg.smart_router.model_pool.model_dump() if hasattr(cfg.smart_router.model_pool, 'model_dump')
-        else cfg.smart_router.model_pool
-    )
+    # 从 V3 models 构建 model_pool
+    capabilities = {}
+    for model_name, model_config in cfg.models.items():
+        priority = 11 - model_config.capabilities.quality  # quality 10 -> priority 1
+        capabilities[model_name] = {
+            "difficulties": list(model_config.difficulty_support),
+            "task_types": list(model_config.supported_tasks),
+            "priority": priority
+        }
+    
+    default_model = max(cfg.models.items(), key=lambda x: x[1].capabilities.quality)[0] if cfg.models else "gpt-4o"
+    model_pool = {"capabilities": capabilities, "default_model": default_model}
+    
+    selector = ModelSelector(model_pool)
     
     selection_result = selector.select(
         task_type=task_result.task_type,
@@ -646,10 +676,10 @@ def doctor(
         checks_failed += 2
     else:
         try:
-            # 尝试加载 V3 配置
-            loader = ConfigV3Loader(config_dir)
+            # 加载配置
+            loader = ConfigLoader(config_dir)
             cfg = loader.load()
-            console.print(f"[green]✓[/green] V3 配置加载成功 ({len(cfg.models)} 个模型)")
+            console.print(f"[green]✓[/green] 配置加载成功 ({len(cfg.models)} 个模型)")
             checks_passed += 1
             
             # 验证配置
@@ -663,8 +693,8 @@ def doctor(
                 console.print("[green]✓[/green] 配置验证通过")
                 checks_passed += 1
                 
-        except ConfigV3Error as e:
-            console.print(f"[red]✗[/red] V3 配置加载失败: {e}")
+        except ConfigError as e:
+            console.print(f"[red]✗[/red] 配置加载失败: {e}")
             checks_failed += 2
         except Exception as e:
             console.print(f"[red]✗[/red] 配置加载失败: {e}")

@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import Request
 from rich.console import Console
 
-from .config.loader import load_config, validate_config
+from .config.loader import ConfigLoader
 from .config.schema import Config
 from .plugin import SmartRouter
 
@@ -15,16 +15,36 @@ console = Console()
 
 def start_server(config_path: Optional[Path] = None):
     """启动 Smart Router 代理服务"""
-    config = load_config(config_path)
+    # config_path 是配置目录，不是单个文件
+    if config_path is None:
+        config_dir = Path.home() / ".smart-router"
+    else:
+        config_path = Path(config_path)
+        if config_path.is_dir():
+            config_dir = config_path
+        else:
+            config_dir = config_path.parent
     
-    errors = validate_config(config)
+    # 加载配置
+    try:
+        loader = ConfigLoader(config_dir)
+        config = loader.load()
+        console.print(f"[green]✓[/green] 配置已加载 ({len(config.models)} 个模型)")
+    except Exception as e:
+        console.print(f"[red]配置加载失败: {e}[/red]")
+        sys.exit(1)
+    
+    # 验证配置
+    errors = loader.validate()
     if errors:
         console.print("[red]配置验证失败:[/red]")
         for err in errors:
             console.print(f"  - {err}")
         sys.exit(1)
     
-    os.environ["LITELLM_MASTER_KEY"] = config.server.master_key
+    # 从环境变量获取 master_key
+    master_key = os.environ.get("SMART_ROUTER_MASTER_KEY", "sk-smart-router-local")
+    os.environ["LITELLM_MASTER_KEY"] = master_key
     
     console.print("[cyan]正在初始化智能路由...[/cyan]")
     router = SmartRouter(config=config)
@@ -34,13 +54,22 @@ def start_server(config_path: Optional[Path] = None):
         
         proxy_config = ProxyConfig()
         
+        # 将配置转换为 LiteLLM 格式
+        model_list = []
+        for model_name in config.models.keys():
+            litellm_params = config.get_litellm_params(model_name)
+            model_list.append({
+                "model_name": model_name,
+                "litellm_params": litellm_params
+            })
+        
         litellm_config = {
-            "model_list": [m.model_dump() for m in config.model_list],
+            "model_list": model_list,
             "router_settings": {
                 "routing_strategy": "simple-shuffle",
             },
             "general_settings": {
-                "master_key": config.server.master_key,
+                "master_key": master_key,
             }
         }
         
@@ -55,8 +84,12 @@ def start_server(config_path: Optional[Path] = None):
         import asyncio
         asyncio.run(initialize(config=config_path_temp))
         
-        console.print(f"[green]✓[/green] 配置加载完成，共 {len(config.model_list)} 个模型")
-        console.print(f"[green]✓[/green] 启动服务于 http://{config.server.host}:{config.server.port}")
+        # 从环境变量获取 host/port
+        host = os.environ.get("SMART_ROUTER_HOST", "127.0.0.1")
+        port = int(os.environ.get("SMART_ROUTER_PORT", "4000"))
+        
+        console.print(f"[green]✓[/green] 配置加载完成，共 {len(config.models)} 个模型")
+        console.print(f"[green]✓[/green] 启动服务于 http://{host}:{port}")
         
         import uvicorn
         from litellm.proxy.proxy_server import app
@@ -79,8 +112,8 @@ def start_server(config_path: Optional[Path] = None):
         
         uvicorn.run(
             app,
-            host=config.server.host,
-            port=config.server.port,
+            host=host,
+            port=port,
         )
         
     except ImportError as e:
