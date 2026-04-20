@@ -83,6 +83,43 @@ def init(
             console.print("[yellow]已取消[/yellow]")
             raise typer.Exit()
     
+    # 从项目示例文件复制配置
+    # 尝试多个可能的路径（开发环境和安装环境）
+    possible_paths = [
+        Path(__file__).parent.parent.parent / "config" / "examples" / "v3",  # 开发环境
+        Path(__file__).parent.parent / "config" / "examples" / "v3",         # 另一种开发环境
+        Path(__file__).parent / "config" / "examples" / "v3",                # 安装环境
+    ]
+    
+    examples_dir = None
+    for path in possible_paths:
+        if path.exists() and (path / "models.yaml").exists():
+            examples_dir = path
+            break
+    
+    if examples_dir:
+        # 从示例文件复制
+        import shutil
+        for filename in ["providers.yaml", "models.yaml", "routing.yaml"]:
+            src = examples_dir / filename
+            dst = output_dir / filename
+            if src.exists():
+                shutil.copy2(src, dst)
+        
+        console.print(f"[green]✓[/green] 配置文件已从示例复制到: {output_dir.absolute()}")
+    else:
+        # 回退：使用硬编码的默认配置
+        console.print("[yellow]⚠[/yellow] 未找到示例配置文件，使用默认配置...")
+        _write_default_configs(output_dir)
+    
+    console.print("  - providers.yaml")
+    console.print("  - models.yaml")
+    console.print("  - routing.yaml")
+    console.print("[dim]请编辑文件中的 API Key，然后运行 `smart-router start` 启动服务[/dim]")
+
+
+def _write_default_configs(output_dir: Path):
+    """写入默认配置文件（回退方案）"""
     # providers.yaml
     providers_content = '''# Providers Configuration
 # API 服务商连接配置
@@ -102,13 +139,11 @@ providers:
     
   # ==================== 国产服务商 ====================
   # ------------------ Moonshot (月之暗面) ------------------
-  # 国内版 (api.moonshot.cn)
   moonshot-cn:
     api_base: https://api.moonshot.cn/v1
     api_key: os.environ/MOONSHOT_CN_API_KEY
     timeout: 30
     
-  # 国际版 (api.moonshot.ai) - 适合海外用户
   moonshot-ai:
     api_base: https://api.moonshot.ai/v1
     api_key: os.environ/MOONSHOT_AI_API_KEY
@@ -129,355 +164,64 @@ providers:
     api_base: https://api.minimax.chat/v1
     api_key: os.environ/MINIMAX_API_KEY
     timeout: 30
-    
-  # ------------------ 其他可选服务商 ------------------
-  # deepseek:
-  #   api_base: https://api.deepseek.com
-  #   api_key: os.environ/DEEPSEEK_API_KEY
-  #   timeout: 30
-  #
-  # baichuan:
-  #   api_base: https://api.baichuan-ai.com/v1
-  #   api_key: os.environ/BAICHUAN_API_KEY
-  #   timeout: 30
 '''
     
-    # models.yaml
+    # models.yaml (简化版)
     models_content = '''# Models Configuration
 # 模型能力声明配置
-# 根据你实际拥有的 API Key，取消注释对应的模型
 
 models:
-  # ==================== OpenAI ====================
-  gpt-4o:
-    provider: openai
-    litellm_model: openai/gpt-4o
-    capabilities:
-      quality: 9
-      speed: 8
-      cost: 3
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard, expert]
-    
-  gpt-4o-mini:
-    provider: openai
-    litellm_model: openai/gpt-4o-mini
-    capabilities:
-      quality: 6
-      speed: 9
-      cost: 9
-      context: 128000
-    supported_tasks: [writing, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium]
-    
-  # ==================== Anthropic ====================
-  claude-3-5-sonnet:
-    provider: anthropic
-    litellm_model: anthropic/claude-3-5-sonnet-20241022
-    capabilities:
-      quality: 9
-      speed: 7
-      cost: 4
-      context: 200000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard, expert]
-    
-  claude-3-opus:
-    provider: anthropic
-    litellm_model: anthropic/claude-3-opus-20240229
-    capabilities:
-      quality: 10
-      speed: 5
-      cost: 2
-      context: 200000
-    supported_tasks: [code_review, writing, creative, reasoning, analysis]
-    difficulty_support: [hard, expert]
-    
-  # ==================== Moonshot (月之暗面) ====================
-  # 国内版 (api.moonshot.cn)
-  kimi-k2-cn:
-    provider: moonshot-cn
-    litellm_model: openai/moonshot-v1-8k
-    capabilities:
-      quality: 7
-      speed: 8
-      cost: 7
-      context: 8000
-    supported_tasks: [coding, writing, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium]
-    
-  kimi-k2-32k-cn:
-    provider: moonshot-cn
-    litellm_model: openai/moonshot-v1-32k
-    capabilities:
-      quality: 7
-      speed: 8
-      cost: 6
-      context: 32000
-    supported_tasks: [coding, code_review, writing, analysis, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard]
-    
-  # 国际版 (api.moonshot.ai)
-  kimi-k2-ai:
-    provider: moonshot-ai
-    litellm_model: openai/moonshot-v1-8k
-    capabilities:
-      quality: 7
-      speed: 8
-      cost: 7
-      context: 8000
-    supported_tasks: [coding, writing, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium]
-    
-  kimi-k2-32k-ai:
-    provider: moonshot-ai
-    litellm_model: openai/moonshot-v1-32k
-    capabilities:
-      quality: 7
-      speed: 8
-      cost: 6
-      context: 32000
-    supported_tasks: [coding, code_review, writing, analysis, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard]
-    
-  # ==================== 阿里通义千问 ====================
-  qwen-max:
-    provider: aliyun
-    litellm_model: openai/qwen-max
-    capabilities:
-      quality: 8
-      speed: 7
-      cost: 6
-      context: 32000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard]
-    
-  qwen-turbo:
-    provider: aliyun
-    litellm_model: openai/qwen-turbo
-    capabilities:
-      quality: 6
-      speed: 9
-      cost: 9
-      context: 8000
-    supported_tasks: [writing, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium]
-    
-  # ==================== 智谱 GLM ====================
-  glm-4-plus:
-    provider: zhipu
-    litellm_model: openai/glm-4-plus
-    capabilities:
-      quality: 8
-      speed: 7
-      cost: 5
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard]
-    
-  glm-4-flash:
-    provider: zhipu
-    litellm_model: openai/glm-4-flash
-    capabilities:
-      quality: 6
-      speed: 9
-      cost: 9
-      context: 128000
-    supported_tasks: [writing, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium]
-    
-  # ==================== MiniMax ====================
-  minimax-text-01:
-    provider: minimax
-    litellm_model: openai/MiniMax-Text-01
-    capabilities:
-      quality: 7
-      speed: 8
-      cost: 7
-      context: 8000
-    supported_tasks: [coding, writing, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium]
-    
-  # ------------------ 其他可选模型 ------------------
-  # deepseek-chat:
-  #   provider: deepseek
-  #   litellm_model: openai/deepseek-chat
-  #   capabilities:
-  #     quality: 8
-  #     speed: 6
-  #     cost: 8
-  #     context: 64000
-  #   supported_tasks: [coding, code_review, writing, reasoning, analysis, explanation, chat]
-  #   difficulty_support: [easy, medium, hard]
-  #
-  # deepseek-reasoner:
-  #   provider: deepseek
-  #   litellm_model: openai/deepseek-reasoner
-  #   capabilities:
-  #     quality: 9
-  #     speed: 4
-  #     cost: 7
-  #     context: 64000
-  #   supported_tasks: [reasoning, analysis, code_review]
-  #   difficulty_support: [medium, hard, expert]
+  # 请根据你的 API Key 配置启用对应的模型
+  # 详见: https://github.com/your-username/smart-router
 '''
     
     # routing.yaml
     routing_content = '''# Routing Configuration
-# 任务路由策略配置 - 适配多场景 AI 任务
+# 任务路由策略配置
 
 tasks:
-  # ==================== 编程开发类 ====================
   coding:
     name: "代码生成"
-    description: "编写代码、实现功能、算法设计、Debug调试、代码重构"
+    description: "编写代码、实现功能"
     capability_weights:
-      quality: 0.55    # 代码质量重要但不需要顶级
-      speed: 0.35      # 编程交互需要快速响应
+      quality: 0.55
+      speed: 0.35
       cost: 0.10
       
-  code_review:
-    name: "代码审查"
-    description: "代码质量审查、bug发现、架构评估、性能优化建议、安全审计"
-    capability_weights:
-      quality: 0.70    # 审查质量至关重要
-      speed: 0.20
-      cost: 0.10
-      
-  # ==================== 内容创作类 ====================
-  writing:
-    name: "内容写作"
-    description: "文章撰写、邮件起草、报告编写、技术文档、商业文案"
-    capability_weights:
-      quality: 0.60    # 内容质量优先
-      speed: 0.25
-      cost: 0.15
-      
-  creative:
-    name: "创意写作"
-    description: "故事创作、诗歌、广告创意、营销文案、剧本"
-    capability_weights:
-      quality: 0.65    # 创意需要高质量
-      speed: 0.20
-      cost: 0.15
-      
-  # ==================== 分析推理类 ====================
-  reasoning:
-    name: "逻辑推理"
-    description: "数学问题、逻辑谜题、证明推导、算法分析、复杂问题求解"
-    capability_weights:
-      quality: 0.75    # 推理任务质量最关键
-      speed: 0.10
-      cost: 0.15
-      
-  analysis:
-    name: "数据分析"
-    description: "数据解读、趋势分析、商业分析、技术评估、竞争分析"
-    capability_weights:
-      quality: 0.60
-      speed: 0.20
-      cost: 0.20
-      
-  # ==================== 学习辅助类 ====================
-  explanation:
-    name: "知识讲解"
-    description: "概念解释、教程编写、答疑解惑、知识梳理、学习辅导"
-    capability_weights:
-      quality: 0.50
-      speed: 0.35      # 讲解需要较快响应
-      cost: 0.15
-      
-  translation:
-    name: "翻译"
-    description: "文本翻译、本地化、多语言转换、术语校对"
-    capability_weights:
-      quality: 0.60    # 翻译准确性重要
-      speed: 0.25
-      cost: 0.15
-      
-  # ==================== 通用交互类 ====================
   chat:
     name: "日常对话"
-    description: "闲聊、简单问答、日常交流、情感陪伴"
+    description: "闲聊、简单问答"
     capability_weights:
-      quality: 0.30    # 对话质量要求不高
-      speed: 0.50      # 对话最看重速度
-      cost: 0.20
-      
-  brainstorming:
-    name: "头脑风暴"
-    description: "想法生成、方案讨论、创意发散、问题解决"
-    capability_weights:
-      quality: 0.40
-      speed: 0.40      # 需要快速产生想法
+      quality: 0.30
+      speed: 0.50
       cost: 0.20
 
-# ==================== 难度等级定义 (4级) ====================
 difficulties:
   easy:
     name: "简单"
-    description: "基础问答、简单解释、短文本生成、单轮对话"
+    description: "基础问答"
     max_tokens: 2000
-    examples: "解释概念、写简短邮件、简单代码片段、日常问候"
     
   medium:
     name: "中等"
-    description: "多轮对话、中等长度内容、标准编程任务、常规分析"
+    description: "多轮对话"
     max_tokens: 8000
-    examples: "博客文章、功能模块实现、代码审查、数据报告"
-    
-  hard:
-    name: "困难"
-    description: "长文创作、复杂推理、架构设计、深度分析"
-    max_tokens: 16000
-    examples: "系统架构设计、复杂算法、深度技术文章、商业策略"
-    
-  expert:
-    name: "专家"
-    description: "研究级问题、深度分析、创新设计、复杂证明"
-    max_tokens: 32000
-    examples: "研究论文、复杂数学证明、创新性解决方案、博士级问题"
 
-# ==================== 路由策略 ====================
 strategies:
   auto:
     name: "智能自动"
     description: "根据任务类型和难度动态计算最佳模型"
-    
-  quality:
-    name: "质量优先"
-    description: "选择 capability.quality 最高的模型"
-    
-  speed:
-    name: "速度优先"
-    description: "选择 capability.speed 最高的模型"
-    
-  cost:
-    name: "成本优先"
-    description: "选择 capability.cost 最高的模型（最便宜）"
-    
-  balanced:
-    name: "平衡模式"
-    description: "quality和speed权重相等(各0.4)"
 
-# ==================== Fallback 配置 ====================
 fallback:
   mode: auto
-  similarity_threshold: 2    # quality差异在2以内的模型可作为fallback
-  max_attempts: 3           # 最多尝试3次fallback
+  similarity_threshold: 2
+  max_attempts: 3
 '''
     
     # 写入文件
     (output_dir / "providers.yaml").write_text(providers_content)
     (output_dir / "models.yaml").write_text(models_content)
     (output_dir / "routing.yaml").write_text(routing_content)
-    
-    console.print(f"[green]✓[/green] 配置文件已生成到: {output_dir.absolute()}")
-    console.print("  - providers.yaml")
-    console.print("  - models.yaml")
-    console.print("  - routing.yaml")
-    console.print("[dim]请编辑文件中的 API Key，然后运行 `smart-router start` 启动服务[/dim]")
 
 @app.command()
 def start(
