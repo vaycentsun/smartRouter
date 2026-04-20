@@ -76,7 +76,7 @@ models:
   # -------------------- Kimi K2.5 多模态模型系列 --------------------
   kimi-k2.5:
     provider: moonshot-ai
-    litellm_model: openai/kimi-k2.5
+    litellm_model: moonshot/kimi-k2.5
     capabilities:
       quality: 10      # 最智能模型，开源 SoTA 表现
       speed: 7
@@ -88,7 +88,7 @@ models:
   # -------------------- Kimi K2 模型系列 --------------------
   kimi-k2-0905:
     provider: moonshot-ai
-    litellm_model: openai/kimi-k2-0905-preview
+    litellm_model: moonshot/kimi-k2-0905-preview
     capabilities:
       quality: 9       # 增强 Agentic Coding 能力
       speed: 7
@@ -99,7 +99,7 @@ models:
     
   kimi-k2-0711:
     provider: moonshot-ai
-    litellm_model: openai/kimi-k2-0711-preview
+    litellm_model: moonshot/kimi-k2-0711-preview
     capabilities:
       quality: 9       # MoE 架构，1T 参数，32B 激活
       speed: 7
@@ -110,7 +110,7 @@ models:
     
   kimi-k2-turbo:
     provider: moonshot-ai
-    litellm_model: openai/kimi-k2-turbo-preview
+    litellm_model: moonshot/kimi-k2-turbo-preview
     capabilities:
       quality: 8
       speed: 10      # 高速版本，60-100 tokens/秒
@@ -121,7 +121,7 @@ models:
     
   kimi-k2-thinking:
     provider: moonshot-ai
-    litellm_model: openai/kimi-k2-thinking
+    litellm_model: moonshot/kimi-k2-thinking
     capabilities:
       quality: 10     # 长思考模型，深度推理
       speed: 4
@@ -132,7 +132,7 @@ models:
     
   kimi-k2-thinking-turbo:
     provider: moonshot-ai
-    litellm_model: openai/kimi-k2-thinking-turbo
+    litellm_model: moonshot/kimi-k2-thinking-turbo
     capabilities:
       quality: 9      # 长思考高速版
       speed: 8
