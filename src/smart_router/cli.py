@@ -781,8 +781,19 @@ def list(
         console.print(provider_table)
         console.print("")
         
+        # 预先检查每个 provider 是否有有效的 API Key
+        def is_provider_available(provider_name: str) -> bool:
+            """检查 provider 是否配置了有效的 API Key"""
+            if provider_name not in cfg.providers:
+                return False
+            provider = cfg.providers[provider_name]
+            if provider.api_key.startswith("os.environ/"):
+                env_var = provider.api_key.replace("os.environ/", "")
+                return os.environ.get(env_var) is not None
+            return True  # 直接配置了 key
+        
         # 显示 Models 表格
-        console.print(Panel.fit("🤖 可用模型清单", style="bold blue"))
+        console.print(Panel.fit("🤖 模型清单", style="bold blue"))
         
         model_table = Table(
             title="",
@@ -790,16 +801,31 @@ def list(
             show_header=True,
             header_style="bold cyan"
         )
-        model_table.add_column("模型名称", style="bold green", min_width=18)
+        model_table.add_column("模型名称", min_width=18)
         model_table.add_column("Provider", style="cyan", min_width=12)
+        model_table.add_column("状态", justify="center", width=8)
         model_table.add_column("Quality", justify="center", width=8)
         model_table.add_column("Speed", justify="center", width=8)
         model_table.add_column("Cost", justify="center", width=8)
         model_table.add_column("Context", justify="right", width=10)
-        model_table.add_column("支持任务", style="dim", min_width=25)
+        model_table.add_column("支持任务", style="dim", min_width=20)
+        
+        available_count = 0
+        unavailable_count = 0
         
         for name, model in cfg.models.items():
             caps = model.capabilities
+            provider_available = is_provider_available(model.provider)
+            
+            if provider_available:
+                available_count += 1
+                name_style = f"[bold green]{name}[/bold green]"
+                status_text = "[green]✓[/green]"
+            else:
+                unavailable_count += 1
+                name_style = f"[dim]{name}[/dim]"
+                status_text = "[red]✗[/red]"
+            
             # 使用表情符号表示评分
             quality_stars = "★" * (caps.quality // 2) + "☆" * (5 - caps.quality // 2)
             speed_stars = "★" * (caps.speed // 2) + "☆" * (5 - caps.speed // 2)
@@ -819,8 +845,9 @@ def list(
                 tasks_str += f" [dim]+{len(model.supported_tasks) - 3}[/dim]"
             
             model_table.add_row(
-                name,
+                name_style,
                 model.provider,
+                status_text,
                 quality_stars,
                 speed_stars,
                 cost_stars,
@@ -848,13 +875,20 @@ def list(
         
         stats_text = Text()
         stats_text.append(f"Providers: {total_providers} 个 | ", style="cyan")
-        stats_text.append(f"模型: {total_models} 个 | ", style="green")
+        stats_text.append(f"模型: {available_count} 可用", style="green")
+        if unavailable_count > 0:
+            stats_text.append(f" / {unavailable_count} 不可用", style="red")
+        stats_text.append(f" | ", style="dim")
         if missing_keys > 0:
             stats_text.append(f"API Key 缺失: {missing_keys} 个", style="red")
         else:
             stats_text.append("API Key 配置完整 ✓", style="green")
         
         console.print(Panel(stats_text, border_style="dim"))
+        
+        # 显示提示信息
+        if unavailable_count > 0:
+            console.print("[dim]提示: 灰色显示的模型因对应 Provider 未配置 API Key 而不可用[/dim]")
         
     except ConfigError as e:
         console.print(f"[red]✗[/red] 配置加载失败: {e}")

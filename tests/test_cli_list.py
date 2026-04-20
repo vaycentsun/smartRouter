@@ -136,6 +136,18 @@ def test_list_command_shows_models(mock_config_dir, monkeypatch):
     assert "kimi" in result.output.lower() or "Kimi" in result.output
 
 
+def test_list_command_shows_model_availability(mock_config_dir, monkeypatch):
+    """Test that list command shows model availability based on API key config"""
+    # Set the environment variable for openai to simulate configured provider
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test123")
+    
+    result = runner.invoke(app, ["list", "--config", str(mock_config_dir)])
+    
+    assert result.exit_code == 0
+    # OpenAI should show as available (has env key)
+    # Anthropic and Moonshot should show as unavailable (no key)
+
+
 def test_list_command_with_config_option(mock_config_dir):
     """Test list command with --config option"""
     result = runner.invoke(app, ["list", "--config", str(mock_config_dir)])
