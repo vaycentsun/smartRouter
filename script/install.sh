@@ -1,13 +1,13 @@
 #!/bin/bash
-# Smart Router 一键安装脚本 (V3)
+# Smart Router 一键安装脚本 (V3) - 生产环境版本
+# 将 venv 和代码完全安装到 ~/.smart-router/，与开发目录完全分离
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/.."
-cd "$PROJECT_DIR"
 
-echo "🚀 正在安装 Smart Router..."
+echo "🚀 正在安装 Smart Router (生产环境)..."
 
 # 检查 Python 版本
 python_version=$(python3 --version 2>&1 | awk '{print $2}' | cut -d. -f1,2)
@@ -32,79 +32,99 @@ if pip3 show smart-router &> /dev/null; then
     pip3 uninstall -q -y smart-router 2>/dev/null || true
 fi
 
-# 3. 清理旧的单文件配置（V1/V2 的 smart-router.yaml）
-if [ -f "$PROJECT_DIR/smart-router.yaml" ]; then
-    echo "  🗑️  备份并移除旧的 V1/V2 配置文件..."
-    mv "$PROJECT_DIR/smart-router.yaml" "$PROJECT_DIR/smart-router.yaml.backup.$(date +%Y%m%d)"
-    echo "    已备份为: smart-router.yaml.backup.$(date +%Y%m%d)"
-fi
-
-# 4. 如果 ~/.smart-router 存在旧配置，备份并清理
+# 3. 配置目录
 CONFIG_DIR="$HOME/.smart-router"
-if [ -d "$CONFIG_DIR" ]; then
-    # 检查是否有 V3 配置文件
-    if [ ! -f "$CONFIG_DIR/providers.yaml" ] && [ ! -f "$CONFIG_DIR/models.yaml" ]; then
-        echo "  🗑️  发现旧数据目录，备份到 ~/.smart-router.backup..."
-        rm -rf "$CONFIG_DIR.backup" 2>/dev/null || true
-        mv "$CONFIG_DIR" "$CONFIG_DIR.backup.$(date +%Y%m%d)"
-        mkdir -p "$CONFIG_DIR"
-    fi
-fi
+VENV_DIR="$CONFIG_DIR/venv"
 
-# 5. 清理旧的虚拟环境（如果存在且损坏）
-VENV_DIR="$PROJECT_DIR/venv"
-if [ -d "$VENV_DIR" ]; then
-    echo "  🗑️  清理旧虚拟环境..."
-    rm -rf "$VENV_DIR"
+# 4. 如果 ~/.smart-router 存在旧配置，备份
+if [ -d "$CONFIG_DIR" ]; then
+    echo "  🗑️  备份旧安装目录..."
+    rm -rf "$CONFIG_DIR.backup" 2>/dev/null || true
+    mv "$CONFIG_DIR" "$CONFIG_DIR.backup.$(date +%Y%m%d)"
 fi
 
 # ==================== 安装新版本 ====================
 
-# 创建虚拟环境
-echo "📦 创建虚拟环境..."
+# 创建配置目录和虚拟环境
+echo "📦 创建虚拟环境到 ~/.smart-router/venv..."
+mkdir -p "$CONFIG_DIR"
 python3 -m venv "$VENV_DIR"
 
-# 使用虚拟环境的 pip 安装
-echo "📦 安装依赖到虚拟环境..."
+# 创建临时目录复制源码进行安装（与开发目录完全分离）
+echo "📦 准备安装包..."
+TEMP_DIR=$(mktemp -d)
+trap "rm -rf $TEMP_DIR" EXIT
+
+# 复制项目文件到临时目录
+cp -r "$PROJECT_DIR/src" "$TEMP_DIR/"
+cp -r "$PROJECT_DIR/script" "$TEMP_DIR/"
+cp -r "$PROJECT_DIR/config" "$TEMP_DIR/" 2>/dev/null || true
+cp "$PROJECT_DIR/pyproject.toml" "$TEMP_DIR/"
+cp "$PROJECT_DIR/README.md" "$TEMP_DIR/" 2>/dev/null || true
+cp "$PROJECT_DIR/LICENSE" "$TEMP_DIR/" 2>/dev/null || true
+
+# 使用虚拟环境的 pip 安装（非 editable 模式）
+echo "📦 安装 Smart Router 到虚拟环境..."
+cd "$TEMP_DIR"
 "$VENV_DIR/bin/pip" install --upgrade pip -q
-"$VENV_DIR/bin/pip" install -q -e ".[dev]"
+"$VENV_DIR/bin/pip" install -q ".[dev]"
 
 # 验证安装
 echo "✅ 验证安装..."
-"$VENV_DIR/bin/python" script/verify.py
+"$VENV_DIR/bin/python" -c "
+from smart_router.classifier import TaskClassifier
+from smart_router.selector import ModelSelector
+from smart_router.utils.markers import parse_markers, strip_markers
+from smart_router.config.loader import ConfigLoader
+print('✓ 所有模块导入成功')
+"
 
 # 生成默认配置
 echo "📝 生成默认配置文件..."
-"$VENV_DIR/bin/smart-router" init
+"$VENV_DIR/bin/smart-router" init -f
+
+# ==================== 创建系统级命令 ====================
+
+echo "🔗 创建系统级命令链接..."
+
+# 检查是否有权限写入 /usr/local/bin
+if [ -w "/usr/local/bin" ]; then
+    # 创建 symlink
+    ln -sf "$VENV_DIR/bin/smart-router" /usr/local/bin/smart-router
+    ln -sf "$VENV_DIR/bin/smr" /usr/local/bin/smr
+    echo "  ✓ 已创建: /usr/local/bin/smart-router"
+    echo "  ✓ 已创建: /usr/local/bin/smr"
+else
+    echo "  ⚠️  需要管理员权限来创建系统级命令"
+    echo "  请运行以下命令手动创建："
+    echo "    sudo ln -sf $VENV_DIR/bin/smart-router /usr/local/bin/smart-router"
+    echo "    sudo ln -sf $VENV_DIR/bin/smr /usr/local/bin/smr"
+fi
 
 echo ""
 echo "✨ Smart Router V3 安装成功！"
 echo ""
-echo "📁 配置文件位置: ~/.smart-router/"
-echo "   - providers.yaml   # 配置 API Key"
-echo "   - models.yaml      # 模型能力配置"
-echo "   - routing.yaml     # 路由策略配置"
+echo "📁 安装位置:"
+echo "   - 虚拟环境: ~/.smart-router/venv"
+echo "   - Python包: ~/.smart-router/venv/lib/python*/site-packages/smart_router/"
+echo "   - 配置文件: ~/.smart-router/"
+echo "     * providers.yaml   # 配置 API Key"
+echo "     * models.yaml      # 模型能力配置"
+echo "     * routing.yaml     # 路由策略配置"
 echo ""
 echo "📖 快速开始："
 echo "   1. 编辑 ~/.smart-router/providers.yaml 配置 API Key"
-echo "   2. 启动服务: ./venv/bin/smr start"
-echo "   3. 查看状态: ./venv/bin/smr status"
+echo "   2. 启动服务: smr start"
+echo "   3. 查看状态: smr status"
 echo ""
-echo "🛠️  常用命令："
-echo "   ./venv/bin/smr start     # 后台启动"
-echo "   ./venv/bin/smr stop      # 停止服务"
-echo "   ./venv/bin/smr status    # 查看状态"
-echo "   ./venv/bin/smr logs      # 查看日志"
-echo "   ./venv/bin/smr doctor    # 健康检查"
+echo "🛠️  常用命令（已全局可用）："
+echo "   smr start     # 后台启动"
+echo "   smr stop      # 停止服务"
+echo "   smr status    # 查看状态"
+echo "   smr logs      # 查看日志"
+echo "   smr doctor    # 健康检查"
 echo ""
-
-# 检查是否有旧版本残留
-if command -v smart-router &> /dev/null; then
-    SYSTEM_SMR=$(which smart-router)
-    if [[ "$SYSTEM_SMR" != *"venv"* ]]; then
-        echo "⚠️  警告: 检测到系统中还有其他 smart-router 命令:"
-        echo "   $SYSTEM_SMR"
-        echo "   请使用 ./venv/bin/smr 运行命令，或手动清理系统中的旧版本"
-        echo ""
-    fi
-fi
+echo "🗑️  卸载方法："
+echo "   rm -rf ~/.smart-router"
+echo "   sudo rm -f /usr/local/bin/smart-router /usr/local/bin/smr"
+echo ""

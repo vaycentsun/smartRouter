@@ -245,10 +245,10 @@ providers:
     # models.yaml (简化版)
     models_content = '''# Models Configuration
 # 模型能力声明配置
+# 请根据你的 API Key 配置启用对应的模型
+# 详见: https://github.com/your-username/smart-router
 
-models:
-  # 请根据你的 API Key 配置启用对应的模型
-  # 详见: https://github.com/your-username/smart-router
+models: {}
 '''
     
     # routing.yaml

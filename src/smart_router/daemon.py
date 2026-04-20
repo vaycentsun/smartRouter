@@ -21,32 +21,9 @@ DEFAULT_PID_FILE = DEFAULT_PID_DIR / "smart-router.pid"
 def _get_python_executable() -> str:
     """获取用于启动服务的 Python 解释器路径
     
-    优先使用虚拟环境的 Python，确保依赖可用
+    生产环境安装后，命令从 venv 的 bin 目录运行，
+    直接使用 sys.executable 即可（指向 venv 的 Python）
     """
-    # 1. 如果当前已经在虚拟环境中，使用当前的 Python
-    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-        return sys.executable
-    
-    # 2. 尝试从当前运行的命令路径推断虚拟环境
-    # 例如：./venv/bin/smr -> ./venv/bin/python
-    current_exe = Path(sys.argv[0]).resolve()
-    if current_exe.parent.name == "bin":
-        venv_python = current_exe.parent / "python"
-        if venv_python.exists():
-            return str(venv_python)
-        # 尝试 python3
-        venv_python3 = current_exe.parent / "python3"
-        if venv_python3.exists():
-            return str(venv_python3)
-    
-    # 3. 检查项目目录下的 venv
-    project_venv = Path(__file__).parent.parent.parent.parent / "venv"
-    if project_venv.exists():
-        venv_python = project_venv / "bin" / "python"
-        if venv_python.exists():
-            return str(venv_python)
-    
-    # 4. 回退到系统 Python（可能缺少依赖，会报错）
     return sys.executable
 
 
