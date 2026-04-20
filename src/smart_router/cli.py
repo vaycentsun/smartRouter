@@ -467,8 +467,8 @@ def doctor(
         ))
 
 
-@app.command()
-def list(
+@app.command(name="list")
+def list_models(
     config: Optional[Path] = typer.Option(None, "--config", "-c", help="配置文件目录路径")
 ):
     """列出已配置的 Provider 和可用模型"""
