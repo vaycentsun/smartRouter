@@ -18,6 +18,10 @@ A multi-provider model intelligent routing CLI tool based on LiteLLM. Exposes a 
 
 ## 🚀 5-Minute Quick Start
 
+### Prerequisites
+
+- **Python 3.9+** is required
+
 ### 1. Installation
 
 Choose one of the following methods:
