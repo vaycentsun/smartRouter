@@ -47,11 +47,11 @@ smart-router = "smart_router.cli:main"
 smr = "smart_router.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/vaycent/smartRouter"
-Documentation = "https://github.com/vaycent/smartRouter/blob/main/docs/GUIDE.md"
-Repository = "https://github.com/vaycent/smartRouter.git"
-Issues = "https://github.com/vaycent/smartRouter/issues"
-Changelog = "https://github.com/vaycent/smartRouter/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/vaycentsun/smartRouter"
+Documentation = "https://github.com/vaycentsun/smartRouter/blob/main/docs/GUIDE.md"
+Repository = "https://github.com/vaycentsun/smartRouter.git"
+Issues = "https://github.com/vaycentsun/smartRouter/issues"
+Changelog = "https://github.com/vaycentsun/smartRouter/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/smart_router"]
@@ -66,6 +66,13 @@ include = [
     "/config",
     "/docs",
     "/tests",
+    "/script",
     "/README.md",
     "/LICENSE",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/smart_router"]
+include = [
+    "config/examples/v3/*.yaml",
 ]

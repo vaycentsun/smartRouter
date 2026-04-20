@@ -57,15 +57,24 @@ def version(
         console.print(panel)
 
 
-@app.command()
-def init(
+@app.command(name="download-config")
+def download_config(
     output_dir: Path = typer.Option(
         Path.home() / ".smart-router",
         "--output", "-o",
         help="配置文件输出目录"
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force", "-f",
+        help="强制覆盖已存在的配置文件"
     )
 ):
-    """生成默认配置文件 (providers.yaml + models.yaml + routing.yaml)"""
+    """下载默认配置文件 (providers.yaml + models.yaml + routing.yaml)
+    
+    可通过 curl 调用此命令下载配置:
+        curl -sSL ... | python3 -c "import smart_router.cli; ..."
+    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -75,7 +84,7 @@ def init(
         if (output_dir / filename).exists():
             existing_files.append(filename)
     
-    if existing_files:
+    if existing_files and not force:
         overwrite = typer.confirm(
             f"以下文件已存在: {', '.join(existing_files)}\n是否覆盖？"
         )
@@ -106,9 +115,76 @@ def init(
             if src.exists():
                 shutil.copy2(src, dst)
         
-        console.print(f"[green]✓[/green] 配置文件已从示例复制到: {output_dir.absolute()}")
+        console.print(f"[green]✓[/green] 配置文件已下载到: {output_dir.absolute()}")
     else:
         # 回退：使用硬编码的默认配置
+        console.print("[yellow]⚠[/yellow] 未找到示例配置文件，使用默认配置...")
+        _write_default_configs(output_dir)
+    
+    console.print("  - providers.yaml")
+    console.print("  - models.yaml")
+    console.print("  - routing.yaml")
+    console.print("[dim]请编辑文件中的 API Key，然后运行 `smart-router start` 启动服务[/dim]")
+
+
+@app.command()
+def init(
+    output_dir: Path = typer.Option(
+        Path.home() / ".smart-router",
+        "--output", "-o",
+        help="配置文件输出目录"
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force", "-f",
+        help="强制覆盖已存在的配置文件"
+    )
+):
+    """生成默认配置文件 (providers.yaml + models.yaml + routing.yaml)
+    
+    等同于 download-config 命令，用于初始化配置。
+    """
+    # 调用 download_config 逻辑，保持统一
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 检查文件是否已存在
+    existing_files = []
+    for filename in ["providers.yaml", "models.yaml", "routing.yaml"]:
+        if (output_dir / filename).exists():
+            existing_files.append(filename)
+    
+    if existing_files and not force:
+        overwrite = typer.confirm(
+            f"以下文件已存在: {', '.join(existing_files)}\n是否覆盖？"
+        )
+        if not overwrite:
+            console.print("[yellow]已取消[/yellow]")
+            raise typer.Exit()
+    
+    # 从项目示例文件复制配置
+    possible_paths = [
+        Path(__file__).parent.parent.parent / "config" / "examples" / "v3",
+        Path(__file__).parent.parent / "config" / "examples" / "v3",
+        Path(__file__).parent / "config" / "examples" / "v3",
+    ]
+    
+    examples_dir = None
+    for path in possible_paths:
+        if path.exists() and (path / "models.yaml").exists():
+            examples_dir = path
+            break
+    
+    if examples_dir:
+        import shutil
+        for filename in ["providers.yaml", "models.yaml", "routing.yaml"]:
+            src = examples_dir / filename
+            dst = output_dir / filename
+            if src.exists():
+                shutil.copy2(src, dst)
+        
+        console.print(f"[green]✓[/green] 配置文件已生成: {output_dir.absolute()}")
+    else:
         console.print("[yellow]⚠[/yellow] 未找到示例配置文件，使用默认配置...")
         _write_default_configs(output_dir)
     
