@@ -724,6 +724,147 @@ def doctor(
 
 
 @app.command()
+def list(
+    config: Optional[Path] = typer.Option(None, "--config", "-c", help="配置文件目录路径")
+):
+    """列出已配置的 Provider 和可用模型"""
+    config_dir = Path(config) if config else Path.home() / ".smart-router"
+    
+    # 检查配置文件是否存在
+    v3_files = ["providers.yaml", "models.yaml", "routing.yaml"]
+    missing_files = [f for f in v3_files if not (config_dir / f).exists()]
+    
+    if missing_files:
+        console.print(f"[red]✗[/red] 配置文件缺失: {', '.join(missing_files)}")
+        console.print(f"[dim]  请运行 `smart-router init` 生成配置[/dim]")
+        raise typer.Exit(1)
+    
+    try:
+        import os
+        
+        # 加载配置
+        loader = ConfigLoader(config_dir)
+        cfg = loader.load()
+        
+        # 显示 Providers 表格
+        console.print(Panel.fit("📡 已配置的 Providers", style="bold blue"))
+        
+        provider_table = Table(
+            title="",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold cyan"
+        )
+        provider_table.add_column("Provider", style="bold green", min_width=15)
+        provider_table.add_column("API Base", style="dim", min_width=40)
+        provider_table.add_column("Timeout", style="yellow", justify="right", width=10)
+        provider_table.add_column("Auth", style="magenta", width=12)
+        
+        for name, provider in cfg.providers.items():
+            # 检查 API Key 类型
+            if provider.api_key.startswith("os.environ/"):
+                env_var = provider.api_key.replace("os.environ/", "")
+                if os.environ.get(env_var):
+                    auth_status = "[green]✓ env[/green]"
+                else:
+                    auth_status = "[red]✗ missing[/red]"
+            else:
+                auth_status = "[green]✓ key[/green]"
+            
+            provider_table.add_row(
+                name,
+                provider.api_base,
+                f"{provider.timeout}s",
+                auth_status
+            )
+        
+        console.print(provider_table)
+        console.print("")
+        
+        # 显示 Models 表格
+        console.print(Panel.fit("🤖 可用模型清单", style="bold blue"))
+        
+        model_table = Table(
+            title="",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold cyan"
+        )
+        model_table.add_column("模型名称", style="bold green", min_width=18)
+        model_table.add_column("Provider", style="cyan", min_width=12)
+        model_table.add_column("Quality", justify="center", width=8)
+        model_table.add_column("Speed", justify="center", width=8)
+        model_table.add_column("Cost", justify="center", width=8)
+        model_table.add_column("Context", justify="right", width=10)
+        model_table.add_column("支持任务", style="dim", min_width=25)
+        
+        for name, model in cfg.models.items():
+            caps = model.capabilities
+            # 使用表情符号表示评分
+            quality_stars = "★" * (caps.quality // 2) + "☆" * (5 - caps.quality // 2)
+            speed_stars = "★" * (caps.speed // 2) + "☆" * (5 - caps.speed // 2)
+            cost_stars = "★" * (caps.cost // 2) + "☆" * (5 - caps.cost // 2)  # cost 越高越便宜
+            
+            # 格式化 context
+            context = caps.context
+            if context >= 1000:
+                context_str = f"{context // 1000}k"
+            else:
+                context_str = str(context)
+            
+            # 格式化任务列表（显示前3个）
+            tasks = model.supported_tasks[:3]
+            tasks_str = ", ".join(tasks)
+            if len(model.supported_tasks) > 3:
+                tasks_str += f" [dim]+{len(model.supported_tasks) - 3}[/dim]"
+            
+            model_table.add_row(
+                name,
+                model.provider,
+                quality_stars,
+                speed_stars,
+                cost_stars,
+                context_str,
+                tasks_str
+            )
+        
+        console.print(model_table)
+        console.print("")
+        
+        # 显示统计信息
+        total_providers = len(cfg.providers)
+        total_models = len(cfg.models)
+        
+        # 统计 API Key 配置情况
+        env_keys = sum(
+            1 for p in cfg.providers.values()
+            if p.api_key.startswith("os.environ/") and os.environ.get(p.api_key.replace("os.environ/", ""))
+        )
+        direct_keys = sum(
+            1 for p in cfg.providers.values()
+            if not p.api_key.startswith("os.environ/")
+        )
+        missing_keys = total_providers - env_keys - direct_keys
+        
+        stats_text = Text()
+        stats_text.append(f"Providers: {total_providers} 个 | ", style="cyan")
+        stats_text.append(f"模型: {total_models} 个 | ", style="green")
+        if missing_keys > 0:
+            stats_text.append(f"API Key 缺失: {missing_keys} 个", style="red")
+        else:
+            stats_text.append("API Key 配置完整 ✓", style="green")
+        
+        console.print(Panel(stats_text, border_style="dim"))
+        
+    except ConfigError as e:
+        console.print(f"[red]✗[/red] 配置加载失败: {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]✗[/red] 发生错误: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
 def coffee(
     link: Optional[str] = typer.Option(None, "--link", "-l", help="自定义赞助链接"),
     ascii: bool = typer.Option(False, "--ascii", "-a", help="纯文字模式"),
