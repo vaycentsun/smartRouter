@@ -141,7 +141,7 @@ models:
     litellm_model: openai/qwen3.6-plus
     capabilities:
       quality: 9
-      cost: 6
+      cost: 10
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
@@ -152,7 +152,7 @@ models:
     litellm_model: openai/qwen3.5-plus-2026-02-15
     capabilities:
       quality: 8
-      cost: 7
+      cost: 10
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard]
@@ -163,7 +163,7 @@ models:
     litellm_model: openai/qwen3.5-122b-a10b
     capabilities:
       quality: 9
-      cost: 5
+      cost: 10
       context: 32000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
     difficulty_support: [medium, hard, expert]
@@ -174,7 +174,7 @@ models:
     litellm_model: openai/qwen3.6-flash-2026-04-16
     capabilities:
       quality: 7
-      cost: 9
+      cost: 10
       context: 128000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
     difficulty_support: [easy, medium]
@@ -185,7 +185,7 @@ models:
     litellm_model: openai/qwen3.5-27b
     capabilities:
       quality: 7
-      cost: 8
+      cost: 10
       context: 32000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
     difficulty_support: [easy, medium]
@@ -196,7 +196,7 @@ models:
     litellm_model: openai/tongyi-xiaomi-analysis-flash
     capabilities:
       quality: 6
-      cost: 9
+      cost: 10
       context: 8000
     supported_tasks: [analysis, explanation, chat]
     difficulty_support: [easy, medium]
@@ -212,7 +212,7 @@ models:
     litellm_model: openai/glm-5.1
     capabilities:
       quality: 9
-      cost: 5
+      cost: 10
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
@@ -223,7 +223,7 @@ models:
     litellm_model: openai/glm-5
     capabilities:
       quality: 8
-      cost: 6
+      cost: 10
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
     difficulty_support: [easy, medium, hard]
@@ -291,7 +291,7 @@ models:
     litellm_model: openai/qwen3.6-plus
     capabilities:
       quality: 9
-      cost: 6
+      cost: 10
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
@@ -301,7 +301,7 @@ models:
     litellm_model: openai/qwen3.6-plus
     capabilities:
       quality: 9
-      cost: 6
+      cost: 10
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
@@ -311,7 +311,7 @@ models:
     litellm_model: openai/qwen3.6-plus
     capabilities:
       quality: 9
-      cost: 6
+      cost: 10
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
@@ -326,7 +326,7 @@ models:
     litellm_model: openai/qwen3.6-plus
     capabilities:
       quality: 9
-      cost: 6
+      cost: 10
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
@@ -336,7 +336,7 @@ models:
     litellm_model: openai/qwen3.6-plus
     capabilities:
       quality: 9
-      cost: 6
+      cost: 10
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
