@@ -130,7 +130,7 @@ pip install smart-router
 curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/download-config.py | python3
 
 # 或使用 CLI 命令
-smart-router download-config
+smart-router init
 ```
 
 ### 方式二：远程一键安装
@@ -324,8 +324,7 @@ SmartRouter.get_available_deployment()
 ### 1. CLI (cli.py)
 
 主要命令：
-- `smart-router init` - 生成默认配置文件（等同于 download-config）
-- `smart-router download-config` - 下载默认配置文件
+- `smart-router init` - 生成默认配置文件
 - `smart-router start [--foreground]` - 后台/前台启动服务
 - `smart-router stop/restart/status/logs` - 服务管理
 - `smart-router dry-run "prompt"` - 测试路由决策

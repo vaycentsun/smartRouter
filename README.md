@@ -81,13 +81,10 @@ rm -rf ~/.smart-router
 curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/download-config.py | python3
 
 # Or via CLI after pip install
-smart-router download-config
-
-# Or use init command (alias)
 smart-router init
 
 # Force overwrite existing files
-smart-router download-config --force
+smart-router init --force
 
 # Specify custom directory
 smart-router init --output ./my-config
@@ -189,7 +186,7 @@ response = client.chat.completions.create(
 | Command | Description |
 |---------|-------------|
 | `smart-router init` | Generate default configuration |
-| `smart-router download-config` | Download default config files |
+
 | `smart-router doctor` | Run health check (includes config validation) |
 | `smart-router dry-run "prompt text"` | Test routing decision |
 | `smart-router list` | List configured providers and models |

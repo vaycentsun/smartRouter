@@ -195,6 +195,107 @@ class TestServiceCommands:
         result = runner.invoke(app, ["logs", "--help"])
         assert result.exit_code == 0
         assert "查看服务日志" in result.stdout
+    
+    def test_start_calls_start_daemon(self, monkeypatch):
+        """测试 start 命令调用 start_daemon"""
+        from unittest.mock import MagicMock
+        mock_start = MagicMock()
+        monkeypatch.setattr("smart_router.cli.start_daemon", mock_start)
+        
+        result = runner.invoke(app, ["start"])
+        assert result.exit_code == 0
+        mock_start.assert_called_once_with(config_path=None)
+    
+    def test_start_with_config(self, monkeypatch):
+        """测试 start --config 传递正确路径"""
+        from unittest.mock import MagicMock
+        mock_start = MagicMock()
+        monkeypatch.setattr("smart_router.cli.start_daemon", mock_start)
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            config_path = f.name
+        
+        result = runner.invoke(app, ["start", "--config", config_path])
+        assert result.exit_code == 0
+        mock_start.assert_called_once_with(config_path=Path(config_path))
+    
+    def test_start_foreground(self, monkeypatch):
+        """测试 start --foreground 调用 start_server"""
+        from unittest.mock import MagicMock
+        import smart_router.server
+        mock_server = MagicMock()
+        monkeypatch.setattr(smart_router.server, "start_server", mock_server)
+        
+        result = runner.invoke(app, ["start", "--foreground"])
+        assert result.exit_code == 0
+        mock_server.assert_called_once_with(config_path=None)
+    
+    def test_start_foreground_with_config(self, monkeypatch):
+        """测试 start --foreground --config 传递正确路径"""
+        from unittest.mock import MagicMock
+        import smart_router.server
+        mock_server = MagicMock()
+        monkeypatch.setattr(smart_router.server, "start_server", mock_server)
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            config_path = f.name
+        
+        result = runner.invoke(app, ["start", "--foreground", "--config", config_path])
+        assert result.exit_code == 0
+        mock_server.assert_called_once_with(config_path=Path(config_path))
+    
+    def test_stop_calls_stop_daemon(self, monkeypatch):
+        """测试 stop 命令调用 stop_daemon"""
+        from unittest.mock import MagicMock
+        mock_stop = MagicMock()
+        monkeypatch.setattr("smart_router.cli.stop_daemon", mock_stop)
+        
+        result = runner.invoke(app, ["stop"])
+        assert result.exit_code == 0
+        mock_stop.assert_called_once()
+    
+    def test_restart_calls_restart_daemon(self, monkeypatch):
+        """测试 restart 命令调用 restart_daemon"""
+        from unittest.mock import MagicMock
+        mock_restart = MagicMock()
+        monkeypatch.setattr("smart_router.cli.restart_daemon", mock_restart)
+        
+        result = runner.invoke(app, ["restart"])
+        assert result.exit_code == 0
+        mock_restart.assert_called_once_with(config_path=None)
+    
+    def test_restart_with_config(self, monkeypatch):
+        """测试 restart --config 传递正确路径"""
+        from unittest.mock import MagicMock
+        mock_restart = MagicMock()
+        monkeypatch.setattr("smart_router.cli.restart_daemon", mock_restart)
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            config_path = f.name
+        
+        result = runner.invoke(app, ["restart", "--config", config_path])
+        assert result.exit_code == 0
+        mock_restart.assert_called_once_with(config_path=Path(config_path))
+    
+    def test_logs_calls_view_logs(self, monkeypatch):
+        """测试 logs 命令调用 view_logs 并传递默认参数"""
+        from unittest.mock import MagicMock
+        mock_view = MagicMock()
+        monkeypatch.setattr("smart_router.cli.view_logs", mock_view)
+        
+        result = runner.invoke(app, ["logs"])
+        assert result.exit_code == 0
+        mock_view.assert_called_once_with(lines=50, follow=False)
+    
+    def test_logs_with_options(self, monkeypatch):
+        """测试 logs 命令传递自定义参数"""
+        from unittest.mock import MagicMock
+        mock_view = MagicMock()
+        monkeypatch.setattr("smart_router.cli.view_logs", mock_view)
+        
+        result = runner.invoke(app, ["logs", "--lines", "100", "--follow"])
+        assert result.exit_code == 0
+        mock_view.assert_called_once_with(lines=100, follow=True)
 
 
 class TestCoffeeCommand:

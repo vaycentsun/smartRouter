@@ -81,13 +81,10 @@ rm -rf ~/.smart-router
 curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/download-config.py | python3
 
 # 方式二：通过 CLI 命令（pip 安装后）
-smart-router download-config
-
-# 方式三：使用 init 命令（download-config 的别名）
 smart-router init
 
 # 强制覆盖已存在的配置文件
-smart-router download-config --force
+smart-router init --force
 
 # 指定自定义目录
 smart-router init --output ./my-config
@@ -189,7 +186,7 @@ response = client.chat.completions.create(
 | 命令 | 说明 |
 |------|------|
 | `smart-router init` | 生成默认配置 |
-| `smart-router download-config` | 下载默认配置文件 |
+
 | `smart-router doctor` | 运行健康检查（包含配置验证） |
 | `smart-router dry-run "提示文本"` | 测试路由决策 |
 | `smart-router list` | 列出已配置的 Provider 和模型 |
