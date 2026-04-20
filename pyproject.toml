@@ -53,9 +53,6 @@ Repository = "https://github.com/vaycentsun/smartRouter.git"
 Issues = "https://github.com/vaycentsun/smartRouter/issues"
 Changelog = "https://github.com/vaycentsun/smartRouter/blob/main/CHANGELOG.md"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/smart_router"]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
