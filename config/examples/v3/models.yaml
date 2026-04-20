@@ -73,52 +73,184 @@ models:
     difficulty_support: [easy, medium, hard]
     
   # 国际版 (api.moonshot.ai)
-  kimi-k2-ai:
+  # -------------------- Kimi K2.5 多模态模型系列 --------------------
+  kimi-k2.5:
     provider: moonshot-ai
-    litellm_model: openai/moonshot-v1-8k
+    litellm_model: openai/kimi-k2.5
     capabilities:
-      quality: 7
-      speed: 8
+      quality: 10      # 最智能模型，开源 SoTA 表现
+      speed: 7
+      cost: 5
+      context: 256000  # 256k 上下文
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  # -------------------- Kimi K2 模型系列 --------------------
+  kimi-k2-0905:
+    provider: moonshot-ai
+    litellm_model: openai/kimi-k2-0905-preview
+    capabilities:
+      quality: 9       # 增强 Agentic Coding 能力
+      speed: 7
+      cost: 6
+      context: 256000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  kimi-k2-0711:
+    provider: moonshot-ai
+    litellm_model: openai/kimi-k2-0711-preview
+    capabilities:
+      quality: 9       # MoE 架构，1T 参数，32B 激活
+      speed: 7
       cost: 7
-      context: 8000
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  kimi-k2-turbo:
+    provider: moonshot-ai
+    litellm_model: openai/kimi-k2-turbo-preview
+    capabilities:
+      quality: 8
+      speed: 10      # 高速版本，60-100 tokens/秒
+      cost: 8
+      context: 256000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
     difficulty_support: [easy, medium]
     
-  kimi-k2-32k-ai:
+  kimi-k2-thinking:
     provider: moonshot-ai
-    litellm_model: openai/moonshot-v1-32k
+    litellm_model: openai/kimi-k2-thinking
     capabilities:
-      quality: 7
+      quality: 10     # 长思考模型，深度推理
+      speed: 4
+      cost: 5
+      context: 256000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
+    difficulty_support: [medium, hard, expert]
+    
+  kimi-k2-thinking-turbo:
+    provider: moonshot-ai
+    litellm_model: openai/kimi-k2-thinking-turbo
+    capabilities:
+      quality: 9      # 长思考高速版
       speed: 8
       cost: 6
-      context: 32000
-    supported_tasks: [coding, code_review, writing, analysis, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard]
+      context: 256000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, chat]
+    difficulty_support: [medium, hard]
     
   # ==================== 阿里通义千问 ====================
-  qwen-max:
+  # 免费额度说明：
+  # - 额度：1,000,000 tokens/模型
+  # - 状态：全部模型额度充足（100%）
+  # - 有效期：请关注阿里云控制台获取准确过期时间
+  
+  # Qwen 3.6 Plus - 最新旗舰模型
+  qwen3.6-plus:
     provider: aliyun
-    litellm_model: openai/qwen-max
+    litellm_model: openai/qwen3.6-plus
     capabilities:
-      quality: 8
+      quality: 9
       speed: 7
       cost: 6
-      context: 32000
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  # Qwen 3.5 Plus - 稳定版 Plus
+  qwen3.5-plus:
+    provider: aliyun
+    litellm_model: openai/qwen3.5-plus-2026-02-15
+    capabilities:
+      quality: 8
+      speed: 8
+      cost: 7
+      context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard]
     
-  qwen-turbo:
+  # Qwen 3.5 122B - 大参数模型
+  qwen3.5-122b:
     provider: aliyun
-    litellm_model: openai/qwen-turbo
+    litellm_model: openai/qwen3.5-122b-a10b
+    capabilities:
+      quality: 9
+      speed: 5
+      cost: 5
+      context: 32000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
+    difficulty_support: [medium, hard, expert]
+    
+  # Qwen 3.6 Flash - 高速版本
+  qwen3.6-flash:
+    provider: aliyun
+    litellm_model: openai/qwen3.6-flash-2026-04-16
+    capabilities:
+      quality: 7
+      speed: 10
+      cost: 9
+      context: 128000
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  # Qwen 3.5 27B - 中等参数模型
+  qwen3.5-27b:
+    provider: aliyun
+    litellm_model: openai/qwen3.5-27b
+    capabilities:
+      quality: 7
+      speed: 8
+      cost: 8
+      context: 32000
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  # 通义小米分析 Flash - 轻量级分析模型
+  tongyi-xiaomi-analysis:
+    provider: aliyun
+    litellm_model: openai/tongyi-xiaomi-analysis-flash
     capabilities:
       quality: 6
       speed: 9
       cost: 9
       context: 8000
-    supported_tasks: [writing, explanation, chat, brainstorming]
+    supported_tasks: [analysis, explanation, chat]
     difficulty_support: [easy, medium]
     
-  # ==================== 智谱 GLM ====================
+  # ==================== 智谱 GLM (阿里部署) ====================
+  # 注：以下 GLM 模型通过阿里云平台调用
+  # 免费额度：1,000,000 tokens/模型（glm-5 已使用约 3万，剩余约 97万）
+  # 额度有效期：请关注阿里云控制台获取准确过期时间
+  
+  # GLM-5.1 - 最新版本，完全免费额度
+  glm-5.1:
+    provider: aliyun
+    litellm_model: openai/glm-5.1
+    capabilities:
+      quality: 9
+      speed: 7
+      cost: 5
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  # GLM-5 - 标准版，免费额度已使用约 3%
+  glm-5:
+    provider: aliyun
+    litellm_model: openai/glm-5
+    capabilities:
+      quality: 8
+      speed: 7
+      cost: 6
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  # ==================== 智谱 GLM (官方部署) ====================
+  # 注：以下模型需配置 ZHIPU_API_KEY
+  
   glm-4-plus:
     provider: zhipu
     litellm_model: openai/glm-4-plus
