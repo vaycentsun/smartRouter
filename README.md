@@ -31,20 +31,20 @@ pip install smart-router
 #### Option B: One-line curl install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/install-remote.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/install-remote.sh | bash
 ```
 
 #### Option C: Homebrew (macOS/Linux)
 
 ```bash
-brew tap vaycent/smart-router
+brew tap vaycentsun/smart-router
 brew install smart-router
 ```
 
 #### Option D: Local install (from source)
 
 ```bash
-git clone https://github.com/vaycent/smartRouter.git
+git clone https://github.com/vaycentsun/smartRouter.git
 cd smartRouter
 ./script/install.sh
 ```
@@ -54,7 +54,7 @@ cd smartRouter
 One-line uninstall:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/uninstall.sh | bash
 ```
 
 Or manually:
@@ -73,13 +73,24 @@ rm -rf ~/.smart-router
 ### 2. Initialize Configuration
 
 ```bash
-# Generate config files (default: ~/.smart-router/)
+# Download config files via curl (no pip install needed)
+curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/download-config.py | python3
+
+# Or via CLI after pip install
+smart-router download-config
+
+# Or use init command (alias)
 smart-router init
 
-# Or specify a custom directory
-smart-router init --output ./my-config
+# Force overwrite existing files
+smart-router download-config --force
 
-# Edit the three config files
+# Specify custom directory
+smart-router init --output ./my-config
+```
+
+Edit the three config files:
+```bash
 vim ~/.smart-router/providers.yaml  # API keys and base URLs
 vim ~/.smart-router/models.yaml     # Model capabilities
 vim ~/.smart-router/routing.yaml    # Task definitions and routing strategies
@@ -174,8 +185,10 @@ response = client.chat.completions.create(
 | Command | Description |
 |---------|-------------|
 | `smart-router init` | Generate default configuration |
+| `smart-router download-config` | Download default config files |
 | `smart-router doctor` | Run health check (includes config validation) |
 | `smart-router dry-run "prompt text"` | Test routing decision |
+| `smart-router list` | List configured providers and models |
 
 ---
 

@@ -31,20 +31,20 @@ pip install smart-router
 #### 方式 B: 一行命令安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/install-remote.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/install-remote.sh | bash
 ```
 
 #### 方式 C: Homebrew (macOS/Linux)
 
 ```bash
-brew tap vaycent/smart-router
+brew tap vaycentsun/smart-router
 brew install smart-router
 ```
 
 #### 方式 D: 本地安装（源码）
 
 ```bash
-git clone https://github.com/vaycent/smartRouter.git
+git clone https://github.com/vaycentsun/smartRouter.git
 cd smartRouter
 ./script/install.sh
 ```
@@ -54,7 +54,7 @@ cd smartRouter
 一行命令卸载：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/uninstall.sh | bash
 ```
 
 或手动卸载：
@@ -73,13 +73,24 @@ rm -rf ~/.smart-router
 ### 2. 初始化配置
 
 ```bash
-# 生成配置文件（默认目录：~/.smart-router/）
+# 方式一：通过 curl 下载配置（无需 pip 安装）
+curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/download-config.py | python3
+
+# 方式二：通过 CLI 命令（pip 安装后）
+smart-router download-config
+
+# 方式三：使用 init 命令（download-config 的别名）
 smart-router init
 
-# 或指定自定义目录
-smart-router init --output ./my-config
+# 强制覆盖已存在的配置文件
+smart-router download-config --force
 
-# 编辑三个配置文件
+# 指定自定义目录
+smart-router init --output ./my-config
+```
+
+编辑三个配置文件：
+```bash
 vim ~/.smart-router/providers.yaml  # API Key 和基础 URL
 vim ~/.smart-router/models.yaml     # 模型能力声明
 vim ~/.smart-router/routing.yaml    # 任务定义和路由策略
@@ -174,8 +185,10 @@ response = client.chat.completions.create(
 | 命令 | 说明 |
 |------|------|
 | `smart-router init` | 生成默认配置 |
+| `smart-router download-config` | 下载默认配置文件 |
 | `smart-router doctor` | 运行健康检查（包含配置验证） |
 | `smart-router dry-run "提示文本"` | 测试路由决策 |
+| `smart-router list` | 列出已配置的 Provider 和模型 |
 
 ---
 
