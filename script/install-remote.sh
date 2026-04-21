@@ -3,7 +3,7 @@
 # 使用方法: curl -sSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/install-remote.sh | bash
 #
 # 这个脚本用于:
-# 1. 通过 PyPI 安装 smart-router
+# 1. 从 GitHub 源码安装最新版 smart-router
 # 2. 下载默认配置文件到 ~/.smart-router
 
 set -e
@@ -34,12 +34,17 @@ echo "✓ Python 版本: $python_version"
 
 # ==================== 安装 smart-router ====================
 echo ""
-echo "📦 通过 PyPI 安装 smart-router..."
+echo "📦 从 GitHub 安装最新版 smart-router..."
 
+REPO_URL="https://github.com/vaycentsun/smartRouter.git"
+
+# 检查是否已安装，如果是则升级
 if pip3 show smart-router &> /dev/null; then
-    echo "  发现已安装的 smart-router，跳过安装"
+    echo "  发现已安装的 smart-router，正在升级..."
+    pip3 install -q --force-reinstall --no-deps "git+${REPO_URL}#egg=smart-router[dev]"
+    echo "✓ smart-router 升级成功"
 else
-    pip3 install -q smart-router
+    pip3 install -q "git+${REPO_URL}#egg=smart-router[dev]"
     echo "✓ smart-router 安装成功"
 fi
 
@@ -57,11 +62,6 @@ download_config() {
     local url="$REPO_RAW_URL/config/examples/v3/$filename"
     local output="$CONFIG_DIR/$filename"
     
-    if [ -f "$output" ]; then
-        echo "  ⚠️  $filename 已存在，跳过下载"
-        return 0
-    fi
-    
     if curl -fsSL "$url" -o "$output" 2>/dev/null; then
         echo "  ✓ 下载成功: $filename"
         return 0
@@ -71,10 +71,46 @@ download_config() {
     fi
 }
 
+# 如果配置文件已存在，先备份
+backup_existing_configs() {
+    local needs_backup=false
+    for file in providers.yaml models.yaml routing.yaml; do
+        if [ -f "$CONFIG_DIR/$file" ]; then
+            needs_backup=true
+            break
+        fi
+    done
+    
+    if [ "$needs_backup" = true ]; then
+        local backup_dir="$CONFIG_DIR.backup.$(date +%Y%m%d_%H%M%S)"
+        mkdir -p "$backup_dir"
+        cp "$CONFIG_DIR"/*.yaml "$backup_dir/" 2>/dev/null || true
+        echo "  📦 已备份旧配置到: $backup_dir"
+    fi
+}
+
+# 备份现有配置
+backup_existing_configs
+
 # 下载三个配置文件
 download_config "providers.yaml"
 download_config "models.yaml"
 download_config "routing.yaml"
+
+# 如果 GitHub 下载失败，回退到 smart-router init 生成默认配置
+github_failed=false
+for file in providers.yaml models.yaml routing.yaml; do
+    if [ ! -f "$CONFIG_DIR/$file" ]; then
+        github_failed=true
+        break
+    fi
+done
+
+if [ "$github_failed" = true ] && command -v smart-router &> /dev/null; then
+    echo ""
+    echo "⚠️  GitHub 下载不完整，尝试使用 smart-router init 生成默认配置..."
+    smart-router init -f --output "$CONFIG_DIR"
+fi
 
 # ==================== 验证安装 ====================
 echo ""

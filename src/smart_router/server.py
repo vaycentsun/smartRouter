@@ -11,6 +11,7 @@ from .config.loader import ConfigLoader
 from .config.schema import Config
 from .plugin import SmartRouter
 from .utils.markers import parse_markers
+from .utils.token_counter import estimate_messages_tokens
 
 console = Console()
 
@@ -153,13 +154,18 @@ def start_server(config_path: Optional[Path] = None):
                                     task_type = classification.task_type
                                     difficulty = classification.estimated_difficulty
                                 
-                                console.print(f"[cyan]智能路由: {original_model} -> 任务:{task_type}, 难度:{difficulty}, 策略:{strategy}[/cyan]")
+                                # 估算所需上下文窗口
+                                estimated_input = estimate_messages_tokens(messages)
+                                required_context = estimated_input + 4000 if estimated_input > 0 else 0
+                                
+                                console.print(f"[cyan]智能路由: {original_model} -> 任务:{task_type}, 难度:{difficulty}, 策略:{strategy}, 需上下文:{required_context}[/cyan]")
                                 
                                 # 选择模型
                                 selected_result = app.state.smart_router.selector.select(
                                     task_type=task_type,
                                     difficulty=difficulty,
-                                    strategy=strategy
+                                    strategy=strategy,
+                                    required_context=required_context
                                 )
                                 selected = selected_result.model_name if hasattr(selected_result, 'model_name') else str(selected_result)
                                 

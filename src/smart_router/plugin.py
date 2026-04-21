@@ -3,6 +3,7 @@ from typing import List, Dict, Optional, Any
 from litellm.router import Router
 
 from .utils.markers import parse_markers, strip_markers, MarkerResult
+from .utils.token_counter import estimate_messages_tokens
 from .classifier import TaskClassifier
 from .classifier.types import ClassificationResult, get_default_classification
 from .selector.strategies import ModelSelector
@@ -50,7 +51,10 @@ class SmartRouter(Router):
             capabilities[model_name] = {
                 "difficulties": list(model_cfg.difficulty_support),
                 "task_types": list(model_cfg.supported_tasks),
-                "priority": priority
+                "priority": priority,
+                "quality": model_cfg.capabilities.quality,
+                "cost": model_cfg.capabilities.cost,
+                "context": model_cfg.capabilities.context
             }
         
         default_model = max(config.models.items(), key=lambda x: x[1].capabilities.quality)[0] if config.models else "gpt-4o"
@@ -99,12 +103,15 @@ class SmartRouter(Router):
         
         classification = self._get_classification(markers, messages)
         
-        available_models = list(self.sr_config.models.keys())
+        # 估算所需上下文窗口（输入 token + 输出预留 4000）
+        estimated_input = estimate_messages_tokens(messages)
+        required_context = estimated_input + 4000 if estimated_input > 0 else 0
+        
         selected = self.selector.select(
             task_type=classification.task_type,
             difficulty=classification.estimated_difficulty,
             strategy="auto",
-            model_list=available_models
+            required_context=required_context
         )
         
         # 存储选中的模型用于响应头
@@ -133,4 +140,4 @@ class SmartRouter(Router):
     
     def get_fallback_chain(self, model_name: str) -> List[str]:
         """获取模型的 fallback 链"""
-        return self.selector.get_fallback_chain(model_name)
+        return self.sr_config.get_fallback_chain(model_name)
