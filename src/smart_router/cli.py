@@ -30,7 +30,7 @@ console = Console()
 DEFAULT_CONFIG = Path(__file__).parent.parent.parent / "config" / "smart-router.yaml"
 
 # 版本号
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 @app.command()

@@ -18,14 +18,14 @@ class TestVersionCommand:
         """测试短版本号"""
         result = runner.invoke(app, ["version", "--short"])
         assert result.exit_code == 0
-        assert "1.0.0" in result.stdout
+        assert "1.0.1" in result.stdout
     
     def test_version_full(self):
         """测试完整版本信息"""
         result = runner.invoke(app, ["version"])
         assert result.exit_code == 0
         assert "Smart Router" in result.stdout
-        assert "1.0.0" in result.stdout
+        assert "1.0.1" in result.stdout
 
 
 class TestInitCommand:
