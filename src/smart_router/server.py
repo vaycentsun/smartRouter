@@ -45,8 +45,13 @@ def start_server(config_path: Optional[Path] = None):
             console.print(f"  - {err}")
         sys.exit(1)
     
-    # 从环境变量获取 master_key
-    master_key = os.environ.get("SMART_ROUTER_MASTER_KEY", "sk-smart-router-local")
+    # 从环境变量获取 master_key（不再提供默认值，强制用户设置）
+    master_key = os.environ.get("SMART_ROUTER_MASTER_KEY")
+    if not master_key:
+        console.print("[red]错误: 未设置 SMART_ROUTER_MASTER_KEY 环境变量[/red]")
+        console.print("[dim]请设置一个强密码作为 API 认证密钥，例如:[/dim]")
+        console.print("  export SMART_ROUTER_MASTER_KEY='your-strong-password'")
+        sys.exit(1)
     os.environ["LITELLM_MASTER_KEY"] = master_key
     
     console.print("[cyan]正在初始化智能路由...[/cyan]")
@@ -86,6 +91,12 @@ def start_server(config_path: Optional[Path] = None):
         # 初始化 LiteLLM Proxy 配置
         import asyncio
         asyncio.run(initialize(config=config_path_temp))
+        
+        # 安全删除临时配置文件（包含敏感信息）
+        try:
+            os.unlink(config_path_temp)
+        except OSError:
+            pass
         
         # 从环境变量获取 host/port
         host = os.environ.get("SMART_ROUTER_HOST", "127.0.0.1")

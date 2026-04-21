@@ -357,7 +357,6 @@ More troubleshooting: [Troubleshooting Guide](docs/GUIDE.md#troubleshooting)
 | [Complete Guide](docs/GUIDE.md) | Detailed CLI commands, configuration, best practices |
 | [V3 Config Examples](config/examples/v3/) | V3 three-file configuration examples |
 | [V3 Design Spec](specs/active/2026-04-19--config-v3-refactor.md) | V3 architecture design and migration guide |
-| [Legacy Config](config/smart-router.yaml) | V2 single-file configuration example |
 | [Design Doc](specs/active/2026-04-18--smart-router.md) | Original architecture design and technical specs |
 
 ### Quick Navigation

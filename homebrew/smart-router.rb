@@ -41,46 +41,26 @@ class SmartRouter < Formula
   def install
     virtualenv_install_with_resources
     
-    # 生成默认配置
+    # 创建配置目录（V3 三文件配置）
     (etc/"smart-router").mkpath
-    (etc/"smart-router/smart-router.yaml").write config_file_content
+    (etc/"smart-router/README").write readme_content
   end
 
-  def config_file_content
+  def readme_content
     <<~EOS
-      # Smart Router 配置文件
-      # 文档: https://github.com/vaycentsun/smartRouter/blob/main/docs/GUIDE.md
-
-      server:
-        port: 4000
-        host: "127.0.0.1"
-        master_key: "sk-smart-router-local"
-
-      model_list: []
-
-      smart_router:
-        default_strategy: auto
-        stage_routing:
-          code_review:
-            easy: ["gpt-4o-mini"]
-            medium: ["claude-3-sonnet"]
-            hard: ["claude-3-opus"]
-          writing:
-            easy: ["gpt-4o-mini"]
-            medium: ["gpt-4o"]
-            hard: ["claude-3-opus"]
-          reasoning:
-            easy: ["gpt-4o-mini"]
-            medium: ["gpt-4o"]
-            hard: ["claude-3-opus"]
-          brainstorming:
-            easy: ["gpt-4o-mini"]
-            medium: ["gpt-4o"]
-            hard: ["claude-3-opus"]
-          chat:
-            easy: ["gpt-4o-mini"]
-            medium: ["gpt-4o"]
-            hard: ["claude-3-opus"]
+      # Smart Router 配置目录
+      
+      请运行以下命令生成默认 V3 配置（三文件格式）：
+        smart-router init --output #{etc}/smart-router
+      
+      或运行：
+        smart-router init
+      # 配置将生成到 ~/.smart-router/
+      
+      三文件说明：
+        - providers.yaml  # API 服务商连接配置
+        - models.yaml     # 模型能力声明配置
+        - routing.yaml    # 路由策略配置
     EOS
   end
 
@@ -88,19 +68,22 @@ class SmartRouter < Formula
     <<~EOS
       Smart Router 已安装！
 
-      配置文件位置: #{etc}/smart-router/smart-router.yaml
+      配置文件位置: #{etc}/smart-router/
       
       快速开始:
-        1. 编辑配置文件，添加你的 API Keys
-           vim #{etc}/smart-router/smart-router.yaml
+        1. 生成默认 V3 配置
+           smart-router init --output #{etc}/smart-router
         
-        2. 设置环境变量
+        2. 编辑配置文件，添加你的 API Keys
+           vim #{etc}/smart-router/providers.yaml
+        
+        3. 设置环境变量
            export OPENAI_API_KEY='your-key'
         
-        3. 启动服务
+        4. 启动服务
            smart-router start
         
-        4. 查看状态
+        5. 查看状态
            smart-router status
 
       文档: https://github.com/vaycentsun/smartRouter/docs/GUIDE.md

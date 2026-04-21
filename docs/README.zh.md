@@ -357,7 +357,6 @@ curl http://localhost:4000/v1/models \
 | [完整使用指南](GUIDE.md) | 详细的 CLI 命令说明、配置详解、最佳实践 |
 | [V3 配置示例](../config/examples/v3/) | V3 三文件配置示例 |
 | [V3 设计规格](specs/active/2026-04-19--config-v3-refactor.md) | V3 架构设计和迁移指南 |
-| [传统配置模板](../config/smart-router.yaml) | V2 单文件配置示例 |
 | [设计文档](specs/active/2026-04-18--smart-router.md) | 原始架构设计和技术规格 |
 
 ### 快速导航

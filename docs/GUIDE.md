@@ -29,7 +29,7 @@
 ./script/install.sh
 
 # 2. 编辑配置，填入你的 API Key
-vim smart-router.yaml
+vim ~/.smart-router/providers.yaml
 
 # 3. 健康检查
 smr doctor
@@ -135,125 +135,37 @@ smr doctor
 
 ### 配置文件
 
-运行 `smart-router init` 生成默认配置：
+运行 `smart-router init` 生成默认 V3 配置（三文件格式）：
+
+```bash
+smart-router init
+# 输出目录默认: ~/.smart-router/
+```
+
+生成的三个配置文件：
+
+| 文件 | 用途 | 说明 |
+|------|------|------|
+| `providers.yaml` | API 服务商连接配置 | 填写各服务商的 API Base 和 Key |
+| `models.yaml` | 模型能力声明配置 | 定义模型质量、成本、支持任务等 |
+| `routing.yaml` | 路由策略配置 | 阶段路由表、分类规则、Fallback 链 |
+
+示例 `providers.yaml`：
 
 ```yaml
-# smart-router.yaml
+providers:
+  openai:
+    api_base: https://api.openai.com/v1
+    api_key: os.environ/OPENAI_API_KEY
+    timeout: 30
 
-server:
-  port: 4000
-  host: "127.0.0.1"
-  master_key: "sk-smart-router-local"
-
-model_list:
-  # OpenAI
-  - model_name: gpt-4o-mini
-    litellm_params:
-      model: openai/gpt-4o-mini
-      api_key: os.environ/OPENAI_API_KEY
-
-  - model_name: gpt-4o
-    litellm_params:
-      model: openai/gpt-4o
-      api_key: os.environ/OPENAI_API_KEY
-
-  # Anthropic Claude
-  - model_name: claude-3-sonnet
-    litellm_params:
-      model: anthropic/claude-3-5-sonnet-20241022
-      api_key: os.environ/ANTHROPIC_API_KEY
-
-  # 阿里通义千问
-  - model_name: qwen-turbo
-    litellm_params:
-      model: dashscope/qwen-turbo
-      api_key: os.environ/DASHSCOPE_API_KEY
-
-  # Moonshot Kimi
-  - model_name: kimi-k2
-    litellm_params:
-      model: moonshot/moonshot-v1-8k
-      api_key: os.environ/MOONSHOT_API_KEY
-
-  # MiniMax
-  - model_name: minimax-m2
-    litellm_params:
-      model: minimax/MiniMax-Text-01
-      api_key: os.environ/MINIMAX_API_KEY
-
-  # 智谱 GLM
-  - model_name: glm-5
-    litellm_params:
-      model: openai/glm-5
-      api_base: https://open.bigmodel.cn/api/paas/v4
-      api_key: os.environ/ZHIPU_API_KEY
-
-smart_router:
-  default_strategy: auto
-
-  stage_routing:
-    brainstorming:
-      easy: ["qwen-turbo", "gpt-4o-mini"]
-      medium: ["kimi-k2", "gpt-4o"]
-      hard: ["claude-3-sonnet", "qwen-max"]
-
-    code_review:
-      easy: ["gpt-4o-mini"]
-      medium: ["claude-3-sonnet", "glm-5"]
-      hard: ["claude-3-opus", "deepseek-chat"]
-
-    writing:
-      easy: ["qwen-turbo"]
-      medium: ["gpt-4o", "kimi-k2"]
-      hard: ["claude-3-sonnet"]
-
-    reasoning:
-      easy: ["gpt-4o"]
-      medium: ["deepseek-chat", "kimi-k2"]
-      hard: ["claude-3-opus", "deepseek-r1"]
-
-    chat:
-      easy: ["qwen-turbo", "gpt-4o-mini"]
-      medium: ["gpt-4o", "kimi-k2"]
-      hard: ["claude-3-sonnet"]
-
-  classification_rules:
-    - pattern: '(?i)(review|审查|code.*quality|bug|lint)'
-      task_type: code_review
-      difficulty: medium
-
-    - pattern: '(?i)(prove|证明|formal|theorem|形式化|verify)'
-      task_type: reasoning
-      difficulty: hard
-
-    - pattern: '(?i)(write|draft|生成|撰写|compose)'
-      task_type: writing
-      difficulty: easy
-
-    - pattern: '(?i)(brainstorm|头脑风暴|ideation|想一些)'
-      task_type: brainstorming
-      difficulty: easy
-
-    - pattern: '(?i)(explain|解释|什么是|how to|怎么|如何)'
-      task_type: chat
-      difficulty: easy
-
-  embedding_match:
-    enabled: true
-    custom_types: []
-
-  fallback_chain:
-    gpt-4o-mini: ["gpt-4o", "claude-3-sonnet"]
-    qwen-turbo: ["qwen-max", "claude-3-sonnet"]
-    kimi-k2: ["glm-5", "claude-3-sonnet"]
-    gpt-4o: ["claude-3-sonnet", "qwen-max"]
-
-  timeout:
-    default: 30
-    hard_tasks: 60
-
-  max_fallback_retries: 2
+  anthropic:
+    api_base: https://api.anthropic.com
+    api_key: os.environ/ANTHROPIC_API_KEY
+    timeout: 30
 ```
+
+更多示例请参见 `config/examples/v3/` 目录。
 
 ### 环境变量设置
 
@@ -341,11 +253,11 @@ smr start --help            # 查看具体命令帮助
 生成默认配置文件：
 
 ```bash
-# 在当前目录生成 smart-router.yaml
+# 在当前目录生成 V3 配置文件
 smart-router init
 
-# 指定输出路径
-smart-router init --output ~/config/smart-router.yaml
+# 指定输出目录
+smart-router init --output ~/.smart-router
 ```
 
 ### `start` - 启动服务（推荐）
@@ -363,7 +275,7 @@ smart-router start
 #   服务: http://127.0.0.1:4000
 
 # 指定配置文件
-smart-router start --config ~/config/smart-router.yaml
+smart-router start --config ~/.smart-router
 
 # 前台运行（调试用）
 smart-router start --foreground
@@ -394,7 +306,7 @@ smart-router stop
 smart-router restart
 
 # 指定配置重启
-smart-router restart --config ~/config/smart-router.yaml
+smart-router restart --config ~/.smart-router
 ```
 
 ### `status` - 查看状态
@@ -442,7 +354,7 @@ smart-router logs -f
 smart-router start --foreground
 
 # 指定配置文件
-smart-router start --foreground --config ~/config/smart-router.yaml
+smart-router start --foreground --config ~/.smart-router
 ```
 
 **注意**：此命令会阻塞终端，适合调试使用。生产环境建议使用 `smart-router start`（后台运行）。
@@ -496,7 +408,7 @@ smart-router doctor
 ✓ Python 版本: 3.9.6
 ✓ 核心模块导入正常
 ✓ 核心功能测试通过
-✓ 配置文件存在: smart-router.yaml
+✓ 配置文件存在: providers.yaml
 ✓ 配置加载成功 (11 个模型)
 ✓ 配置验证通过
   模型数: 11, 阶段数: 5, 规则数: 5
@@ -584,7 +496,7 @@ smart-router dry-run "写一篇文章" --strategy quality
 
 ### 策略配置
 
-在 `smart-router.yaml` 中配置每个阶段的模型列表：
+在 `routing.yaml` 中配置每个阶段的模型列表：
 
 ```yaml
 stage_routing:
@@ -675,68 +587,68 @@ claude config set apiKey sk-smart-router-local
 
 ## 配置详解
 
-### 完整配置示例
+### V3 三文件配置结构
+
+Smart Router 采用三文件分离配置，便于管理和版本控制：
+
+#### 1. `providers.yaml` — 服务商配置
 
 ```yaml
-# smart-router.yaml
+providers:
+  openai:
+    api_base: https://api.openai.com/v1
+    api_key: os.environ/OPENAI_API_KEY
+    timeout: 30
+```
 
-# 服务器配置
-server:
-  port: 4000                    # 服务端口
-  host: "127.0.0.1"            # 绑定地址（0.0.0.0 允许外部访问）
-  master_key: "sk-smart-router-local"  # API 认证密钥
+#### 2. `models.yaml` — 模型能力配置
 
-# 模型列表
-model_list:
-  - model_name: gpt-4o-mini     # 本地使用的模型名称
-    litellm_params:
-      model: openai/gpt-4o-mini # LiteLLM 格式
-      api_key: os.environ/OPENAI_API_KEY  # 环境变量引用
+```yaml
+models:
+  gpt-4o:
+    provider: openai
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9
+      cost: 3
+      context: 128000
+    supported_tasks: [coding, code_review, writing, chat]
+    difficulty_support: [easy, medium, hard, expert]
+```
 
-  - model_name: claude-3-sonnet
-    litellm_params:
-      model: anthropic/claude-3-5-sonnet-20241022
-      api_key: os.environ/ANTHROPIC_API_KEY
+#### 3. `routing.yaml` — 路由策略配置
 
-# 智能路由配置
-smart_router:
-  default_strategy: auto        # 默认策略
+```yaml
+tasks:
+  coding:
+    name: "代码生成"
+    description: "编写代码、实现功能"
+    capability_weights:
+      quality: 0.60
+      cost: 0.40
 
-  # 阶段路由表
-  stage_routing:
-    brainstorming:
-      easy: ["qwen-turbo", "gpt-4o-mini"]
-      medium: ["kimi-k2", "gpt-4o"]
-      hard: ["claude-3-sonnet", "qwen-max"]
+difficulties:
+  easy:
+    name: "简单"
+    description: "基础问答"
+    max_tokens: 2000
 
-  # 分类规则（正则匹配）
-  classification_rules:
-    - pattern: '(?i)(review|审查)'
-      task_type: code_review
-      difficulty: medium
+strategies:
+  auto:
+    name: "智能自动"
+    description: "根据任务类型和难度动态计算最佳模型"
 
-  # Embedding 匹配配置
-  embedding_match:
-    enabled: true
-    custom_types: []            # 自定义任务类型
-
-  # Fallback 链
-  fallback_chain:
-    gpt-4o-mini: ["gpt-4o", "claude-3-sonnet"]
-
-  # 超时配置
-  timeout:
-    default: 30                 # 默认超时（秒）
-    hard_tasks: 60              # 困难任务超时
-
-  max_fallback_retries: 2       # 最大重试次数
+fallback:
+  mode: auto
+  similarity_threshold: 2
+  max_attempts: 3
 ```
 
 ### 配置优先级
 
-1. 命令行参数 (`--config`)
-2. 当前目录的 `smart-router.yaml`
-3. 向上查找父目录的 `smart-router.yaml`
+1. 命令行参数 (`--config /path/to/config-dir`)
+2. 当前目录下的 `providers.yaml`、`models.yaml`、`routing.yaml`
+3. 默认目录 `~/.smart-router/`
 
 ---
 
@@ -754,7 +666,7 @@ pip install litellm typer rich pyyaml pydantic
 lsof -i :4000
 
 # 使用其他端口
-# 修改 smart-router.yaml 中的 port
+# 修改 ~/.smart-router/routing.yaml 中的 port 或启动参数
 ```
 
 **后台启动失败**：

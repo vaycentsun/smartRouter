@@ -31,7 +31,7 @@ curl http://127.0.0.1:4000/v1/chat/completions \
   }'
 ```
 
-**识别规则**（在 `smart-router.yaml` 中配置）：
+**识别规则**（在 `routing.yaml` 中配置）：
 - `code_review`: 包含 "review", "审查", "代码", "重构" 等关键词
 - `writing`: 包含 "写", "撰写", "文章", "邮件" 等关键词
 - `reasoning`: 包含 "证明", "数学题", "计算" 等关键词
@@ -70,7 +70,7 @@ curl http://127.0.0.1:4000/v1/chat/completions \
 
 ### 方式三：切换策略（全局调整）
 
-修改 `smart-router.yaml` 中的默认策略：
+修改 `routing.yaml` 中的默认策略：
 
 ```yaml
 smart_router:
@@ -90,7 +90,7 @@ smart_router:
 
 ## ⚙️ 配置路由表（stage_routing）
 
-编辑 `smart-router.yaml`：
+编辑 `routing.yaml`：
 
 ```yaml
 smart_router:
@@ -228,7 +228,7 @@ smart-router dry-run --strategy speed "测试文本"
 
 ## 📊 当前配置总览
 
-查看完整的 `smart-router.yaml` 了解当前配置：
+查看完整的 `routing.yaml` 了解当前配置：
 - 11 个模型配置（OpenAI、Claude、Kimi、MiniMax、DeepSeek、Qwen、GLM）
 - 5 个任务类型（chat、writing、code_review、reasoning、brainstorming）
 - 4 种策略（auto、speed、cost、quality）

@@ -79,7 +79,7 @@ smr coffee
 ```
 smartRouter/
 ├── config/
-│   └── smart-router.yaml          # 配置模板
+│   └── examples/                  # V3 配置示例
 ├── docs/
 │   ├── GUIDE.md                   # 使用指南
 │   ├── ROUTING_GUIDE.md           # 路由策略详解
@@ -90,14 +90,14 @@ smartRouter/
 │   ├── coffee_qr.py               # 二维码模块 ⭐ NEW
 │   └── assets/
 │       └── coffee_qr.png          # 示例二维码 ⭐ NEW
-└── smart-router.yaml              # 运行时配置
+└── .smart-router/                 # 运行时配置目录 (~/.smart-router)
 ```
 
 ---
 
 ## 💡 使用提示
 
-1. **配置 API Key**: 编辑 `smart-router.yaml` 配置您的 API Key
+1. **配置 API Key**: 编辑 `~/.smart-router/providers.yaml` 配置您的 API Key
 2. **自定义二维码**: 替换 `src/smart_router/assets/coffee_qr.png` 为您自己的收款码
 3. **查看路由**: 使用 `smr dry-run "测试文本"` 预览路由决策
 

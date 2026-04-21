@@ -5,66 +5,80 @@
 ```
 smartRouter/
 ├── config/                          # 配置目录
-│   ├── smart-router.yaml           # ⭐ 默认配置模板（项目自带）
-│   └── examples/                   # 配置示例
-│       ├── smart-router.minimal.yaml      # 最小化配置
-│       └── smart-router.full.yaml         # 完整配置示例
+│   └── examples/                    # V3 配置示例
+│       ├── v3/
+│       │   ├── providers.yaml       # 服务商配置示例
+│       │   ├── models.yaml          # 模型配置示例
+│       │   └── routing.yaml         # 路由策略示例
+│       ├── minimal.yaml             # 最小化配置（V2 遗留）
+│       └── multi-provider.yaml      # 多服务商配置（V2 遗留）
 │
-├── docs/                           # 文档目录
-│   ├── GUIDE.md                   # 使用指南
-│   ├── ROUTING_GUIDE.md           # 路由策略详解
-│   └── CONFIG_REFERENCE.md        # 配置参考手册
+├── docs/                            # 文档目录
+│   ├── GUIDE.md                     # 使用指南
+│   ├── ROUTING_GUIDE.md             # 路由策略详解
+│   └── FILE_ORGANIZATION.md         # 文件组织规范
 │
-├── src/                           # 源码
+├── src/                             # 源码
 │   └── smart_router/
 │       └── ...
 │
-├── tests/                         # 测试
-├── script/                        # 脚本
-├── README.md                      # 项目 README
-└── smart-router.yaml             # ⚠️ 用户工作目录配置（运行时读取）
+├── tests/                           # 测试
+├── script/                          # 脚本
+├── README.md                        # 项目 README
+└── .smart-router/                   # 用户运行时配置目录（~/.smart-router）
+    ├── providers.yaml               # API 服务商连接配置
+    ├── models.yaml                  # 模型能力声明配置
+    ├── routing.yaml                 # 路由策略配置
+    ├── smart-router.pid             # 服务进程 PID 文件
+    └── smart-router.log             # 服务日志文件
 ```
 
 ---
 
 ## 📄 文件职责说明
 
-### 1. `smart-router.yaml`（根目录）
+### 1. `~/.smart-router/`（用户配置目录）
 
-**职责**: 当前工作目录的运行时配置
+**职责**: 运行时配置目录
 
 **特点**:
-- Smart Router 启动时默认查找的配置文件
-- 向上递归查找（可以在任意子目录运行）
+- `smart-router init` 默认生成的配置位置
 - 包含真实的 API Key 等敏感信息
 - **不应提交到 Git**
 
-**使用场景**: 
+**使用场景**:
 ```bash
-# 在项目根目录运行
+# 初始化配置到默认目录
+smart-router init
+
+# 启动服务（自动读取 ~/.smart-router/）
 smart-router start
 
-# 或在子目录运行（会自动找到根目录的配置）
+# 或在当前目录运行（自动查找当前目录配置）
 cd projects/my-app
-smart-router start  # 会使用 smartRouter/smart-router.yaml
+smart-router start  # 会使用当前目录的 providers.yaml / models.yaml / routing.yaml
 ```
 
 ---
 
-### 2. `config/smart-router.yaml`
+### 2. `config/examples/v3/`
 
-**职责**: 默认配置模板（项目自带）
+**职责**: V3 三文件配置示例
 
 **特点**:
-- 项目维护的默认配置模板
-- 运行 `smart-router init` 时会复制到当前目录
-- 作为新用户的起点配置
+- 项目维护的默认配置示例
+- 作为新用户的起点参考
 - **可以提交到 Git**
+
+**文件说明**:
+- `providers.yaml` — API 服务商连接配置（OpenAI、Anthropic、DeepSeek 等）
+- `models.yaml` — 模型能力声明配置（质量评分、支持任务、难度等级）
+- `routing.yaml` — 路由策略配置（阶段路由表、分类规则、Fallback 链）
 
 **使用场景**:
 ```bash
-# 生成新的配置文件
-smart-router init  # 复制 config/smart-router.yaml 到当前目录
+# 查看配置示例
+cat config/examples/v3/providers.yaml
 ```
 
 ---
@@ -87,49 +101,20 @@ smart-router init  # 复制 config/smart-router.yaml 到当前目录
 用户操作                          文件变化
 ─────────────────────────────────────────────────────────
 1. 安装项目
-   └── 获取 config/smart-router.yaml（模板）
+   └── 获取 config/examples/v3/（示例）
 
 2. smart-router init
-   └── 复制 config/smart-router.yaml → ./smart-router.yaml
+   └── 生成 ~/.smart-router/providers.yaml
+   └── 生成 ~/.smart-router/models.yaml
+   └── 生成 ~/.smart-router/routing.yaml
    └── 用户编辑 API Key 等配置
 
 3. smart-router start
-   └── 读取 ./smart-router.yaml（运行时配置）
+   └── 读取 ~/.smart-router/ 下的三文件（运行时配置）
 
 4. 日常开发
-   └── 修改 ./smart-router.yaml（本地配置）
-   └── 项目升级时对比 config/smart-router.yaml（模板更新）
-```
-
----
-
-## ⚠️ 当前问题与解决方案
-
-### 问题 1: 根目录文件过多
-
-**当前状态**:
-```
-smartRouter/
-├── smart-router.yaml           # ✅ 运行时配置
-├── smart-router-guide.yaml     # ❌ 应删除或合并
-├── ROUTING_GUIDE.md            # ⚠️ 应移入 docs/
-├── VERSION-v1.0.md             # ⚠️ 应移入 docs/versions/
-├── QUICKSTART-v1.0.md          # ⚠️ 应移入 docs/versions/
-└── ...
-```
-
-**解决方案**:
-```bash
-# 1. 删除重复/临时的 guide 文件
-rm smart-router-guide.yaml  # 内容已合并到 ROUTING_GUIDE.md
-
-# 2. 移动文档到 docs 目录
-mv ROUTING_GUIDE.md docs/
-mv VERSION-v1.0.md docs/versions/
-mv QUICKSTART-v1.0.md docs/versions/
-
-# 3. 保留根目录的 smart-router.yaml（运行时配置）
-# 4. 保留 config/smart-router.yaml（模板）
+   └── 修改 ~/.smart-router/*.yaml（本地配置）
+   └── 项目升级时对比 config/examples/v3/（模板更新）
 ```
 
 ---
@@ -139,14 +124,9 @@ mv QUICKSTART-v1.0.md docs/versions/
 ### 应该提交到 Git 的文件
 
 ```gitignore
-# config/ 目录下的模板配置
-config/smart-router.yaml           ✅ 提交
-config/examples/*.yaml             ✅ 提交
-
-# 文档
+# config/ 目录下的示例配置
+config/examples/                   ✅ 提交
 docs/**/*.md                       ✅ 提交
-
-# 源码、测试等
 src/                               ✅ 提交
 tests/                             ✅ 提交
 ```
@@ -154,8 +134,9 @@ tests/                             ✅ 提交
 ### 不应提交到 Git 的文件
 
 ```gitignore
-# 根目录的运行时配置（包含 API Key）
-/smart-router.yaml                 ❌ 忽略
+# 用户运行时配置目录（包含 API Key）
+/.smart-router/                    ❌ 忽略
+/smart-router.yaml                 ❌ 忽略（V2 遗留）
 
 # 虚拟环境
 venv/                              ❌ 忽略
@@ -169,53 +150,29 @@ __pycache__/
 
 ## 🎯 推荐操作
 
-### 立即执行（清理当前混乱）
+### 初始化配置
 
 ```bash
-# 1. 删除临时的 guide yaml（内容已包含在 ROUTING_GUIDE.md 中）
-rm smart-router-guide.yaml
+# 生成默认 V3 配置到 ~/.smart-router/
+smart-router init
 
-# 2. 创建 docs/versions/ 目录并移动版本文档
-mkdir -p docs/versions
-mv VERSION-v1.0.md docs/versions/
-mv QUICKSTART-v1.0.md docs/versions/
-
-# 3. 移动路由指南到 docs
-mv ROUTING_GUIDE.md docs/
-
-# 4. 更新 .gitignore，忽略根目录的配置文件
-echo "/smart-router.yaml" >> .gitignore
-
-# 5. 确保 config/smart-router.yaml 是最新的模板
-cp smart-router.yaml config/smart-router.yaml
+# 或生成到指定目录
+smart-router init --output ./my-config
 ```
 
-### 清理后的目录结构
+### 使用自定义配置目录启动
 
-```
-smartRouter/
-├── config/
-│   ├── smart-router.yaml          # 配置模板
-│   └── examples/                  # 配置示例
-├── docs/
-│   ├── GUIDE.md
-│   ├── ROUTING_GUIDE.md           # 路由指南（从根目录移入）
-│   └── versions/
-│       ├── VERSION-v1.0.md
-│       └── QUICKSTART-v1.0.md
-├── src/
-├── tests/
-├── smart-router.yaml              # 运行时配置（本地使用，不提交）
-└── .gitignore                     # 忽略 /smart-router.yaml
+```bash
+# 使用指定目录的配置启动
+smart-router start --config ./my-config
 ```
 
 ---
 
 ## 💡 总结
 
-| 文件 | 位置 | 是否提交 Git | 用途 |
-|------|------|--------------|------|
-| `smart-router.yaml` | 根目录 | ❌ 否 | 运行时配置（含 API Key） |
-| `config/smart-router.yaml` | config/ | ✅ 是 | 配置模板 |
+| 文件/目录 | 位置 | 是否提交 Git | 用途 |
+|-----------|------|--------------|------|
+| `~/.smart-router/` | 用户主目录 | ❌ 否 | 运行时配置（含 API Key） |
+| `config/examples/v3/` | config/ | ✅ 是 | V3 配置示例 |
 | `*.md` 文档 | docs/ | ✅ 是 | 项目文档 |
-| `*-guide.yaml` | - | 🗑️ 删除 | 临时文件，已合并 |
