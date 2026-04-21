@@ -18,14 +18,14 @@ class TestVersionCommand:
         """测试短版本号"""
         result = runner.invoke(app, ["version", "--short"])
         assert result.exit_code == 0
-        assert "1.0.1" in result.stdout
+        assert "1.0.2" in result.stdout
     
     def test_version_full(self):
         """测试完整版本信息"""
         result = runner.invoke(app, ["version"])
         assert result.exit_code == 0
         assert "Smart Router" in result.stdout
-        assert "1.0.1" in result.stdout
+        assert "1.0.2" in result.stdout
 
 
 class TestInitCommand:
@@ -131,37 +131,84 @@ class TestDryRunCommand:
     
     @pytest.fixture
     def test_config_file(self):
-        """创建测试配置文件"""
-        config = {
-            "server": {"port": 4000, "host": "127.0.0.1", "master_key": "sk-test"},
-            "model_list": [
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o", "api_key": "test"}},
-                {"model_name": "qwen3-122b", "litellm_params": {"model": "dashscope/qwen3-122b", "api_key": "test"}},
-            ],
-            "smart_router": {
-                "task_types": {
-                    "writing": {"keywords": ["写", "文章"]},
-                    "chat": {"keywords": []}
-                },
-                "difficulty_rules": [
-                    {"condition": "length < 30", "difficulty": "easy", "priority": 1}
-                ],
-                "model_pool": {
-                    "capabilities": {
-                        "gpt-4o": {"difficulties": ["hard"], "task_types": ["writing"], "priority": 1},
-                        "qwen3-122b": {"difficulties": ["easy"], "task_types": ["writing"], "priority": 1}
-                    },
-                    "default_model": "gpt-4o"
-                },
-                "fallback_chain": {},
-                "timeout": {"default": 30, "hard_tasks": 60},
-                "max_fallback_retries": 2
-            }
-        }
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            yaml.dump(config, f)
-            return f.name
+        """创建 V3 测试配置目录"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            (config_dir / "providers.yaml").write_text("""
+providers:
+  test:
+    api_base: http://test.com
+    api_key: test-key
+""")
+            (config_dir / "models.yaml").write_text("""
+models:
+  gpt-4o:
+    provider: test
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9
+      speed: 5
+      cost: 3
+      context: 128000
+    supported_tasks: [writing, chat]
+    difficulty_support: [easy, medium, hard]
+  qwen3-122b:
+    provider: test
+    litellm_model: dashscope/qwen3-122b
+    capabilities:
+      quality: 5
+      speed: 7
+      cost: 8
+      context: 32000
+    supported_tasks: [writing, chat]
+    difficulty_support: [easy, medium]
+""")
+            (config_dir / "routing.yaml").write_text("""
+tasks:
+  writing:
+    name: "写作"
+    description: "写文章、写作"
+    capability_weights:
+      quality: 0.6
+      speed: 0.2
+      cost: 0.2
+  chat:
+    name: "聊天"
+    description: "日常对话"
+    capability_weights:
+      quality: 0.4
+      speed: 0.3
+      cost: 0.3
+
+difficulties:
+  easy:
+    name: "简单"
+    description: "简单问题"
+    max_tokens: 2000
+  medium:
+    name: "中等"
+    description: "中等难度"
+    max_tokens: 4000
+  hard:
+    name: "困难"
+    description: "困难问题"
+    max_tokens: 8000
+
+strategies:
+  auto:
+    name: "自动"
+    description: "自动选择"
+  quality:
+    name: "质量优先"
+    description: "质量优先"
+  cost:
+    name: "成本优先"
+    description: "成本优先"
+
+fallback:
+  mode: auto
+""")
+            yield str(config_dir)
     
     def test_dry_run_basic(self, test_config_file):
         """测试基本 dry-run"""
