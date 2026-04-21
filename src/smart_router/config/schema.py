@@ -110,9 +110,11 @@ class Config(BaseModel):
                 )
         return self
     
-    def model_post_init(self, __context):
+    @model_validator(mode='after')
+    def init_fallback_chains(self):
         """预计算 fallback 链"""
         self._fallback_chains = self._derive_fallback_chains()
+        return self
     
     def _derive_fallback_chains(self) -> Dict[str, List[str]]:
         """基于 quality 相似度自动推导 fallback 链
