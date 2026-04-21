@@ -26,7 +26,7 @@ class ProviderConfig(BaseModel):
 class ModelCapabilities(BaseModel):
     """模型能力评分 (1-10)"""
     quality: int = Field(ge=1, le=10, description="质量评分，10=最高质量")
-
+    speed: int = Field(default=5, ge=1, le=10, description="速度评分，10=最快")
     cost: int = Field(ge=1, le=10, description="成本效率，10=最便宜")
     context: int = Field(gt=0, description="上下文窗口大小")
 
