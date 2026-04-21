@@ -30,7 +30,7 @@ console = Console()
 DEFAULT_CONFIG = Path(__file__).parent.parent.parent / "config" / "smart-router.yaml"
 
 # 版本号
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 
 @app.command()
@@ -89,29 +89,21 @@ def init(
             console.print("[yellow]已取消[/yellow]")
             raise typer.Exit()
     
-    # 从项目示例文件复制配置
-    possible_paths = [
-        Path(__file__).parent.parent.parent / "config" / "examples" / "v3",
-        Path(__file__).parent.parent / "config" / "examples" / "v3",
-        Path(__file__).parent / "config" / "examples" / "v3",
-    ]
-    
-    examples_dir = None
-    for path in possible_paths:
-        if path.exists() and (path / "models.yaml").exists():
-            examples_dir = path
-            break
-    
-    if examples_dir:
-        import shutil
-        for filename in ["providers.yaml", "models.yaml", "routing.yaml"]:
-            src = examples_dir / filename
-            dst = output_dir / filename
-            if src.exists():
-                shutil.copy2(src, dst)
-        
-        console.print(f"[green]✓[/green] 配置文件已生成: {output_dir.absolute()}")
-    else:
+    # 从包内模板复制配置（支持 pip install 和源码运行）
+    try:
+        from importlib.resources import files
+        templates_dir = files("smart_router") / "templates"
+        if templates_dir.exists() and (templates_dir / "models.yaml").exists():
+            import shutil
+            for filename in ["providers.yaml", "models.yaml", "routing.yaml"]:
+                src = templates_dir / filename
+                dst = output_dir / filename
+                if src.exists():
+                    shutil.copy2(str(src), dst)
+            console.print(f"[green]✓[/green] 配置文件已生成: {output_dir.absolute()}")
+        else:
+            raise FileNotFoundError("模板目录不存在")
+    except Exception:
         console.print("[yellow]⚠[/yellow] 未找到示例配置文件，使用默认配置...")
         _write_default_configs(output_dir)
     
@@ -169,13 +161,117 @@ providers:
     timeout: 30
 '''
     
-    # models.yaml (简化版)
+    # models.yaml (默认基础模型)
     models_content = '''# Models Configuration
 # 模型能力声明配置
-# 请根据你的 API Key 配置启用对应的模型
-# 详见: https://github.com/your-username/smart-router
+# 请根据你的 API Key 配置启用或注释掉不需要的模型
 
-models: {}
+models:
+  # ------------------ OpenAI ------------------
+  gpt-4o:
+    provider: openai
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9
+      cost: 3
+      context: 128000
+    supported_tasks: [coding, code_review, writing, chat]
+    difficulty_support: [easy, medium, hard, expert]
+
+  gpt-4o-mini:
+    provider: openai
+    litellm_model: openai/gpt-4o-mini
+    capabilities:
+      quality: 6
+      cost: 9
+      context: 128000
+    supported_tasks: [coding, writing, chat]
+    difficulty_support: [easy, medium]
+
+  # ------------------ Anthropic ------------------
+  claude-3-5-sonnet:
+    provider: anthropic
+    litellm_model: anthropic/claude-3-5-sonnet-20241022
+    capabilities:
+      quality: 10
+      cost: 4
+      context: 200000
+    supported_tasks: [coding, code_review, writing, chat]
+    difficulty_support: [easy, medium, hard, expert]
+
+  # ------------------ 阿里通义千问 ------------------
+  qwen-max:
+    provider: aliyun
+    litellm_model: openai/qwen-max
+    capabilities:
+      quality: 8
+      cost: 6
+      context: 32000
+    supported_tasks: [coding, code_review, writing, chat]
+    difficulty_support: [easy, medium, hard]
+
+  qwen-turbo:
+    provider: aliyun
+    litellm_model: openai/qwen-turbo
+    capabilities:
+      quality: 6
+      cost: 9
+      context: 128000
+    supported_tasks: [chat, writing]
+    difficulty_support: [easy, medium]
+
+  # ------------------ 智谱 GLM ------------------
+  glm-4:
+    provider: zhipu
+    litellm_model: openai/glm-4
+    capabilities:
+      quality: 7
+      cost: 6
+      context: 128000
+    supported_tasks: [coding, writing, chat]
+    difficulty_support: [easy, medium, hard]
+
+  glm-4-flash:
+    provider: zhipu
+    litellm_model: openai/glm-4-flash
+    capabilities:
+      quality: 5
+      cost: 10
+      context: 128000
+    supported_tasks: [chat, writing]
+    difficulty_support: [easy, medium]
+
+  # ------------------ MiniMax ------------------
+  minimax-text-01:
+    provider: minimax
+    litellm_model: openai/MiniMax-Text-01
+    capabilities:
+      quality: 7
+      cost: 6
+      context: 1000000
+    supported_tasks: [coding, writing, chat]
+    difficulty_support: [easy, medium, hard]
+
+  # ------------------ 智能路由虚拟模型 ------------------
+  auto:
+    provider: aliyun
+    litellm_model: openai/qwen-max
+    capabilities:
+      quality: 8
+      cost: 6
+      context: 32000
+    supported_tasks: [coding, code_review, writing, chat]
+    difficulty_support: [easy, medium, hard, expert]
+
+  smart-router:
+    provider: aliyun
+    litellm_model: openai/qwen-max
+    capabilities:
+      quality: 8
+      cost: 6
+      context: 32000
+    supported_tasks: [coding, code_review, writing, chat]
+    difficulty_support: [easy, medium, hard, expert]
 '''
     
     # routing.yaml

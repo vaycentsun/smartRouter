@@ -1,6 +1,6 @@
 [project]
 name = "smart-router"
-version = "0.1.0"
+version = "1.0.0"
 description = "智能模型路由网关 — 基于 LiteLLM 的多服务商自动路由 CLI 工具"
 readme = "README.md"
 license = {text = "MIT"}
@@ -72,4 +72,5 @@ include = [
 packages = ["src/smart_router"]
 include = [
     "config/examples/v3/*.yaml",
+    "src/smart_router/templates/*.yaml",
 ]

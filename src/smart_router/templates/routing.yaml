@@ -1,0 +1,124 @@
+# V3 路由配置示例 - 4级难度版本
+# 任务路由策略配置 - 适配多场景 AI 任务
+
+tasks:
+  # ------------------ 编程开发类 ------------------
+  coding:
+    name: "代码生成"
+    description: "编写代码、实现功能、算法设计、Debug调试、代码重构"
+    capability_weights:
+      quality: 0.60    # 代码质量重要
+      cost: 0.40
+      
+  code_review:
+    name: "代码审查"
+    description: "代码质量审查、bug发现、架构评估、性能优化建议、安全审计"
+    capability_weights:
+      quality: 0.70    # 审查质量至关重要
+      cost: 0.30
+      
+  # ------------------ 内容创作类 ------------------
+  writing:
+    name: "内容写作"
+    description: "文章撰写、邮件起草、报告编写、技术文档、商业文案"
+    capability_weights:
+      quality: 0.60    # 内容质量优先
+      cost: 0.40
+      
+  creative:
+    name: "创意写作"
+    description: "故事创作、诗歌、广告创意、营销文案、剧本"
+    capability_weights:
+      quality: 0.65    # 创意需要高质量
+      cost: 0.35
+      
+  # ------------------ 分析推理类 ------------------
+  reasoning:
+    name: "逻辑推理"
+    description: "数学问题、逻辑谜题、证明推导、算法分析、复杂问题求解"
+    capability_weights:
+      quality: 0.80    # 推理任务质量最关键
+      cost: 0.20
+      
+  analysis:
+    name: "数据分析"
+    description: "数据解读、趋势分析、商业分析、技术评估、竞争分析"
+    capability_weights:
+      quality: 0.60
+      cost: 0.40
+      
+  # ------------------ 学习辅助类 ------------------
+  explanation:
+    name: "知识讲解"
+    description: "概念解释、教程编写、答疑解惑、知识梳理、学习辅导"
+    capability_weights:
+      quality: 0.55
+      cost: 0.45
+      
+  translation:
+    name: "翻译"
+    description: "文本翻译、本地化、多语言转换、术语校对"
+    capability_weights:
+      quality: 0.65    # 翻译准确性重要
+      cost: 0.35
+      
+  # ------------------ 通用交互类 ------------------
+  chat:
+    name: "日常对话"
+    description: "闲聊、简单问答、日常交流、情感陪伴"
+    capability_weights:
+      quality: 0.35    # 对话质量要求不高
+      cost: 0.65
+      
+  brainstorming:
+    name: "头脑风暴"
+    description: "想法生成、方案讨论、创意发散、问题解决"
+    capability_weights:
+      quality: 0.45
+      cost: 0.55
+
+# ==================== 难度等级定义 (4级) ====================
+difficulties:
+  easy:
+    name: "简单"
+    description: "基础问答、简单解释、短文本生成、单轮对话"
+    max_tokens: 2000
+    
+  medium:
+    name: "中等"
+    description: "多轮对话、中等长度内容、标准编程任务、常规分析"
+    max_tokens: 8000
+    
+  hard:
+    name: "困难"
+    description: "长文创作、复杂推理、架构设计、深度分析"
+    max_tokens: 16000
+    
+  expert:
+    name: "专家"
+    description: "研究级问题、深度分析、创新设计、复杂证明"
+    max_tokens: 32000
+
+# ==================== 路由策略 ====================
+strategies:
+  auto:
+    name: "智能自动"
+    description: "根据任务类型和难度动态计算最佳模型"
+    
+  quality:
+    name: "质量优先"
+    description: "选择 capability.quality 最高的模型"
+    
+  cost:
+    name: "成本优先"
+    description: "选择 capability.cost 最高的模型（最便宜）"
+    
+  balanced:
+    name: "平衡模式"
+    description: "quality和cost权重相等(各0.5)"
+
+# ==================== Fallback 配置 ====================
+fallback:
+  mode: auto
+  similarity_threshold: 2    # quality差异在2以内的模型可作为fallback
+  max_attempts: 3           # 最多尝试3次fallback
