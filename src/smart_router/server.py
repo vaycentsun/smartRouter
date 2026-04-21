@@ -10,8 +10,7 @@ from rich.console import Console
 from .config.loader import ConfigLoader
 from .config.schema import Config
 from .plugin import SmartRouter
-from .utils.markers import parse_markers
-from .utils.token_counter import estimate_messages_tokens
+
 
 console = Console()
 
@@ -137,67 +136,33 @@ def start_server(config_path: Optional[Path] = None):
                             if should_route and hasattr(app.state, 'smart_router'):
                                 messages = data.get("messages", [])
                                 
-                                # 解析阶段标记
-                                markers = parse_markers(messages)
-                                
-                                # 确定任务类型和策略
-                                strategy = "auto"  # 默认策略
-                                
-                                if original_model.startswith("strategy-"):
-                                    # strategy-quality 或 strategy-cost
-                                    strategy = original_model.replace("strategy-", "")
-                                    if markers.stage:
-                                        task_type = markers.stage
-                                        difficulty = markers.difficulty or "medium"
-                                    else:
-                                        classification = app.state.smart_router.classifier.classify(messages)
-                                        task_type = classification.task_type
-                                        difficulty = classification.estimated_difficulty
-                                elif original_model.startswith("stage:"):
-                                    task_type = original_model.replace("stage:", "")
-                                    difficulty = markers.difficulty or "medium"
-                                elif markers.stage:
-                                    task_type = markers.stage
-                                    difficulty = markers.difficulty or "medium"
-                                else:
-                                    # 使用分类器
-                                    classification = app.state.smart_router.classifier.classify(messages)
-                                    task_type = classification.task_type
-                                    difficulty = classification.estimated_difficulty
-                                
-                                # 估算所需上下文窗口
-                                estimated_input = estimate_messages_tokens(messages)
-                                required_context = estimated_input + 4000 if estimated_input > 0 else 0
-                                
-                                console.print(f"[cyan]智能路由: {original_model} -> 任务:{task_type}, 难度:{difficulty}, 策略:{strategy}, 需上下文:{required_context}[/cyan]")
-                                
-                                # 选择模型
-                                selected_result = app.state.smart_router.selector.select(
-                                    task_type=task_type,
-                                    difficulty=difficulty,
-                                    strategy=strategy,
-                                    required_context=required_context
-                                )
-                                selected = selected_result.model_name if hasattr(selected_result, 'model_name') else str(selected_result)
-                                
-                                console.print(f"[green]智能路由: 选择模型 {selected}[/green]")
-                                
-                                # 修改请求体
-                                data["model"] = selected
-                                
-                                # 保存到 request.state 供后续使用
-                                request.state.smart_router_selected = selected
-                                request.state.smart_router_original = original_model
-                                request.state.smart_router_task = task_type
-                                
-                                # 重新构建请求体
-                                modified_body = json.dumps(data).encode("utf-8")
-                                
-                                # 创建新的请求，使用修改后的 body
-                                async def receive():
-                                    return {"type": "http.request", "body": modified_body, "more_body": False}
-                                
-                                request = Request(request.scope, receive, request._send)
+                                try:
+                                    result = app.state.smart_router.select_model(
+                                        model_hint=original_model,
+                                        messages=messages
+                                    )
+                                    selected = result.model_name
+                                    
+                                    console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
+                                    
+                                    # 修改请求体
+                                    data["model"] = selected
+                                    
+                                    # 保存到 request.state 供后续使用
+                                    request.state.smart_router_selected = selected
+                                    request.state.smart_router_original = original_model
+                                    request.state.smart_router_task = result.task_type
+                                    
+                                    # 重新构建请求体
+                                    modified_body = json.dumps(data).encode("utf-8")
+                                    
+                                    # 创建新的请求，使用修改后的 body
+                                    async def receive():
+                                        return {"type": "http.request", "body": modified_body, "more_body": False}
+                                    
+                                    request = Request(request.scope, receive, request._send)
+                                except Exception as e:
+                                    console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
                     except Exception as e:
                         console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                         import traceback
