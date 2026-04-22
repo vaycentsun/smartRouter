@@ -8,7 +8,6 @@ from ..config.v3_schema import ConfigV3
 
 @dataclass
 class SelectionResult:
-    """模型选择结果"""
     model_name: str
     task_type: str
     difficulty: str
@@ -18,14 +17,15 @@ class SelectionResult:
 
 
 class V3ModelSelector:
-    """V3 模型选择器
-    
-    基于模型能力声明和任务权重动态计算最佳模型
-    """
+    SUPPORTED_STRATEGIES = {
+        "auto", "quality", "cost", 
+        "reasoning", "creative", "vision", "long_context", "latest",
+        "balanced"
+    }
     
     def __init__(self, config: ConfigV3, available_models: Optional[List[str]] = None):
         self.config = config
-        self.available_models = available_models  # 可用模型白名单
+        self.available_models = available_models
     
     def select(
         self,
@@ -33,17 +33,6 @@ class V3ModelSelector:
         difficulty: str,
         strategy: str = "auto"
     ) -> SelectionResult:
-        """选择最佳模型
-        
-        Args:
-            task_type: 任务类型
-            difficulty: 难度（easy/medium/hard）
-            strategy: 策略（auto/quality/speed/cost）
-            
-        Returns:
-            SelectionResult
-        """
-        # Step 1: 过滤候选模型
         candidates = self._filter_candidates(task_type, difficulty)
         
         if not candidates:
@@ -51,15 +40,24 @@ class V3ModelSelector:
                 f"No model supports {task_type}/{difficulty}"
             )
         
-        # Step 2 & 3: 策略评分与排序
         if strategy == "auto":
             return self._select_by_auto(candidates, task_type, difficulty)
         elif strategy == "quality":
             return self._select_by_capability(candidates, "quality", task_type, difficulty)
-        elif strategy == "speed":
-            return self._select_by_capability(candidates, "speed", task_type, difficulty)
         elif strategy == "cost":
             return self._select_by_capability(candidates, "cost", task_type, difficulty)
+        elif strategy == "reasoning":
+            return self._select_by_capability(candidates, "reasoning", task_type, difficulty)
+        elif strategy == "creative":
+            return self._select_by_capability(candidates, "creative", task_type, difficulty)
+        elif strategy == "vision":
+            return self._select_by_vision(candidates, task_type, difficulty)
+        elif strategy == "long_context":
+            return self._select_by_long_context(candidates, task_type, difficulty)
+        elif strategy == "latest":
+            return self._select_by_capability(candidates, "latest", task_type, difficulty)
+        elif strategy == "balanced":
+            return self._select_by_balanced(candidates, task_type, difficulty)
         else:
             raise UnknownStrategyError(f"Unknown strategy: {strategy}")
     
@@ -68,19 +66,15 @@ class V3ModelSelector:
         task_type: str,
         difficulty: str
     ) -> List[Tuple[str, dict]]:
-        """过滤符合条件的模型"""
         candidates = []
         
         for name, model in self.config.models.items():
-            # 如果指定了可用模型列表，跳过不可用的
             if self.available_models is not None and name not in self.available_models:
                 continue
             
-            # 检查任务类型支持
             if task_type not in model.supported_tasks:
                 continue
             
-            # 检查难度支持
             if difficulty not in model.difficulty_support:
                 continue
             
@@ -94,12 +88,10 @@ class V3ModelSelector:
         task_type: str,
         difficulty: str
     ) -> SelectionResult:
-        """auto 策略：综合评分"""
         task_config = self.config.routing.tasks.get(task_type)
         
         if task_config is None:
-            # 如果任务未定义，使用默认权重
-            weights = {"quality": 0.33, "speed": 0.33, "cost": 0.34}
+            weights = {"quality": 0.5, "cost": 0.5}
         else:
             weights = task_config.capability_weights
         
@@ -107,13 +99,11 @@ class V3ModelSelector:
         for name, model in candidates:
             caps = model.capabilities
             score = (
-                caps.quality * weights.get("quality", 0.33) +
-                caps.speed * weights.get("speed", 0.33) +
-                caps.cost * weights.get("cost", 0.34)
+                caps.quality * weights.get("quality", 0.5) +
+                caps.cost * weights.get("cost", 0.5)
             )
             scored.append((name, score, model))
         
-        # 按得分降序排列
         scored.sort(key=lambda x: x[1], reverse=True)
         
         best_name, best_score, best_model = scored[0]
@@ -134,13 +124,15 @@ class V3ModelSelector:
         task_type: str,
         difficulty: str
     ) -> SelectionResult:
-        """quality/speed/cost 策略：单维度排序"""
         scored = []
         for name, model in candidates:
-            value = getattr(model.capabilities, capability)
-            scored.append((name, value))
+            value = getattr(model.capabilities, capability, None)
+            if value is not None:
+                scored.append((name, value))
         
-        # 降序排列
+        if not scored:
+            return self._select_by_auto(candidates, task_type, difficulty)
+        
         scored.sort(key=lambda x: x[1], reverse=True)
         
         best_name, best_value = scored[0]
@@ -152,6 +144,102 @@ class V3ModelSelector:
             strategy=capability,
             score=float(best_value),
             reason=f"Highest {capability}: {best_value}"
+        )
+    
+    def _select_by_vision(
+        self,
+        candidates: List[Tuple[str, dict]],
+        task_type: str,
+        difficulty: str
+    ) -> SelectionResult:
+        vision_candidates = [(n, m) for n, m in candidates if m.capabilities.vision]
+        
+        if not vision_candidates:
+            return self._select_by_auto(candidates, task_type, difficulty)
+        
+        scored = [(n, m.capabilities.quality) for n, m in vision_candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        
+        best_name, best_quality = scored[0]
+        
+        return SelectionResult(
+            model_name=best_name,
+            task_type=task_type,
+            difficulty=difficulty,
+            strategy="vision",
+            score=float(best_quality),
+            reason=f"Vision-capable model with highest quality: {best_quality}"
+        )
+    
+    def _select_by_long_context(
+        self,
+        candidates: List[Tuple[str, dict]],
+        task_type: str,
+        difficulty: str
+    ) -> SelectionResult:
+        long_context_candidates = [(n, m) for n, m in candidates 
+                                   if m.capabilities.long_context or m.capabilities.context >= 128000]
+        
+        if not long_context_candidates:
+            return self._select_by_context_window(candidates, task_type, difficulty)
+        
+        scored = [(n, m.capabilities.context) for n, m in long_context_candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        
+        best_name, best_context = scored[0]
+        
+        return SelectionResult(
+            model_name=best_name,
+            task_type=task_type,
+            difficulty=difficulty,
+            strategy="long_context",
+            score=float(best_context),
+            reason=f"Long context model with {best_context} tokens"
+        )
+    
+    def _select_by_context_window(
+        self,
+        candidates: List[Tuple[str, dict]],
+        task_type: str,
+        difficulty: str
+    ) -> SelectionResult:
+        scored = [(n, m.capabilities.context) for n, m in candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        
+        best_name, best_context = scored[0]
+        
+        return SelectionResult(
+            model_name=best_name,
+            task_type=task_type,
+            difficulty=difficulty,
+            strategy="long_context",
+            score=float(best_context),
+            reason=f"Largest context window: {best_context} tokens"
+        )
+    
+    def _select_by_balanced(
+        self,
+        candidates: List[Tuple[str, dict]],
+        task_type: str,
+        difficulty: str
+    ) -> SelectionResult:
+        scored = []
+        for name, model in candidates:
+            caps = model.capabilities
+            score = (caps.quality * 0.5 + caps.cost * 0.5)
+            scored.append((name, score))
+        
+        scored.sort(key=lambda x: x[1], reverse=True)
+        
+        best_name, best_score = scored[0]
+        
+        return SelectionResult(
+            model_name=best_name,
+            task_type=task_type,
+            difficulty=difficulty,
+            strategy="balanced",
+            score=best_score,
+            reason=f"Balanced quality/cost score: {best_score:.2f}"
         )
     
     def get_available_models(
