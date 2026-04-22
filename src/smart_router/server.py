@@ -70,15 +70,26 @@ def start_server(config_path: Optional[Path] = None):
                 "litellm_params": litellm_params
             })
         
+        # 构建 fallback 链（模型故障时自动切换）
+        fallbacks = []
+        for model_name in config.models.keys():
+            chain = config.get_fallback_chain(model_name)
+            if chain:
+                fallbacks.append({model_name: chain})
+        
         litellm_config = {
             "model_list": model_list,
             "router_settings": {
                 "routing_strategy": "simple-shuffle",
+                "allowed_fails": 1,       # 失败 1 次后将模型标记为不可用
+                "cooldown_time": 60,      # 冷却 60 秒后恢复
             },
             "general_settings": {
                 "master_key": master_key,
             }
         }
+        if fallbacks:
+            litellm_config["fallbacks"] = fallbacks
         
         # 将配置写入临时文件
         import json

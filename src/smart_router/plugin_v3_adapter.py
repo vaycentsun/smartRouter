@@ -36,8 +36,16 @@ class SmartRouterV3Adapter(Router):
         # 转换 V3 模型列表为 LiteLLM 格式
         litellm_model_list = self._build_litellm_model_list()
         
+        # 构建 LiteLLM fallbacks（模型故障时自动切换）
+        fallbacks = []
+        for model_name in self.config.models.keys():
+            chain = self.config.get_fallback_chain(model_name)
+            if chain:
+                fallbacks.append({model_name: chain})
+        
         super().__init__(
             model_list=litellm_model_list,
+            fallbacks=fallbacks if fallbacks else None,
             *args,
             **kwargs
         )
