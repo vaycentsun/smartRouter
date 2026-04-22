@@ -61,18 +61,27 @@ def start_server(config_path: Optional[Path] = None):
         
         proxy_config = ProxyConfig()
         
-        # 将配置转换为 LiteLLM 格式
+        # 获取可用模型（API Key 已配置的模型）
+        available_models = config.get_available_models()
+        
+        if not available_models:
+            console.print("[red]错误: 没有可用的模型，请检查 API Key 配置[/red]")
+            sys.exit(1)
+        
+        console.print(f"[dim]可用模型: {len(available_models)} / {len(config.models)}[/dim]")
+        
+        # 将配置转换为 LiteLLM 格式（只包含可用模型）
         model_list = []
-        for model_name in config.models.keys():
+        for model_name in available_models:
             litellm_params = config.get_litellm_params(model_name)
             model_list.append({
                 "model_name": model_name,
                 "litellm_params": litellm_params
             })
         
-        # 构建 fallback 链（模型故障时自动切换）
+        # 构建 fallback 链（只包含可用模型的 fallback）
         fallbacks = []
-        for model_name in config.models.keys():
+        for model_name in available_models:
             chain = config.get_fallback_chain(model_name)
             if chain:
                 fallbacks.append({model_name: chain})

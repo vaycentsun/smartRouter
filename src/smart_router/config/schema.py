@@ -149,9 +149,34 @@ class Config(BaseModel):
         
         return chains
     
+    def is_provider_available(self, provider_name: str) -> bool:
+        """检查 provider 是否配置了有效的 API Key"""
+        if provider_name not in self.providers:
+            return False
+        provider = self.providers[provider_name]
+        if provider.api_key.startswith("os.environ/"):
+            env_var = provider.api_key.replace("os.environ/", "")
+            return os.environ.get(env_var) is not None
+        return True  # 直接配置了 key
+    
+    def is_model_available(self, model_name: str) -> bool:
+        """检查模型是否可用（其 provider 的 API Key 已配置）"""
+        if model_name not in self.models:
+            return False
+        model = self.models[model_name]
+        return self.is_provider_available(model.provider)
+    
+    def get_available_models(self) -> List[str]:
+        """获取所有可用模型的名称列表"""
+        return [
+            name for name in self.models.keys()
+            if self.is_model_available(name)
+        ]
+    
     def get_fallback_chain(self, model_name: str) -> List[str]:
-        """获取模型的 fallback 链"""
-        return self._fallback_chains.get(model_name, [])
+        """获取模型的 fallback 链（只包含可用模型）"""
+        chain = self._fallback_chains.get(model_name, [])
+        return [m for m in chain if self.is_model_available(m)]
     
     def get_litellm_params(self, model_name: str) -> dict:
         """运行时组装 LiteLLM 参数"""

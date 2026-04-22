@@ -1,6 +1,6 @@
 """V3 Model Selector - Capability-based selection"""
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass
 
 from ..config.v3_schema import ConfigV3
@@ -23,8 +23,9 @@ class V3ModelSelector:
     基于模型能力声明和任务权重动态计算最佳模型
     """
     
-    def __init__(self, config: ConfigV3):
+    def __init__(self, config: ConfigV3, available_models: Optional[List[str]] = None):
         self.config = config
+        self.available_models = available_models  # 可用模型白名单
     
     def select(
         self,
@@ -71,6 +72,10 @@ class V3ModelSelector:
         candidates = []
         
         for name, model in self.config.models.items():
+            # 如果指定了可用模型列表，跳过不可用的
+            if self.available_models is not None and name not in self.available_models:
+                continue
+            
             # 检查任务类型支持
             if task_type not in model.supported_tasks:
                 continue

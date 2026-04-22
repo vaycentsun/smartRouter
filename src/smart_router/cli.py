@@ -433,9 +433,13 @@ def dry_run(
         difficulty_result = difficulty_classifier.classify(prompt, task_type=task_result.task_type)
     
     # 3. 模型选择
-    # 从 V3 models 构建 model_pool
+    # 获取可用模型（API Key 已配置的模型）
+    available_models = cfg.get_available_models()
+    
+    # 从 V3 models 构建 model_pool（只包含可用模型）
     capabilities = {}
-    for model_name, model_config in cfg.models.items():
+    for model_name in available_models:
+        model_config = cfg.models[model_name]
         priority = 11 - model_config.capabilities.quality  # quality 10 -> priority 1
         capabilities[model_name] = {
             "difficulties": list(model_config.difficulty_support),
@@ -445,8 +449,18 @@ def dry_run(
             "cost": model_config.capabilities.cost
         }
     
-    default_model = max(cfg.models.items(), key=lambda x: x[1].capabilities.quality)[0] if cfg.models else "gpt-4o"
-    model_pool = {"capabilities": capabilities, "default_model": default_model}
+    if available_models:
+        default_model = max(
+            [(n, cfg.models[n]) for n in available_models],
+            key=lambda x: x[1].capabilities.quality
+        )[0]
+    else:
+        default_model = "gpt-4o"
+    model_pool = {
+        "capabilities": capabilities,
+        "default_model": default_model,
+        "available_models": available_models
+    }
     
     selector = ModelSelector(model_pool)
     

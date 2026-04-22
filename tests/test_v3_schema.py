@@ -376,8 +376,12 @@ class TestConfigV3:
         
         assert "unknown provider" in str(exc_info.value).lower()
     
-    def test_fallback_chain_derivation(self, sample_config):
-        """Test automatic fallback chain derivation"""
+    def test_fallback_chain_derivation(self, sample_config, monkeypatch):
+        """Test automatic fallback chain derivation (only available models)"""
+        # 设置环境变量使模型可用
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic-test")
+        
         # gpt-4o (quality=9) and claude-3-opus (quality=10) differ by 1 <= 2
         # They should be in each other's fallback chain
         
@@ -386,6 +390,15 @@ class TestConfigV3:
         
         opus_chain = sample_config.get_fallback_chain("claude-3-opus")
         assert "gpt-4o" in opus_chain
+    
+    def test_fallback_chain_filters_unavailable(self, sample_config):
+        """Test that fallback chain excludes unavailable models (no API key set)"""
+        # 不设置环境变量，所有模型都不可用
+        gpt4o_chain = sample_config.get_fallback_chain("gpt-4o")
+        assert gpt4o_chain == []  # claude-3-opus 不可用，不应出现在 fallback 链中
+        
+        opus_chain = sample_config.get_fallback_chain("claude-3-opus")
+        assert opus_chain == []
     
     def test_litellm_params_generation(self, sample_config, monkeypatch):
         """Test LiteLLM params generation"""

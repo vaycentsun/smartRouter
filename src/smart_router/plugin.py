@@ -44,9 +44,13 @@ class SmartRouter(Router):
             embedding_config=embedding_config
         )
         
-        # 从 V3 配置构建 model_pool
+        # 获取可用模型列表（API Key 已配置的模型）
+        available_models = config.get_available_models()
+        
+        # 从 V3 配置构建 model_pool（只包含可用模型）
         capabilities = {}
-        for model_name, model_cfg in config.models.items():
+        for model_name in available_models:
+            model_cfg = config.models[model_name]
             priority = 11 - model_cfg.capabilities.quality
             capabilities[model_name] = {
                 "difficulties": list(model_cfg.difficulty_support),
@@ -57,23 +61,33 @@ class SmartRouter(Router):
                 "context": model_cfg.capabilities.context
             }
         
-        default_model = max(config.models.items(), key=lambda x: x[1].capabilities.quality)[0] if config.models else "gpt-4o"
-        model_pool = {"capabilities": capabilities, "default_model": default_model}
+        if available_models:
+            default_model = max(
+                [(n, config.models[n]) for n in available_models],
+                key=lambda x: x[1].capabilities.quality
+            )[0]
+        else:
+            default_model = "gpt-4o"
+        model_pool = {
+            "capabilities": capabilities,
+            "default_model": default_model,
+            "available_models": available_models
+        }
         
         self.selector = ModelSelector(model_pool=model_pool)
         
-        # 构建 LiteLLM 模型列表
+        # 构建 LiteLLM 模型列表（只包含可用模型）
         litellm_model_list = []
-        for model_name in config.models.keys():
+        for model_name in available_models:
             litellm_params = config.get_litellm_params(model_name)
             litellm_model_list.append({
                 "model_name": model_name,
                 "litellm_params": litellm_params
             })
         
-        # 构建 LiteLLM fallbacks（基于 quality 相似度自动推导）
+        # 构建 LiteLLM fallbacks（只包含可用模型的 fallback 链）
         fallbacks = []
-        for model_name in config.models.keys():
+        for model_name in available_models:
             chain = config.get_fallback_chain(model_name)
             if chain:
                 fallbacks.append({model_name: chain})

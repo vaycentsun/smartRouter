@@ -34,11 +34,24 @@ class ModelSelector:
                         "priority": 1
                     }
                 },
-                "default_model": "gpt-4o"
+                "default_model": "gpt-4o",
+                "available_models": ["gpt-4o", "gpt-4o-mini"]  # 可选：只考虑这些模型
             }
         """
-        self.capabilities = model_pool.get("capabilities", {})
+        all_capabilities = model_pool.get("capabilities", {})
+        available = model_pool.get("available_models")
+        # 如果指定了可用模型列表，只保留这些模型
+        if available is not None:
+            self.capabilities = {
+                name: cap for name, cap in all_capabilities.items()
+                if name in available
+            }
+        else:
+            self.capabilities = all_capabilities
         self.default_model = model_pool.get("default_model", "gpt-4o")
+        # 如果默认模型不在可用列表中，使用可用列表中第一个
+        if self.default_model not in self.capabilities and self.capabilities:
+            self.default_model = next(iter(self.capabilities))
     
     def _is_eligible(
         self,
