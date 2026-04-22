@@ -81,15 +81,13 @@ def start_server(config_path: Optional[Path] = None):
             "model_list": model_list,
             "router_settings": {
                 "routing_strategy": "simple-shuffle",
-                "allowed_fails": 1,       # 失败 1 次后将模型标记为不可用
-                "cooldown_time": 60,      # 冷却 60 秒后恢复
             },
             "general_settings": {
                 "master_key": master_key,
             }
         }
         if fallbacks:
-            litellm_config["fallbacks"] = fallbacks
+            litellm_config["router_settings"]["fallbacks"] = fallbacks
         
         # 将配置写入临时文件
         import json
