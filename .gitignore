@@ -43,3 +43,8 @@ venv/
 # Smart Router
 *.log
 /smart-router.yaml
+
+
+
+# Opencode
+.sisyphus/
