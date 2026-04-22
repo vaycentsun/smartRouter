@@ -282,6 +282,17 @@ models:
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
     difficulty_support: [easy, medium]
     
+  # ==================== LM Studio (本地) ====================
+  lmstudio-local:
+    provider: lmstudio
+    litellm_model: openai/lmstudio-model
+    capabilities:
+      quality: 5
+      cost: 10
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
   # ==================== DeepSeek (可选) ====================
   # deepseek-chat:
   #   provider: deepseek

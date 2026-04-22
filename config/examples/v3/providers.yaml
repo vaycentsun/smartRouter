@@ -44,6 +44,12 @@ providers:
     api_base: https://api.minimax.chat/v1
     api_key: os.environ/MINIMAX_API_KEY
     timeout: 30
+
+  # ------------------ LM Studio (本地) ------------------
+  lmstudio:
+    api_base: http://127.0.0.1:1234
+    api_key: ""
+    timeout: 30
     
   # ------------------ 其他可选服务商 ------------------
   # deepseek:
