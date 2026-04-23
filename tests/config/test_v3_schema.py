@@ -481,3 +481,27 @@ class TestConfigV3:
         chain = sample_config.get_provider_fallback_chain("gpt-4o")
         first_provider = sample_config.models[chain[0]].provider
         assert first_provider == "anthropic"
+
+    def test_get_provider_fallback_chain_unknown_model(self, sample_config):
+        """不存在的模型名返回空列表"""
+        chain = sample_config.get_provider_fallback_chain("nonexistent-model")
+        assert chain == []
+
+    def test_is_provider_available_unknown_provider(self, sample_config):
+        """不存在的 provider 返回 False"""
+        assert sample_config.is_provider_available("nonexistent-provider") is False
+
+    def test_is_provider_available_env_var_not_set(self, sample_config):
+        """环境变量未设置时返回 False"""
+        sample_config.providers["openai"].api_key = "os.environ/UNSET_VAR_12345"
+        assert sample_config.is_provider_available("openai") is False
+
+    def test_is_model_available_unknown_model(self, sample_config):
+        """不存在的模型返回 False"""
+        assert sample_config.is_model_available("nonexistent-model") is False
+
+    def test_get_litellm_params_env_not_set(self, sample_config):
+        """环境变量未设置时 api_key 为空字符串"""
+        sample_config.providers["openai"].api_key = "os.environ/UNSET_VAR_12345"
+        params = sample_config.get_litellm_params("gpt-4o")
+        assert params["api_key"] == ""
