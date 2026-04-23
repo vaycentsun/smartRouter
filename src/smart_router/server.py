@@ -165,9 +165,8 @@ def start_server(config_path: Optional[Path] = None):
                                     task_type = classification.task_type
                                     difficulty = classification.estimated_difficulty
                                 
-                                # 估算所需上下文窗口
-                                estimated_input = estimate_messages_tokens(messages)
-                                required_context = estimated_input + 4000 if estimated_input > 0 else 0
+                                # 估算所需上下文窗口（使用 routing.difficulties 中的 max_tokens）
+                                required_context = app.state.smart_router.selector.get_required_context(difficulty)
                                 
                                 console.print(f"[cyan]智能路由: {original_model} -> 任务:{task_type}, 难度:{difficulty}, 策略:{strategy}, 需上下文:{required_context}[/cyan]")
                                 

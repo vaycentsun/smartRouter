@@ -15,7 +15,7 @@ class DifficultyResult:
 
 
 class DifficultyClassifier:
-    """难度分类器（v2 架构）"""
+    """难度分类器"""
     
     def __init__(self, rules: List[Dict]):
         """

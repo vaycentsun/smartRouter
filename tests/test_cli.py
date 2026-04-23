@@ -130,42 +130,96 @@ class TestDryRunCommand:
     """dry-run 命令测试"""
     
     @pytest.fixture
-    def test_config_file(self):
-        """创建测试配置文件"""
-        config = {
-            "server": {"port": 4000, "host": "127.0.0.1", "master_key": "sk-test"},
-            "model_list": [
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o", "api_key": "test"}},
-                {"model_name": "qwen3-122b", "litellm_params": {"model": "dashscope/qwen3-122b", "api_key": "test"}},
-            ],
-            "smart_router": {
-                "task_types": {
-                    "writing": {"keywords": ["写", "文章"]},
-                    "chat": {"keywords": []}
-                },
-                "difficulty_rules": [
-                    {"condition": "length < 30", "difficulty": "easy", "priority": 1}
-                ],
-                "model_pool": {
-                    "capabilities": {
-                        "gpt-4o": {"difficulties": ["hard"], "task_types": ["writing"], "priority": 1},
-                        "qwen3-122b": {"difficulties": ["easy"], "task_types": ["writing"], "priority": 1}
-                    },
-                    "default_model": "gpt-4o"
-                },
-                "fallback_chain": {},
-                "timeout": {"default": 30, "hard_tasks": 60},
-                "max_fallback_retries": 2
-            }
-        }
+    def test_config_dir(self):
+        """创建 V3 三文件测试配置目录"""
+        config_dir = Path(tempfile.mkdtemp())
         
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            yaml.dump(config, f)
-            return f.name
+        # providers.yaml
+        (config_dir / "providers.yaml").write_text("""
+providers:
+  openai:
+    api_base: https://api.openai.com/v1
+    api_key: sk-test
+""")
+        
+        # models.yaml
+        (config_dir / "models.yaml").write_text("""
+models:
+  gpt-4o:
+    provider: openai
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9
+      cost: 3
+      context: 128000
+    supported_tasks: [writing, chat]
+    difficulty_support: [easy, medium, hard]
+  
+  qwen3-122b:
+    provider: openai
+    litellm_model: dashscope/qwen3-122b
+    capabilities:
+      quality: 8
+      cost: 5
+      context: 32000
+    supported_tasks: [writing, chat]
+    difficulty_support: [easy, medium]
+""")
+        
+        # routing.yaml
+        (config_dir / "routing.yaml").write_text("""
+tasks:
+  writing:
+    name: "Writing"
+    description: "Write articles"
+    capability_weights:
+      quality: 0.6
+      cost: 0.4
+    keywords: ["写", "文章"]
+    examples: ["帮我写一篇文章"]
+  
+  chat:
+    name: "Chat"
+    description: "General chat"
+    capability_weights:
+      quality: 0.3
+      cost: 0.7
+
+difficulties:
+  easy:
+    description: "Easy"
+    max_tokens: 1000
+  medium:
+    description: "Medium"
+    max_tokens: 4000
+  hard:
+    description: "Hard"
+    max_tokens: 8000
+
+strategies:
+  auto:
+    description: "Auto"
+  quality:
+    description: "Quality"
+  cost:
+    description: "Cost"
+  balanced:
+    description: "Balanced"
+
+fallback:
+  mode: auto
+  similarity_threshold: 2
+""")
+        
+        yield config_dir
+        
+        # 清理
+        import shutil
+        shutil.rmtree(config_dir)
     
-    def test_dry_run_basic(self, test_config_file):
+    def test_dry_run_basic(self, test_config_dir):
         """测试基本 dry-run"""
-        result = runner.invoke(app, ["dry-run", "帮我写篇文章", "--config", test_config_file])
+        result = runner.invoke(app, ["dry-run", "帮我写篇文章", "--config", str(test_config_dir)])
         
         assert result.exit_code == 0
         assert "路由决策" in result.stdout
@@ -173,9 +227,9 @@ class TestDryRunCommand:
         assert "难度评估" in result.stdout
         assert "模型选择" in result.stdout
     
-    def test_dry_run_with_all_flag(self, test_config_file):
+    def test_dry_run_with_all_flag(self, test_config_dir):
         """测试 --all 参数显示候选模型"""
-        result = runner.invoke(app, ["dry-run", "写", "--config", test_config_file, "--all"])
+        result = runner.invoke(app, ["dry-run", "写", "--config", str(test_config_dir), "--all"])
         
         assert result.exit_code == 0
         assert "候选模型" in result.stdout

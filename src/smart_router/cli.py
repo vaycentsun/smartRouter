@@ -1,4 +1,4 @@
-"""Smart Router CLI - v2 Only"""
+"""Smart Router CLI"""
 
 import shutil
 import sys
@@ -16,7 +16,7 @@ from rich import box
 from .config.loader import ConfigLoader, ConfigError, load_config
 from .classifier.task_classifier import TaskTypeClassifier
 from .classifier.difficulty_classifier import DifficultyClassifier
-from .selector.model_selector import ModelSelector
+from .selector.v3_selector import V3ModelSelector
 from .utils.markers import parse_markers
 from .daemon import start_daemon, stop_daemon, restart_daemon, check_status, view_logs
 from .coffee_qr import (
@@ -283,6 +283,11 @@ tasks:
     capability_weights:
       quality: 0.60
       cost: 0.40
+    keywords: ["写代码", "实现", "function", "class", "算法", "debug", "重构"]
+    examples:
+      - "帮我写一个快速排序算法"
+      - "实现一个单例模式"
+      - "这段代码怎么优化"
       
   chat:
     name: "日常对话"
@@ -290,6 +295,8 @@ tasks:
     capability_weights:
       quality: 0.40
       cost: 0.60
+    keywords: []
+    examples: []
 
 difficulties:
   easy:
@@ -432,23 +439,8 @@ def dry_run(
         difficulty_classifier = DifficultyClassifier(difficulty_config)
         difficulty_result = difficulty_classifier.classify(prompt, task_type=task_result.task_type)
     
-    # 3. 模型选择
-    # 从 V3 models 构建 model_pool
-    capabilities = {}
-    for model_name, model_config in cfg.models.items():
-        priority = 11 - model_config.capabilities.quality  # quality 10 -> priority 1
-        capabilities[model_name] = {
-            "difficulties": list(model_config.difficulty_support),
-            "task_types": list(model_config.supported_tasks),
-            "priority": priority,
-            "quality": model_config.capabilities.quality,
-            "cost": model_config.capabilities.cost
-        }
-    
-    default_model = max(cfg.models.items(), key=lambda x: x[1].capabilities.quality)[0] if cfg.models else "gpt-4o"
-    model_pool = {"capabilities": capabilities, "default_model": default_model}
-    
-    selector = ModelSelector(model_pool)
+    # 3. 模型选择（使用 V3 选择器）
+    selector = V3ModelSelector(cfg)
     
     selection_result = selector.select(
         task_type=task_result.task_type,
@@ -481,7 +473,7 @@ def dry_run(
     console.print(table)
     
     if show_all:
-        candidates = selector.get_candidates(task_result.task_type, difficulty_result.difficulty)
+        candidates = selector.get_available_models(task_result.task_type, difficulty_result.difficulty)
         console.print(f"\n[dim]所有候选模型 ({len(candidates)} 个): {', '.join(candidates)}[/dim]")
 
 

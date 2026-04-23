@@ -9,6 +9,12 @@ tasks:
     capability_weights:
       quality: 0.60    # 代码质量重要
       cost: 0.40
+    keywords: ["写代码", "实现", "function", "class", "算法", "debug", "重构", "编程", "代码", "开发"]
+    examples:
+      - "帮我写一个快速排序算法"
+      - "实现一个单例模式"
+      - "这段代码怎么优化"
+      - "写一个 Python 函数"
       
   code_review:
     name: "代码审查"
@@ -16,6 +22,12 @@ tasks:
     capability_weights:
       quality: 0.70    # 审查质量至关重要
       cost: 0.30
+    keywords: ["review", "审查", "代码", "code", "检查", "bug", "优化", "重构", "评估"]
+    examples:
+      - "review 这段代码"
+      - "检查一下这个函数"
+      - "找出代码里的 bug"
+      - "这段代码有什么问题"
       
   # ------------------ 内容创作类 ------------------
   writing:
@@ -24,6 +36,12 @@ tasks:
     capability_weights:
       quality: 0.60    # 内容质量优先
       cost: 0.40
+    keywords: ["写", "文章", "邮件", "write", "draft", "起草", "撰写", "报告", "文档"]
+    examples:
+      - "帮我写一封邮件"
+      - "起草一份报告"
+      - "写一篇技术博客"
+      - "写一份产品文档"
       
   creative:
     name: "创意写作"
@@ -31,6 +49,11 @@ tasks:
     capability_weights:
       quality: 0.65    # 创意需要高质量
       cost: 0.35
+    keywords: ["故事", "诗歌", "创意", "广告", "营销", "文案", "剧本", "小说"]
+    examples:
+      - "写一个科幻故事"
+      - "帮我写一首诗"
+      - "创作一个广告文案"
       
   # ------------------ 分析推理类 ------------------
   reasoning:
@@ -39,6 +62,11 @@ tasks:
     capability_weights:
       quality: 0.80    # 推理任务质量最关键
       cost: 0.20
+    keywords: ["推理", "逻辑", "数学", "证明", "推导", "分析", "问题求解"]
+    examples:
+      - "帮我解这道数学题"
+      - "分析一下这个逻辑问题"
+      - "证明一下这个定理"
       
   analysis:
     name: "数据分析"
@@ -46,6 +74,11 @@ tasks:
     capability_weights:
       quality: 0.60
       cost: 0.40
+    keywords: ["分析", "数据", "趋势", "评估", "对比", "研究"]
+    examples:
+      - "分析一下这个数据集"
+      - "帮我做一个竞争分析"
+      - "评估一下这个技术方案"
       
   # ------------------ 学习辅助类 ------------------
   explanation:
@@ -54,6 +87,12 @@ tasks:
     capability_weights:
       quality: 0.55
       cost: 0.45
+    keywords: ["解释", "什么是", "explain", "what is", "怎么理解", "原理", "教程", "概念"]
+    examples:
+      - "解释一下 Python 的 GIL"
+      - "什么是递归"
+      - "给我讲讲递归是什么"
+      - "帮我理解一下这个概念"
       
   translation:
     name: "翻译"
@@ -61,6 +100,10 @@ tasks:
     capability_weights:
       quality: 0.65    # 翻译准确性重要
       cost: 0.35
+    keywords: ["翻译", "translate", "本地化", "转换", "英文", "中文", "日文"]
+    examples:
+      - "把这段英文翻译成中文"
+      - "帮我翻译一下这篇文章"
       
   # ------------------ 通用交互类 ------------------
   chat:
@@ -69,13 +112,20 @@ tasks:
     capability_weights:
       quality: 0.35    # 对话质量要求不高
       cost: 0.65
-      
+    keywords: []
+    examples: []
+    
   brainstorming:
     name: "头脑风暴"
     description: "想法生成、方案讨论、创意发散、问题解决"
     capability_weights:
       quality: 0.45
       cost: 0.55
+    keywords: ["想法", "方案", "创意", "头脑风暴", "讨论", "发散"]
+    examples:
+      - "帮我 brainstorm 一下"
+      - "有什么好的想法"
+      - "讨论一下这个方案"
 
 # ==================== 难度等级定义 (4级) ====================
 difficulties:

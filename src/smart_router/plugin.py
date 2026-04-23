@@ -6,7 +6,7 @@ from .utils.markers import parse_markers, strip_markers, MarkerResult
 from .utils.token_counter import estimate_messages_tokens
 from .classifier import TaskClassifier
 from .classifier.types import ClassificationResult, get_default_classification
-from .selector.strategies import ModelSelector
+from .selector.v3_selector import V3ModelSelector
 from .config.schema import Config, ModelConfig
 
 
@@ -16,6 +16,12 @@ class SmartRouter(Router):
     
     继承 LiteLLM 的 Router，重写 get_available_deployment 方法，
     在请求到达 LiteLLM 原生路由前注入智能模型选择逻辑。
+    
+    使用 V3ModelSelector 进行模型选择，支持：
+    - auto: 基于任务权重自动选择
+    - quality: 质量优先
+    - cost: 成本优先（带质量门槛）
+    - balanced: 平衡模式
     """
     
     def __init__(self, config: Config, *args, **kwargs):
@@ -23,7 +29,7 @@ class SmartRouter(Router):
         # 存储最后选中的模型，用于响应头
         self.last_selected_model: Optional[str] = None
         
-        # 从 V3 配置构建分类规则
+        # 从 V3 配置构建分类规则（向后兼容）
         classification_rules = [
             {
                 "pattern": f"(?i)({task_config.name.lower().replace('_', '|')})",
@@ -33,6 +39,16 @@ class SmartRouter(Router):
             for task_id, task_config in config.routing.tasks.items()
         ]
         
+        # 从 V3 配置构建 task_configs（包含 keywords 和 examples）
+        task_configs = {
+            task_id: {
+                "keywords": list(task_config.keywords),
+                "examples": list(task_config.examples),
+                "description": task_config.description
+            }
+            for task_id, task_config in config.routing.tasks.items()
+        }
+        
         embedding_config = {
             "enabled": True,
             "threshold": 0.6,
@@ -41,26 +57,12 @@ class SmartRouter(Router):
         
         self.classifier = TaskClassifier(
             rules=classification_rules,
-            embedding_config=embedding_config
+            embedding_config=embedding_config,
+            task_configs=task_configs
         )
         
-        # 从 V3 配置构建 model_pool
-        capabilities = {}
-        for model_name, model_cfg in config.models.items():
-            priority = 11 - model_cfg.capabilities.quality
-            capabilities[model_name] = {
-                "difficulties": list(model_cfg.difficulty_support),
-                "task_types": list(model_cfg.supported_tasks),
-                "priority": priority,
-                "quality": model_cfg.capabilities.quality,
-                "cost": model_cfg.capabilities.cost,
-                "context": model_cfg.capabilities.context
-            }
-        
-        default_model = max(config.models.items(), key=lambda x: x[1].capabilities.quality)[0] if config.models else "gpt-4o"
-        model_pool = {"capabilities": capabilities, "default_model": default_model}
-        
-        self.selector = ModelSelector(model_pool=model_pool)
+        # 使用 V3 选择器
+        self.selector = V3ModelSelector(config=config)
         
         # 构建 LiteLLM 模型列表
         litellm_model_list = []
@@ -103,16 +105,18 @@ class SmartRouter(Router):
         
         classification = self._get_classification(markers, messages)
         
-        # 估算所需上下文窗口（输入 token + 输出预留 4000）
-        estimated_input = estimate_messages_tokens(messages)
-        required_context = estimated_input + 4000 if estimated_input > 0 else 0
+        # 估算所需上下文窗口（使用 routing.difficulties 中的 max_tokens）
+        required_context = self.selector.get_required_context(
+            classification.estimated_difficulty
+        )
         
-        selected = self.selector.select(
+        selected_result = self.selector.select(
             task_type=classification.task_type,
             difficulty=classification.estimated_difficulty,
             strategy="auto",
             required_context=required_context
         )
+        selected = selected_result.model_name
         
         # 存储选中的模型用于响应头
         self.last_selected_model = selected

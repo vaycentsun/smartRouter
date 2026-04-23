@@ -26,7 +26,7 @@ class ProviderConfig(BaseModel):
 class ModelCapabilities(BaseModel):
     """模型能力评分 (1-10)"""
     quality: int = Field(ge=1, le=10, description="质量评分，10=最高质量")
-
+    speed: Optional[int] = Field(default=None, ge=1, le=10, description="速度评分，10=最快（已废弃，可选）")
     cost: int = Field(ge=1, le=10, description="成本效率，10=最便宜")
     context: int = Field(gt=0, description="上下文窗口大小")
 
@@ -48,6 +48,8 @@ class TaskConfig(BaseModel):
     name: str
     description: str
     capability_weights: Dict[str, float]  # quality/cost 权重
+    keywords: List[str] = Field(default_factory=list)  # 任务关键词，用于分类器匹配
+    examples: List[str] = Field(default_factory=list)  # 示例句子，用于 Embedding 相似度匹配
     
     @model_validator(mode='after')
     def check_weights_sum(self):
