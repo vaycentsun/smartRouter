@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-04-23
+
+### Fixed
+- 修复 GitHub Actions workflow 中错误的 action commit SHA 引用
+- 将 action 版本引用改为语义化标签（@v4, @v5），解决 CI 构建失败
+
+## [1.0.4] - 2026-04-23
+
+### Fixed
+- 修复 GitHub Actions 组织权限策略导致的 action 不可用问题
+
+## [1.0.3] - 2026-04-22
+
+### Added
+- 新增 artifact attestation 构建来源验证
+- 新增 Homebrew Formula 自动更新流程
+- 新增 SHA256 checksums 生成与验证
+
+### Changed
+- 重构 publish.yml 支持安全全平台分发（PyPI + Homebrew + curl + checksums + attestation）
+
+## [1.0.2] - (日期待定)
+
+### Added / Changed / Fixed
+（待补充）
+
+## [1.0.1] - (日期待定)
+
+### Added / Changed / Fixed
+（待补充）
+
+## [1.0.0] - (日期待定)
+
+### Added / Changed / Fixed
+（待补充）
+
 ## [0.1.1] - 2026-04-19
 
 ### Added
