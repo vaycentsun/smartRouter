@@ -48,3 +48,54 @@ def test_multiple_messages():
     ]
     result = parse_markers(messages)
     assert result.stage == "writing"
+
+
+class TestStripMarkers:
+    """strip_markers 函数测试"""
+
+    def test_strip_single_stage_marker(self):
+        text = "[stage:writing] 写邮件"
+        assert strip_markers(text) == "写邮件"
+
+    def test_strip_single_difficulty_marker(self):
+        text = "[difficulty:hard] 证明定理"
+        assert strip_markers(text) == "证明定理"
+
+    def test_strip_both_markers(self):
+        text = "[stage:code_review] [difficulty:hard] 审查代码"
+        assert strip_markers(text) == "审查代码"
+
+    def test_strip_no_markers(self):
+        text = "普通问题没有标记"
+        assert strip_markers(text) == "普通问题没有标记"
+
+    def test_strip_marker_in_middle(self):
+        text = "请帮我 [stage:writing] 写一篇文章"
+        result = strip_markers(text)
+        assert "请帮我" in result
+        assert "写一篇文章" in result
+
+    def test_strip_multiple_same_markers(self):
+        text = "[stage:writing] 写 [stage:review] 审查"
+        result = strip_markers(text)
+        assert "写" in result
+        assert "审查" in result
+
+    def test_strip_marker_preserves_spacing(self):
+        text = "[stage:chat]  你好  世界"
+        result = strip_markers(text)
+        assert "你好" in result
+        assert "世界" in result
+
+    def test_strip_case_insensitive(self):
+        text = "[STAGE:WRITING] 写文章 [DIFFICULTY:EASY] 简单的"
+        result = strip_markers(text)
+        assert "写文章" in result
+        assert "简单的" in result
+
+    def test_strip_empty_string(self):
+        assert strip_markers("") == ""
+
+    def test_strip_only_markers(self):
+        text = "[stage:chat] [difficulty:easy]"
+        assert strip_markers(text).strip() == ""
