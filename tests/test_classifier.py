@@ -1,4 +1,4 @@
-"""v2 架构分类器测试"""
+"""分类器测试"""
 
 import pytest
 from smart_router.classifier.task_classifier import TaskTypeClassifier, TaskTypeResult, TaskClassifier

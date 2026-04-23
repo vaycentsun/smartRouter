@@ -26,7 +26,7 @@ class ProviderConfig(BaseModel):
 class ModelCapabilities(BaseModel):
     """模型能力评分 (1-10)
     
-    多维度能力体系（移除 speed，新增多个专业维度）：
+    多维度能力体系：
     - quality: 代码质量、推理能力（10=最高质量）
     - cost: 成本效率（10=最便宜）
     - context: 上下文窗口大小
@@ -64,6 +64,8 @@ class TaskConfig(BaseModel):
     name: str
     description: str
     capability_weights: Dict[str, float]  # quality/cost 权重
+    keywords: List[str] = Field(default_factory=list)  # 任务关键词，用于分类器匹配
+    examples: List[str] = Field(default_factory=list)  # 示例句子，用于 Embedding 相似度匹配
     
     @model_validator(mode='after')
     def check_weights_sum(self):

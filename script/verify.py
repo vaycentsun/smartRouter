@@ -11,9 +11,10 @@ sys.path.insert(0, str(SCRIPT_DIR.parent / 'src'))
 from smart_router.utils.markers import parse_markers, strip_markers
 from smart_router.classifier import TaskClassifier
 from smart_router.classifier.types import get_default_classification
-from smart_router.selector.strategies import ModelSelector
+from smart_router.selector.v3_selector import V3ModelSelector, NoModelAvailableError, UnknownStrategyError
 from smart_router.config.loader import ConfigLoader, load_config
-from smart_router.config.schema import Config
+from smart_router.config.schema import Config, ProviderConfig, ModelConfig, ModelCapabilities
+from smart_router.config.schema import TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, RoutingConfig
 
 print('✓ 所有模块导入成功')
 
@@ -39,28 +40,48 @@ assert result2.task_type == 'code_review'
 assert result2.source == 'rule_engine'
 print(f'✓ TaskClassifier rule match: {result2.task_type} ({result2.source})')
 
-# ModelSelector V3 接口测试
-selector = ModelSelector(model_pool={
-    "capabilities": {
-        "gpt-4o": {
-            "difficulties": ["easy", "medium", "hard"],
-            "task_types": ["code_review", "chat"],
-            "priority": 1
-        },
-        "claude-3-sonnet": {
-            "difficulties": ["easy", "medium", "hard"],
-            "task_types": ["code_review", "chat"],
-            "priority": 2
-        }
+# V3ModelSelector 接口测试
+v3_config = Config(
+    providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+    models={
+        "gpt-4o": ModelConfig(
+            provider="openai",
+            litellm_model="openai/gpt-4o",
+            capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+            supported_tasks=["code_review", "chat"],
+            difficulty_support=["easy", "medium", "hard"]
+        ),
+        "claude-3-sonnet": ModelConfig(
+            provider="openai",
+            litellm_model="anthropic/claude-3-sonnet",
+            capabilities=ModelCapabilities(quality=8, cost=5, context=200000),
+            supported_tasks=["code_review", "chat"],
+            difficulty_support=["easy", "medium", "hard"]
+        )
     },
-    "default_model": "gpt-4o"
-})
+    routing=RoutingConfig(
+        tasks={
+            "chat": TaskConfig(name="Chat", description="General chat", capability_weights={"quality": 0.5, "cost": 0.5}),
+            "code_review": TaskConfig(name="Code Review", description="Review code", capability_weights={"quality": 0.7, "cost": 0.3})
+        },
+        difficulties={
+            "easy": DifficultyConfig(description="Easy", max_tokens=2000),
+            "medium": DifficultyConfig(description="Medium", max_tokens=8000)
+        },
+        strategies={
+            "auto": StrategyConfig(description="Auto"),
+            "quality": StrategyConfig(description="Quality")
+        },
+        fallback=FallbackConfig()
+    )
+)
+selector = V3ModelSelector(v3_config)
 result = selector.select('code_review', 'medium', 'auto')
 assert result.model_name == 'gpt-4o'
-print(f'✓ ModelSelector auto: {result.model_name}')
+print(f'✓ V3ModelSelector auto: {result.model_name}')
 
 result_quality = selector.select('code_review', 'medium', 'quality')
-print(f'✓ ModelSelector quality: {result_quality.model_name}')
+print(f'✓ V3ModelSelector quality: {result_quality.model_name}')
 
 # V3 Config 验证 - 检查配置加载器可以正常工作
 config_dir = Path.home() / ".smart-router"

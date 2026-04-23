@@ -1,4 +1,4 @@
-"""Smart Router CLI - v2 Only"""
+"""Smart Router CLI"""
 
 import shutil
 import sys
@@ -283,6 +283,11 @@ tasks:
     capability_weights:
       quality: 0.60
       cost: 0.40
+    keywords: ["写代码", "实现", "function", "class", "算法", "debug", "重构"]
+    examples:
+      - "帮我写一个快速排序算法"
+      - "实现一个单例模式"
+      - "这段代码怎么优化"
       
   chat:
     name: "日常对话"
@@ -290,6 +295,8 @@ tasks:
     capability_weights:
       quality: 0.40
       cost: 0.60
+    keywords: []
+    examples: []
 
 difficulties:
   easy:
@@ -432,9 +439,9 @@ def dry_run(
         difficulty_classifier = DifficultyClassifier(difficulty_config)
         difficulty_result = difficulty_classifier.classify(prompt, task_type=task_result.task_type)
     
-    # 3. 模型选择
+    # 3. 模型选择（使用 V3 选择器）
     available_models = cfg.get_available_models()
-    selector = V3ModelSelector(config=cfg, available_models=available_models)
+    selector = V3ModelSelector(cfg, available_models=available_models)
     
     selection_result = selector.select(
         task_type=task_result.task_type,
@@ -467,7 +474,7 @@ def dry_run(
     console.print(table)
     
     if show_all:
-        candidates = selector.get_candidates(task_result.task_type, difficulty_result.difficulty)
+        candidates = selector.get_available_models(task_result.task_type, difficulty_result.difficulty)
         console.print(f"\n[dim]所有候选模型 ({len(candidates)} 个): {', '.join(candidates)}[/dim]")
 
 
