@@ -60,64 +60,87 @@ class TestModelCapabilities:
     """Test ModelCapabilities Schema"""
     
     def test_valid_capabilities(self):
-        """Test creating valid ModelCapabilities"""
         caps = ModelCapabilities(
             quality=9,
-            speed=8,
             cost=3,
             context=128000
         )
         
         assert caps.quality == 9
-        assert caps.speed == 8
         assert caps.cost == 3
         assert caps.context == 128000
     
-    def test_quality_range_validation(self):
-        """Test quality must be 1-10"""
-        # Too low
-        with pytest.raises(ValidationError):
-            ModelCapabilities(quality=0, speed=5, cost=5, context=1000)
+    def test_valid_capabilities_with_new_dimensions(self):
+        caps = ModelCapabilities(
+            quality=9,
+            cost=3,
+            context=256000,
+            reasoning=10,
+            creative=8,
+            vision=True,
+            long_context=True,
+            latest=True
+        )
         
-        # Too high
-        with pytest.raises(ValidationError):
-            ModelCapabilities(quality=11, speed=5, cost=5, context=1000)
+        assert caps.quality == 9
+        assert caps.reasoning == 10
+        assert caps.creative == 8
+        assert caps.vision == True
+        assert caps.long_context == True
+        assert caps.latest == True
     
-    def test_speed_range_validation(self):
-        """Test speed must be 1-10"""
+    def test_default_vision_is_false(self):
+        caps = ModelCapabilities(quality=5, cost=5, context=8000)
+        assert caps.vision == False
+    
+    def test_default_long_context_is_false(self):
+        caps = ModelCapabilities(quality=5, cost=5, context=8000)
+        assert caps.long_context == False
+    
+    def test_default_latest_is_true(self):
+        caps = ModelCapabilities(quality=5, cost=5, context=8000)
+        assert caps.latest == True
+    
+    def test_quality_range_validation(self):
         with pytest.raises(ValidationError):
-            ModelCapabilities(quality=5, speed=0, cost=5, context=1000)
+            ModelCapabilities(quality=0, cost=5, context=1000)
         
         with pytest.raises(ValidationError):
-            ModelCapabilities(quality=5, speed=15, cost=5, context=1000)
+            ModelCapabilities(quality=11, cost=5, context=1000)
     
     def test_cost_range_validation(self):
-        """Test cost must be 1-10"""
         with pytest.raises(ValidationError):
-            ModelCapabilities(quality=5, speed=5, cost=-1, context=1000)
+            ModelCapabilities(quality=5, cost=-1, context=1000)
         
         with pytest.raises(ValidationError):
-            ModelCapabilities(quality=5, speed=5, cost=100, context=1000)
+            ModelCapabilities(quality=5, cost=100, context=1000)
     
     def test_context_must_be_positive(self):
-        """Test context must be positive"""
         with pytest.raises(ValidationError):
-            ModelCapabilities(quality=5, speed=5, cost=5, context=0)
+            ModelCapabilities(quality=5, cost=5, context=0)
         
         with pytest.raises(ValidationError):
-            ModelCapabilities(quality=5, speed=5, cost=5, context=-1000)
+            ModelCapabilities(quality=5, cost=5, context=-1000)
+    
+    def test_reasoning_optional(self):
+        caps = ModelCapabilities(quality=5, cost=5, context=8000)
+        assert caps.reasoning is None
+    
+    def test_reasoning_range_validation(self):
+        with pytest.raises(ValidationError):
+            ModelCapabilities(quality=5, cost=5, context=8000, reasoning=0)
+        
+        with pytest.raises(ValidationError):
+            ModelCapabilities(quality=5, cost=5, context=8000, reasoning=11)
 
 
 class TestModelConfig:
-    """Test ModelConfig Schema"""
-    
     def test_valid_model_config(self):
-        """Test creating valid ModelConfig"""
         config = ModelConfig(
             provider="openai",
             litellm_model="openai/gpt-4o",
             capabilities=ModelCapabilities(
-                quality=9, speed=8, cost=3, context=128000
+                quality=9, cost=3, context=128000
             ),
             supported_tasks=["chat", "code_review"],
             difficulty_support=["easy", "medium", "hard"]
@@ -129,26 +152,43 @@ class TestModelConfig:
         assert config.supported_tasks == ["chat", "code_review"]
         assert config.difficulty_support == ["easy", "medium", "hard"]
     
+    def test_model_with_new_capabilities(self):
+        config = ModelConfig(
+            provider="anthropic",
+            litellm_model="anthropic/claude-3-opus",
+            capabilities=ModelCapabilities(
+                quality=10, cost=2, context=200000,
+                reasoning=10, creative=10, vision=True, 
+                long_context=True, latest=False
+            ),
+            supported_tasks=["coding", "reasoning"],
+            difficulty_support=["medium", "hard", "expert"]
+        )
+        
+        assert config.capabilities.reasoning == 10
+        assert config.capabilities.creative == 10
+        assert config.capabilities.vision == True
+        assert config.capabilities.long_context == True
+        assert config.capabilities.latest == False
+    
     def test_difficulty_must_be_valid_literal(self):
-        """Test difficulty must be easy/medium/hard/expert (4 levels)"""
         with pytest.raises(ValidationError):
             ModelConfig(
                 provider="openai",
                 litellm_model="openai/gpt-4o",
                 capabilities=ModelCapabilities(
-                    quality=9, speed=8, cost=3, context=128000
+                    quality=9, cost=3, context=128000
                 ),
                 supported_tasks=["chat"],
-                difficulty_support=["easy", "invalid"]  # Invalid
+                difficulty_support=["easy", "invalid"]
             )
     
     def test_all_difficulty_levels(self):
-        """Test all 4 valid difficulty levels"""
         config = ModelConfig(
             provider="openai",
             litellm_model="openai/gpt-4o",
             capabilities=ModelCapabilities(
-                quality=9, speed=8, cost=3, context=128000
+                quality=9, cost=3, context=128000
             ),
             supported_tasks=["chat"],
             difficulty_support=["easy", "medium", "hard", "expert"]
@@ -156,32 +196,27 @@ class TestModelConfig:
         assert config.difficulty_support == ["easy", "medium", "hard", "expert"]
     
     def test_model_with_single_difficulty(self):
-        """Test model supporting only one difficulty"""
         config = ModelConfig(
             provider="openai",
             litellm_model="openai/gpt-4o-mini",
             capabilities=ModelCapabilities(
-                quality=6, speed=9, cost=9, context=128000
+                quality=6, cost=9, context=128000
             ),
             supported_tasks=["chat"],
-            difficulty_support=["easy"]  # Only easy
+            difficulty_support=["easy"]
         )
         
         assert config.difficulty_support == ["easy"]
 
 
 class TestTaskConfig:
-    """Test TaskConfig Schema"""
-    
     def test_valid_task_config(self):
-        """Test creating valid TaskConfig"""
         config = TaskConfig(
             name="Code Review",
             description="Review code quality",
             capability_weights={
                 "quality": 0.6,
-                "speed": 0.2,
-                "cost": 0.2
+                "cost": 0.4
             }
         )
         
@@ -189,21 +224,27 @@ class TestTaskConfig:
         assert config.capability_weights["quality"] == 0.6
     
     def test_weights_must_sum_to_approximately_1(self):
-        """Test capability_weights should sum to ~1.0"""
-        # Valid - sums to 1.0
         TaskConfig(
             name="Test",
             description="Test",
-            capability_weights={"quality": 0.5, "speed": 0.3, "cost": 0.2}
+            capability_weights={"quality": 0.5, "cost": 0.5}
         )
         
-        # Invalid - sums to 1.5
         with pytest.raises(ValidationError):
             TaskConfig(
                 name="Test",
                 description="Test",
-                capability_weights={"quality": 1.0, "speed": 0.3, "cost": 0.2}
+                capability_weights={"quality": 1.0, "cost": 0.5}
             )
+    
+    def test_default_weights(self):
+        config = TaskConfig(
+            name="Writing",
+            description="Content writing",
+            capability_weights={"quality": 0.6, "cost": 0.4}
+        )
+        assert config.capability_weights["quality"] == 0.6
+        assert config.capability_weights["cost"] == 0.4
 
 
 class TestDifficultyConfig:
@@ -233,22 +274,30 @@ class TestStrategyConfig:
 
 
 class TestFallbackConfig:
-    """Test FallbackConfig Schema"""
-    
     def test_default_fallback_config(self):
-        """Test FallbackConfig defaults"""
         config = FallbackConfig()
         
         assert config.mode == "auto"
         assert config.similarity_threshold == 2
     
+    def test_intelligent_mode(self):
+        config = FallbackConfig(mode="intelligent", provider_isolation=True)
+        assert config.mode == "intelligent"
+        assert config.provider_isolation == True
+    
+    def test_provider_isolation_default_false(self):
+        config = FallbackConfig()
+        assert config.provider_isolation == False
+    
+    def test_max_attempts_default(self):
+        config = FallbackConfig()
+        assert config.max_attempts == 3
+    
     def test_custom_threshold(self):
-        """Test FallbackConfig with custom threshold"""
         config = FallbackConfig(similarity_threshold=3)
         assert config.similarity_threshold == 3
     
     def test_threshold_range_validation(self):
-        """Test similarity_threshold must be 1-5"""
         with pytest.raises(ValidationError):
             FallbackConfig(similarity_threshold=0)
         
@@ -257,16 +306,13 @@ class TestFallbackConfig:
 
 
 class TestRoutingConfig:
-    """Test RoutingConfig Schema"""
-    
     def test_valid_routing_config(self):
-        """Test creating valid RoutingConfig"""
         config = RoutingConfig(
             tasks={
                 "chat": TaskConfig(
                     name="Chat",
                     description="General chat",
-                    capability_weights={"quality": 0.4, "speed": 0.4, "cost": 0.2}
+                    capability_weights={"quality": 0.4, "cost": 0.6}
                 )
             },
             difficulties={
@@ -282,14 +328,27 @@ class TestRoutingConfig:
         assert "easy" in config.difficulties
         assert "auto" in config.strategies
         assert config.fallback.mode == "auto"
+    
+    def test_routing_with_intelligent_fallback(self):
+        config = RoutingConfig(
+            tasks={},
+            difficulties={},
+            strategies={},
+            fallback=FallbackConfig(
+                mode="intelligent",
+                provider_isolation=True,
+                max_attempts=5
+            )
+        )
+        
+        assert config.fallback.mode == "intelligent"
+        assert config.fallback.provider_isolation == True
+        assert config.fallback.max_attempts == 5
 
 
 class TestConfigV3:
-    """Test ConfigV3 (Aggregate Root)"""
-    
     @pytest.fixture
     def sample_config(self):
-        """Create a sample valid ConfigV3"""
         return ConfigV3(
             providers={
                 "openai": ProviderConfig(
@@ -306,7 +365,9 @@ class TestConfigV3:
                     provider="openai",
                     litellm_model="openai/gpt-4o",
                     capabilities=ModelCapabilities(
-                        quality=9, speed=8, cost=3, context=128000
+                        quality=9, cost=3, context=128000,
+                        reasoning=9, creative=8, vision=True,
+                        long_context=True, latest=True
                     ),
                     supported_tasks=["chat"],
                     difficulty_support=["easy", "medium", "hard"]
@@ -315,7 +376,9 @@ class TestConfigV3:
                     provider="anthropic",
                     litellm_model="anthropic/claude-3-opus-20240229",
                     capabilities=ModelCapabilities(
-                        quality=10, speed=4, cost=2, context=200000
+                        quality=10, cost=2, context=200000,
+                        reasoning=10, creative=10, vision=True,
+                        long_context=True, latest=False
                     ),
                     supported_tasks=["chat"],
                     difficulty_support=["medium", "hard"]
@@ -326,7 +389,7 @@ class TestConfigV3:
                     "chat": TaskConfig(
                         name="Chat",
                         description="General chat",
-                        capability_weights={"quality": 0.5, "speed": 0.3, "cost": 0.2}
+                        capability_weights={"quality": 0.5, "cost": 0.5}
                     )
                 },
                 difficulties={
@@ -340,13 +403,11 @@ class TestConfigV3:
         )
     
     def test_valid_config_v3(self, sample_config):
-        """Test creating valid ConfigV3"""
         assert "openai" in sample_config.providers
         assert "gpt-4o" in sample_config.models
         assert "chat" in sample_config.routing.tasks
     
     def test_provider_reference_validation(self):
-        """Test that model providers must exist in providers dict"""
         with pytest.raises(ValidationError) as exc_info:
             ConfigV3(
                 providers={
@@ -357,10 +418,10 @@ class TestConfigV3:
                 },
                 models={
                     "gpt-4o": ModelConfig(
-                        provider="nonexistent",  # Invalid provider
+                        provider="nonexistent",
                         litellm_model="openai/gpt-4o",
                         capabilities=ModelCapabilities(
-                            quality=9, speed=8, cost=3, context=128000
+                            quality=9, cost=3, context=128000
                         ),
                         supported_tasks=["chat"],
                         difficulty_support=["easy"]
@@ -376,10 +437,9 @@ class TestConfigV3:
         
         assert "unknown provider" in str(exc_info.value).lower()
     
-    def test_fallback_chain_derivation(self, sample_config):
-        """Test automatic fallback chain derivation"""
-        # gpt-4o (quality=9) and claude-3-opus (quality=10) differ by 1 <= 2
-        # They should be in each other's fallback chain
+    def test_fallback_chain_derivation(self, sample_config, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic-test")
         
         gpt4o_chain = sample_config.get_fallback_chain("gpt-4o")
         assert "claude-3-opus" in gpt4o_chain
@@ -387,8 +447,11 @@ class TestConfigV3:
         opus_chain = sample_config.get_fallback_chain("claude-3-opus")
         assert "gpt-4o" in opus_chain
     
+    def test_fallback_chain_filters_unavailable(self, sample_config):
+        gpt4o_chain = sample_config.get_fallback_chain("gpt-4o")
+        assert gpt4o_chain == []
+    
     def test_litellm_params_generation(self, sample_config, monkeypatch):
-        """Test LiteLLM params generation"""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
         
         params = sample_config.get_litellm_params("gpt-4o")
@@ -399,9 +462,22 @@ class TestConfigV3:
         assert params["timeout"] == 30
     
     def test_litellm_params_with_direct_key(self, sample_config):
-        """Test LiteLLM params with direct API key (not env var)"""
-        # Update provider to use direct key
         sample_config.providers["openai"].api_key = "sk-direct-key"
         
         params = sample_config.get_litellm_params("gpt-4o")
         assert params["api_key"] == "sk-direct-key"
+    
+    def test_get_provider_fallback_chain(self, sample_config, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic-test")
+        
+        chain = sample_config.get_provider_fallback_chain("gpt-4o")
+        assert "claude-3-opus" in chain
+    
+    def test_get_provider_fallback_chain_different_provider_priority(self, sample_config, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic-test")
+        
+        chain = sample_config.get_provider_fallback_chain("gpt-4o")
+        first_provider = sample_config.models[chain[0]].provider
+        assert first_provider == "anthropic"

@@ -42,8 +42,8 @@ class SmartRouter(Router):
         # 从 V3 配置构建 task_configs（包含 keywords 和 examples）
         task_configs = {
             task_id: {
-                "keywords": list(task_config.keywords),
-                "examples": list(task_config.examples),
+                "keywords": list(getattr(task_config, "keywords", [])),
+                "examples": list(getattr(task_config, "examples", [])),
                 "description": task_config.description
             }
             for task_id, task_config in config.routing.tasks.items()
@@ -61,23 +61,92 @@ class SmartRouter(Router):
             task_configs=task_configs
         )
         
-        # 使用 V3 选择器
-        self.selector = V3ModelSelector(config=config)
+        # 获取可用模型列表（API Key 已配置的模型）
+        available_models = config.get_available_models()
         
-        # 构建 LiteLLM 模型列表
+        # 使用 V3 选择器
+        self.selector = V3ModelSelector(config=config, available_models=available_models)
+        
+        # 构建 LiteLLM 模型列表（只包含可用模型）
         litellm_model_list = []
-        for model_name in config.models.keys():
+        for model_name in available_models:
             litellm_params = config.get_litellm_params(model_name)
             litellm_model_list.append({
                 "model_name": model_name,
                 "litellm_params": litellm_params
             })
         
+        # 构建 LiteLLM fallbacks（只包含可用模型的 fallback 链）
+        fallbacks = []
+        for model_name in available_models:
+            chain = config.get_fallback_chain(model_name)
+            if chain:
+                fallbacks.append({model_name: chain})
+        
         super().__init__(
             model_list=litellm_model_list,
+            fallbacks=fallbacks if fallbacks else None,
             *args,
             **kwargs
         )
+    
+    def select_model(
+        self,
+        model_hint: str,
+        messages: Optional[List[Dict]] = None,
+        strategy: str = "auto"
+    ) -> Any:
+        """
+        统一路由决策入口。
+        
+        解析 model_hint 中的 stage: 和 strategy- 前缀，
+        结合 messages 中的 markers，完成分类和模型选择。
+        
+        Args:
+            model_hint: 原始请求中的模型名（如 "auto", "stage:code_review", "strategy-quality"）
+            messages: OpenAI 格式的消息列表
+            strategy: 路由策略（auto/quality/cost）
+        
+        Returns:
+            SelectionResult: 包含选中的模型名及决策原因
+        """
+        if messages is None:
+            messages = []
+        
+        markers = parse_markers(messages)
+        
+        # 从 model_hint 解析 stage
+        if model_hint.startswith("stage:"):
+            task_type = model_hint.replace("stage:", "")
+            difficulty = markers.difficulty or "medium"
+            classification = ClassificationResult(
+                task_type=task_type,
+                estimated_difficulty=difficulty,
+                confidence=1.0,
+                source="stage_marker"
+            )
+        else:
+            classification = self._get_classification(markers, messages)
+        
+        # 从 model_hint 解析 strategy
+        if model_hint.startswith("strategy-"):
+            strategy = model_hint.replace("strategy-", "")
+        
+        # 估算所需上下文窗口（输入 token + 输出预留 4000）
+        estimated_input = estimate_messages_tokens(messages)
+        required_context = estimated_input + 4000 if estimated_input > 0 else 0
+        
+        result = self.selector.select(
+            task_type=classification.task_type,
+            difficulty=classification.estimated_difficulty,
+            strategy=strategy,
+            required_context=required_context
+        )
+        
+        # 存储选中的模型名用于响应头
+        self.last_selected_model = result.model_name
+        
+        return result
     
     async def get_available_deployment(
         self,
@@ -87,10 +156,9 @@ class SmartRouter(Router):
     ) -> Any:
         """
         重写路由决策：
-        1. 解析阶段标记
-        2. 无标记则分类任务
-        3. 根据策略选择模型
-        4. 调用父类完成实际路由
+        1. 判断是否需要智能路由
+        2. 调用 select_model 完成统一决策
+        3. 调用父类完成实际路由
         """
         if model not in ("auto", "smart-router", "default"):
             if not model.startswith("stage:"):
@@ -98,31 +166,10 @@ class SmartRouter(Router):
                     model=model, messages=messages, request_kwargs=request_kwargs
                 )
         
-        if messages is None:
-            messages = []
-        
-        markers = parse_markers(messages)
-        
-        classification = self._get_classification(markers, messages)
-        
-        # 估算所需上下文窗口（使用 routing.difficulties 中的 max_tokens）
-        required_context = self.selector.get_required_context(
-            classification.estimated_difficulty
-        )
-        
-        selected_result = self.selector.select(
-            task_type=classification.task_type,
-            difficulty=classification.estimated_difficulty,
-            strategy="auto",
-            required_context=required_context
-        )
-        selected = selected_result.model_name
-        
-        # 存储选中的模型用于响应头
-        self.last_selected_model = selected
+        result = self.select_model(model, messages)
         
         return await super().get_available_deployment(
-            model=selected, messages=messages, request_kwargs=request_kwargs
+            model=result.model_name, messages=messages, request_kwargs=request_kwargs
         )
     
     def _get_classification(

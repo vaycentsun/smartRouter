@@ -1,11 +1,10 @@
-"""V3 Schema Compatibility Module
+"""V3 Configuration Schema — 兼容别名模块
 
-将现有的 schema.py 导出为 v3_schema 命名空间，
-以保持与遗留测试的兼容性。
+保留向后兼容，供引用 v3_schema 的代码和测试使用。
+实际实现已合并到 schema.py 中。
 """
 
 from .schema import (
-    Config as ConfigV3,
     ProviderConfig,
     ModelCapabilities,
     ModelConfig,
@@ -14,10 +13,13 @@ from .schema import (
     StrategyConfig,
     FallbackConfig,
     RoutingConfig,
+    Config,
 )
 
+# 向后兼容别名
+ConfigV3 = Config
+
 __all__ = [
-    "ConfigV3",
     "ProviderConfig",
     "ModelCapabilities",
     "ModelConfig",
@@ -26,4 +28,6 @@ __all__ = [
     "StrategyConfig",
     "FallbackConfig",
     "RoutingConfig",
+    "Config",
+    "ConfigV3",
 ]

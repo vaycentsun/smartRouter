@@ -71,6 +71,11 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
         config_path: 配置文件路径
         log_file: 日志文件路径（默认 ~/.smart-router/smart-router.log）
     """
+    # 前置检查：可选的 MASTER_KEY
+    master_key = os.environ.get("SMART_ROUTER_MASTER_KEY")
+    if not master_key:
+        console.print("[yellow]警告: 未设置 SMART_ROUTER_MASTER_KEY，服务将无认证运行[/yellow]")
+    
     # 检查是否已在运行
     existing_pid = _get_pid()
     if existing_pid and _is_process_running(existing_pid):

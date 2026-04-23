@@ -28,7 +28,7 @@ app = typer.Typer(name="smart-router", help="智能模型路由网关")
 console = Console()
 
 # 版本号
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 
 @app.command()
@@ -440,7 +440,8 @@ def dry_run(
         difficulty_result = difficulty_classifier.classify(prompt, task_type=task_result.task_type)
     
     # 3. 模型选择（使用 V3 选择器）
-    selector = V3ModelSelector(cfg)
+    available_models = cfg.get_available_models()
+    selector = V3ModelSelector(cfg, available_models=available_models)
     
     selection_result = selector.select(
         task_type=task_result.task_type,

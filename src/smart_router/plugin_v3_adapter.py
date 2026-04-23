@@ -28,25 +28,38 @@ class SmartRouterV3Adapter(Router):
         """
         self.config_dir = Path(config_dir)
         self.config: ConfigV3 = ConfigV3Loader(self.config_dir).load()
-        self.selector = V3ModelSelector(self.config)
+        
+        # 获取可用模型（API Key 已配置的模型）
+        self.available_models = self.config.get_available_models()
+        
+        # 选择器只考虑可用模型
+        self.selector = V3ModelSelector(self.config, available_models=self.available_models)
         
         # 存储最后选中的模型，用于响应头
         self.last_selected_model: Optional[str] = None
         
-        # 转换 V3 模型列表为 LiteLLM 格式
+        # 转换 V3 可用模型列表为 LiteLLM 格式
         litellm_model_list = self._build_litellm_model_list()
+        
+        # 构建 LiteLLM fallbacks（只包含可用模型的 fallback 链）
+        fallbacks = []
+        for model_name in self.available_models:
+            chain = self.config.get_fallback_chain(model_name)
+            if chain:
+                fallbacks.append({model_name: chain})
         
         super().__init__(
             model_list=litellm_model_list,
+            fallbacks=fallbacks if fallbacks else None,
             *args,
             **kwargs
         )
     
     def _build_litellm_model_list(self) -> List[Dict]:
-        """将 V3 模型列表转换为 LiteLLM 格式"""
+        """将 V3 可用模型列表转换为 LiteLLM 格式"""
         litellm_list = []
         
-        for name in self.config.models.keys():
+        for name in self.available_models:
             params = self.config.get_litellm_params(name)
             litellm_list.append({
                 "model_name": name,

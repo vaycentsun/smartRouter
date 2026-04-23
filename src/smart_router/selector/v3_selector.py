@@ -1,10 +1,13 @@
 """V3 Model Selector - Capability-based selection
 
-修复要点：
-1. 使用现有 Config schema（无 speed 字段）
-2. cost 策略增加质量门槛（默认 quality >= 5）
-3. 实现 balanced 策略（quality 和 cost 各 0.5）
-4. 新增 get_required_context 方法，使用 routing.difficulties.max_tokens
+基于模型能力声明和任务权重动态计算最佳模型。
+
+策略说明：
+- auto: 使用任务配置的 capability_weights 计算加权得分
+- quality: 选择 quality 最高的模型
+- cost: 选择 cost 最高的模型（ cheapest ），但过滤 quality < threshold 的模型
+- balanced: quality 和 cost 权重各 0.5
+- reasoning/creative/vision/long_context/latest: 按对应维度选择
 """
 
 from typing import Dict, List, Optional, Tuple
@@ -15,7 +18,6 @@ from ..config.schema import Config
 
 @dataclass
 class SelectionResult:
-    """模型选择结果"""
     model_name: str
     task_type: str
     difficulty: str
@@ -25,23 +27,18 @@ class SelectionResult:
 
 
 class V3ModelSelector:
-    """V3 模型选择器
-    
-    基于模型能力声明和任务权重动态计算最佳模型。
-    
-    策略说明：
-    - auto: 使用任务配置的 capability_weights 计算加权得分
-    - quality: 选择 quality 最高的模型
-    - cost: 选择 cost 最高的模型（ cheapest ），但过滤 quality < threshold 的模型
-    - balanced: quality 和 cost 权重各 0.5
-    - speed: 已废弃（当前模型配置无 speed 字段），回退到 auto
-    """
+    SUPPORTED_STRATEGIES = {
+        "auto", "quality", "cost", 
+        "reasoning", "creative", "vision", "long_context", "latest",
+        "balanced"
+    }
     
     # cost 策略的质量门槛：低于此值的模型会被过滤，避免选到"便宜但不可用"的模型
     COST_QUALITY_THRESHOLD: int = 5
     
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, available_models: Optional[List[str]] = None):
         self.config = config
+        self.available_models = available_models
     
     def select(
         self,
@@ -55,13 +52,12 @@ class V3ModelSelector:
         Args:
             task_type: 任务类型
             difficulty: 难度（easy/medium/hard/expert）
-            strategy: 策略（auto/quality/speed/cost/balanced）
+            strategy: 策略（auto/quality/cost/balanced/reasoning/creative/vision/long_context/latest）
             required_context: 所需的上下文窗口大小（token 数），为 0 时不做上下文过滤
             
         Returns:
             SelectionResult
         """
-        # Step 1: 过滤候选模型
         candidates = self._filter_candidates(task_type, difficulty, required_context)
         
         if not candidates:
@@ -69,18 +65,24 @@ class V3ModelSelector:
                 f"No model supports {task_type}/{difficulty}"
             )
         
-        # Step 2 & 3: 策略评分与排序
         if strategy == "auto":
             return self._select_by_auto(candidates, task_type, difficulty)
         elif strategy == "quality":
             return self._select_by_capability(candidates, "quality", task_type, difficulty)
         elif strategy == "cost":
             return self._select_by_cost(candidates, task_type, difficulty)
+        elif strategy == "reasoning":
+            return self._select_by_capability(candidates, "reasoning", task_type, difficulty)
+        elif strategy == "creative":
+            return self._select_by_capability(candidates, "creative", task_type, difficulty)
+        elif strategy == "vision":
+            return self._select_by_vision(candidates, task_type, difficulty)
+        elif strategy == "long_context":
+            return self._select_by_long_context(candidates, task_type, difficulty)
+        elif strategy == "latest":
+            return self._select_by_capability(candidates, "latest", task_type, difficulty)
         elif strategy == "balanced":
             return self._select_by_balanced(candidates, task_type, difficulty)
-        elif strategy == "speed":
-            # speed 已废弃，回退到 auto
-            return self._select_by_auto(candidates, task_type, difficulty)
         else:
             raise UnknownStrategyError(f"Unknown strategy: {strategy}")
     
@@ -100,11 +102,12 @@ class V3ModelSelector:
         candidates = []
         
         for name, model in self.config.models.items():
-            # 检查任务类型支持
+            if self.available_models is not None and name not in self.available_models:
+                continue
+            
             if task_type not in model.supported_tasks:
                 continue
             
-            # 检查难度支持
             if difficulty not in model.difficulty_support:
                 continue
             
@@ -126,7 +129,6 @@ class V3ModelSelector:
         task_config = self.config.routing.tasks.get(task_type)
         
         if task_config is None:
-            # 如果任务未定义，使用默认权重
             weights = {"quality": 0.5, "cost": 0.5}
         else:
             weights = task_config.capability_weights
@@ -134,7 +136,6 @@ class V3ModelSelector:
         scored = []
         for name, model in candidates:
             caps = model.capabilities
-            # 只使用存在的维度进行评分（当前无 speed）
             score = 0.0
             weight_sum = 0.0
             
@@ -144,9 +145,12 @@ class V3ModelSelector:
             if "cost" in weights:
                 score += caps.cost * weights["cost"]
                 weight_sum += weights["cost"]
-            if "speed" in weights and hasattr(caps, "speed"):
-                score += caps.speed * weights["speed"]
-                weight_sum += weights["speed"]
+            if "reasoning" in weights and caps.reasoning is not None:
+                score += caps.reasoning * weights["reasoning"]
+                weight_sum += weights["reasoning"]
+            if "creative" in weights and caps.creative is not None:
+                score += caps.creative * weights["creative"]
+                weight_sum += weights["creative"]
             
             # 如果权重总和不等于 1，进行归一化
             if weight_sum > 0 and weight_sum != 1.0:
@@ -154,7 +158,6 @@ class V3ModelSelector:
             
             scored.append((name, score, model))
         
-        # 按得分降序排列
         scored.sort(key=lambda x: x[1], reverse=True)
         
         best_name, best_score, best_model = scored[0]
@@ -175,13 +178,16 @@ class V3ModelSelector:
         task_type: str,
         difficulty: str
     ) -> SelectionResult:
-        """quality 策略：单维度排序"""
+        """单维度排序策略"""
         scored = []
         for name, model in candidates:
-            value = getattr(model.capabilities, capability)
-            scored.append((name, value))
+            value = getattr(model.capabilities, capability, None)
+            if value is not None:
+                scored.append((name, value))
         
-        # 降序排列
+        if not scored:
+            return self._select_by_auto(candidates, task_type, difficulty)
+        
         scored.sort(key=lambda x: x[1], reverse=True)
         
         best_name, best_value = scored[0]
@@ -234,6 +240,77 @@ class V3ModelSelector:
             reason=f"Highest cost (cheapest){filter_note}: {best_value}"
         )
     
+    def _select_by_vision(
+        self,
+        candidates: List[Tuple[str, object]],
+        task_type: str,
+        difficulty: str
+    ) -> SelectionResult:
+        vision_candidates = [(n, m) for n, m in candidates if m.capabilities.vision]
+        
+        if not vision_candidates:
+            return self._select_by_auto(candidates, task_type, difficulty)
+        
+        scored = [(n, m.capabilities.quality) for n, m in vision_candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        
+        best_name, best_quality = scored[0]
+        
+        return SelectionResult(
+            model_name=best_name,
+            task_type=task_type,
+            difficulty=difficulty,
+            strategy="vision",
+            score=float(best_quality),
+            reason=f"Vision-capable model with highest quality: {best_quality}"
+        )
+    
+    def _select_by_long_context(
+        self,
+        candidates: List[Tuple[str, object]],
+        task_type: str,
+        difficulty: str
+    ) -> SelectionResult:
+        long_context_candidates = [(n, m) for n, m in candidates 
+                                   if m.capabilities.long_context or m.capabilities.context >= 128000]
+        
+        if not long_context_candidates:
+            return self._select_by_context_window(candidates, task_type, difficulty)
+        
+        scored = [(n, m.capabilities.context) for n, m in long_context_candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        
+        best_name, best_context = scored[0]
+        
+        return SelectionResult(
+            model_name=best_name,
+            task_type=task_type,
+            difficulty=difficulty,
+            strategy="long_context",
+            score=float(best_context),
+            reason=f"Long context model with {best_context} tokens"
+        )
+    
+    def _select_by_context_window(
+        self,
+        candidates: List[Tuple[str, object]],
+        task_type: str,
+        difficulty: str
+    ) -> SelectionResult:
+        scored = [(n, m.capabilities.context) for n, m in candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        
+        best_name, best_context = scored[0]
+        
+        return SelectionResult(
+            model_name=best_name,
+            task_type=task_type,
+            difficulty=difficulty,
+            strategy="long_context",
+            score=float(best_context),
+            reason=f"Largest context window: {best_context} tokens"
+        )
+    
     def _select_by_balanced(
         self,
         candidates: List[Tuple[str, object]],
@@ -263,11 +340,21 @@ class V3ModelSelector:
     def get_available_models(
         self,
         task_type: str,
-        difficulty: str
+        difficulty: str,
+        required_context: int = 0
     ) -> List[str]:
         """获取所有符合条件的模型（用于 fallback）"""
-        candidates = self._filter_candidates(task_type, difficulty)
+        candidates = self._filter_candidates(task_type, difficulty, required_context)
         return [name for name, _ in candidates]
+    
+    def get_candidates(
+        self,
+        task_type: str,
+        difficulty: str,
+        required_context: int = 0
+    ) -> List[str]:
+        """获取所有符合条件的模型（兼容 v2 接口别名）"""
+        return self.get_available_models(task_type, difficulty, required_context)
     
     def get_required_context(self, difficulty: str) -> int:
         """根据难度获取推荐的上下文窗口大小

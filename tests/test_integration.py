@@ -67,6 +67,23 @@ def test_config():
     )
 
 
+@pytest.fixture
+def model_pool_from_config(test_config):
+    """从 V3 Config 构建 ModelSelector 可用的 model_pool"""
+    capabilities = {}
+    for name, model in test_config.models.items():
+        capabilities[name] = {
+            "difficulties": list(model.difficulty_support),
+            "task_types": list(model.supported_tasks),
+            "priority": 11 - model.capabilities.quality,
+            "quality": model.capabilities.quality,
+            "cost": model.capabilities.cost,
+            "context": model.capabilities.context,
+        }
+    default_model = max(test_config.models.items(), key=lambda x: x[1].capabilities.quality)[0]
+    return {"capabilities": capabilities, "default_model": default_model}
+
+
 def test_stage_marker_parsing():
     """测试阶段标记解析"""
     messages = [{"role": "user", "content": "[stage:chat] 你好"}]
@@ -134,10 +151,10 @@ fallback:
         assert "test-model" in config.models
 
 
-def test_full_routing_flow_with_markers(test_config):
+def test_full_routing_flow_with_markers(test_config, model_pool_from_config):
     """测试带标记的完整路由流程"""
     messages = [{"role": "user", "content": "[stage:writing] [difficulty:hard] 写论文"}]
-    
+
     # 1. 解析标记
     markers = parse_markers(messages)
     assert markers.stage == "writing"
@@ -151,11 +168,11 @@ def test_full_routing_flow_with_markers(test_config):
     assert result.model_name == "claude-3-opus"
 
 
-def test_auto_classification_flow(test_config):
+def test_auto_classification_flow(test_config, model_pool_from_config):
     """测试自动分类流程（无标记）"""
     # 短文本应该 easy chat
     messages = [{"role": "user", "content": "你好"}]
-    
+
     # 1. 任务分类
     task_types_config = {
         "chat": {"keywords": ["你好", "hello"]},
@@ -163,9 +180,9 @@ def test_auto_classification_flow(test_config):
     }
     task_classifier = TaskTypeClassifier(task_types_config)
     task_result = task_classifier.classify(messages)
-    
+
     assert task_result.task_type == "chat"
-    
+
     # 2. 难度评估
     difficulty_classifier = DifficultyClassifier([
         {"condition": "length < 30", "difficulty": "easy", "priority": 1},

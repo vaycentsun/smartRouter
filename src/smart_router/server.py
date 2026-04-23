@@ -10,8 +10,7 @@ from rich.console import Console
 from .config.loader import ConfigLoader
 from .config.schema import Config
 from .plugin import SmartRouter
-from .utils.markers import parse_markers
-from .utils.token_counter import estimate_messages_tokens
+
 
 console = Console()
 
@@ -45,14 +44,12 @@ def start_server(config_path: Optional[Path] = None):
             console.print(f"  - {err}")
         sys.exit(1)
     
-    # 从环境变量获取 master_key（不再提供默认值，强制用户设置）
+    # 从环境变量获取 master_key（可选，未设置时不启用认证）
     master_key = os.environ.get("SMART_ROUTER_MASTER_KEY")
-    if not master_key:
-        console.print("[red]错误: 未设置 SMART_ROUTER_MASTER_KEY 环境变量[/red]")
-        console.print("[dim]请设置一个强密码作为 API 认证密钥，例如:[/dim]")
-        console.print("  export SMART_ROUTER_MASTER_KEY='your-strong-password'")
-        sys.exit(1)
-    os.environ["LITELLM_MASTER_KEY"] = master_key
+    if master_key:
+        os.environ["LITELLM_MASTER_KEY"] = master_key
+    else:
+        console.print("[yellow]警告: 未设置 SMART_ROUTER_MASTER_KEY，服务将无认证运行[/yellow]")
     
     console.print("[cyan]正在初始化智能路由...[/cyan]")
     router = SmartRouter(config=config)
@@ -62,24 +59,41 @@ def start_server(config_path: Optional[Path] = None):
         
         proxy_config = ProxyConfig()
         
-        # 将配置转换为 LiteLLM 格式
+        # 获取可用模型（API Key 已配置的模型）
+        available_models = config.get_available_models()
+        
+        if not available_models:
+            console.print("[red]错误: 没有可用的模型，请检查 API Key 配置[/red]")
+            sys.exit(1)
+        
+        console.print(f"[dim]可用模型: {len(available_models)} / {len(config.models)}[/dim]")
+        
+        # 将配置转换为 LiteLLM 格式（只包含可用模型）
         model_list = []
-        for model_name in config.models.keys():
+        for model_name in available_models:
             litellm_params = config.get_litellm_params(model_name)
             model_list.append({
                 "model_name": model_name,
                 "litellm_params": litellm_params
             })
         
+        # 构建 fallback 链（只包含可用模型的 fallback）
+        fallbacks = []
+        for model_name in available_models:
+            chain = config.get_fallback_chain(model_name)
+            if chain:
+                fallbacks.append({model_name: chain})
+        
         litellm_config = {
             "model_list": model_list,
             "router_settings": {
                 "routing_strategy": "simple-shuffle",
             },
-            "general_settings": {
-                "master_key": master_key,
-            }
         }
+        if master_key:
+            litellm_config["general_settings"] = {"master_key": master_key}
+        if fallbacks:
+            litellm_config["router_settings"]["fallbacks"] = fallbacks
         
         # 将配置写入临时文件
         import json
@@ -137,66 +151,33 @@ def start_server(config_path: Optional[Path] = None):
                             if should_route and hasattr(app.state, 'smart_router'):
                                 messages = data.get("messages", [])
                                 
-                                # 解析阶段标记
-                                markers = parse_markers(messages)
-                                
-                                # 确定任务类型和策略
-                                strategy = "auto"  # 默认策略
-                                
-                                if original_model.startswith("strategy-"):
-                                    # strategy-quality 或 strategy-cost
-                                    strategy = original_model.replace("strategy-", "")
-                                    if markers.stage:
-                                        task_type = markers.stage
-                                        difficulty = markers.difficulty or "medium"
-                                    else:
-                                        classification = app.state.smart_router.classifier.classify(messages)
-                                        task_type = classification.task_type
-                                        difficulty = classification.estimated_difficulty
-                                elif original_model.startswith("stage:"):
-                                    task_type = original_model.replace("stage:", "")
-                                    difficulty = markers.difficulty or "medium"
-                                elif markers.stage:
-                                    task_type = markers.stage
-                                    difficulty = markers.difficulty or "medium"
-                                else:
-                                    # 使用分类器
-                                    classification = app.state.smart_router.classifier.classify(messages)
-                                    task_type = classification.task_type
-                                    difficulty = classification.estimated_difficulty
-                                
-                                # 估算所需上下文窗口（使用 routing.difficulties 中的 max_tokens）
-                                required_context = app.state.smart_router.selector.get_required_context(difficulty)
-                                
-                                console.print(f"[cyan]智能路由: {original_model} -> 任务:{task_type}, 难度:{difficulty}, 策略:{strategy}, 需上下文:{required_context}[/cyan]")
-                                
-                                # 选择模型
-                                selected_result = app.state.smart_router.selector.select(
-                                    task_type=task_type,
-                                    difficulty=difficulty,
-                                    strategy=strategy,
-                                    required_context=required_context
-                                )
-                                selected = selected_result.model_name if hasattr(selected_result, 'model_name') else str(selected_result)
-                                
-                                console.print(f"[green]智能路由: 选择模型 {selected}[/green]")
-                                
-                                # 修改请求体
-                                data["model"] = selected
-                                
-                                # 保存到 request.state 供后续使用
-                                request.state.smart_router_selected = selected
-                                request.state.smart_router_original = original_model
-                                request.state.smart_router_task = task_type
-                                
-                                # 重新构建请求体
-                                modified_body = json.dumps(data).encode("utf-8")
-                                
-                                # 创建新的请求，使用修改后的 body
-                                async def receive():
-                                    return {"type": "http.request", "body": modified_body, "more_body": False}
-                                
-                                request = Request(request.scope, receive, request._send)
+                                try:
+                                    result = app.state.smart_router.select_model(
+                                        model_hint=original_model,
+                                        messages=messages
+                                    )
+                                    selected = result.model_name
+                                    
+                                    console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
+                                    
+                                    # 修改请求体
+                                    data["model"] = selected
+                                    
+                                    # 保存到 request.state 供后续使用
+                                    request.state.smart_router_selected = selected
+                                    request.state.smart_router_original = original_model
+                                    request.state.smart_router_task = result.task_type
+                                    
+                                    # 重新构建请求体
+                                    modified_body = json.dumps(data).encode("utf-8")
+                                    
+                                    # 创建新的请求，使用修改后的 body
+                                    async def receive():
+                                        return {"type": "http.request", "body": modified_body, "more_body": False}
+                                    
+                                    request = Request(request.scope, receive, request._send)
+                                except Exception as e:
+                                    console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
                     except Exception as e:
                         console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                         import traceback

@@ -24,11 +24,27 @@ class ProviderConfig(BaseModel):
 
 
 class ModelCapabilities(BaseModel):
-    """模型能力评分 (1-10)"""
+    """模型能力评分 (1-10)
+    
+    多维度能力体系：
+    - quality: 代码质量、推理能力（10=最高质量）
+    - cost: 成本效率（10=最便宜）
+    - context: 上下文窗口大小
+    - reasoning: 推理能力（数学、逻辑、代码推理）
+    - creative: 创意能力（写作、广告、头脑风暴）
+    - vision: 多模态视觉理解能力
+    - long_context: 长上下文处理能力
+    - latest: 是否是最新模型（拥有最新知识）
+    """
     quality: int = Field(ge=1, le=10, description="质量评分，10=最高质量")
-    speed: Optional[int] = Field(default=None, ge=1, le=10, description="速度评分，10=最快（已废弃，可选）")
     cost: int = Field(ge=1, le=10, description="成本效率，10=最便宜")
-    context: int = Field(gt=0, description="上下文窗口大小")
+    context: int = Field(gt=0, description="上下文窗口大小 (tokens)")
+    # 新增多维度能力
+    reasoning: Optional[int] = Field(default=None, ge=1, le=10, description="推理能力评分")
+    creative: Optional[int] = Field(default=None, ge=1, le=10, description="创意能力评分")
+    vision: Optional[bool] = Field(default=False, description="是否支持多模态视觉")
+    long_context: Optional[bool] = Field(default=False, description="是否适合长上下文")
+    latest: Optional[bool] = Field(default=True, description="是否是最新模型")
 
 
 class ModelConfig(BaseModel):
@@ -73,10 +89,17 @@ class StrategyConfig(BaseModel):
 
 
 class FallbackConfig(BaseModel):
-    """Fallback 自动推导配置"""
-    mode: Literal["auto"] = "auto"
+    """Fallback 自动推导配置
+    
+    支持两种模式：
+    - auto: 基于 quality 相似度自动推导
+    - intelligent: 智能模式，支持 provider 隔离和能力降级
+    """
+    mode: Literal["auto", "intelligent"] = "auto"
     similarity_threshold: int = Field(default=2, ge=1, le=5, 
                                       description="quality 差异阈值")
+    provider_isolation: bool = Field(default=False, description="是否启用 Provider 隔离 fallback")
+    max_attempts: int = Field(default=3, ge=1, le=10, description="最大 fallback 尝试次数")
 
 
 class RoutingConfig(BaseModel):
@@ -112,22 +135,16 @@ class Config(BaseModel):
                 )
         return self
     
-    def model_post_init(self, __context):
+    @model_validator(mode='after')
+    def init_fallback_chains(self):
         """预计算 fallback 链"""
-        self._fallback_chains = self._derive_fallback_chains()
+        if self.routing.fallback.mode == "intelligent":
+            self._fallback_chains = self._derive_intelligent_fallback_chains()
+        else:
+            self._fallback_chains = self._derive_fallback_chains()
+        return self
     
     def _derive_fallback_chains(self) -> Dict[str, List[str]]:
-        """基于 quality 相似度自动推导 fallback 链
-        
-        规则：
-        1. 对于每个模型，找到 quality 差异 <= threshold 的其他模型
-        2. 按 quality 降序排列
-        3. 排除自身
-        
-        示例：
-        - gpt-4o (quality=9) 和 claude-3-opus (quality=10) 差异为 1 <= 2
-        - 它们应该互为 fallback
-        """
         chains = {}
         threshold = self.routing.fallback.similarity_threshold
         
@@ -143,15 +160,104 @@ class Config(BaseModel):
                 if quality_diff <= threshold:
                     candidates.append((other_name, other.capabilities.quality))
             
-            # 按 quality 降序排列
             candidates.sort(key=lambda x: x[1], reverse=True)
             chains[name] = [n for n, _ in candidates]
         
         return chains
     
+    def _derive_intelligent_fallback_chains(self) -> Dict[str, List[str]]:
+        """智能 fallback 链推导
+        
+        支持 Provider 隔离：
+        1. 首先在同一 provider 内找 quality 相似的模型
+        2. 然后跨 provider 找 quality 相似的模型
+        3. 最后降级到 quality 更低的模型
+        """
+        chains = {}
+        threshold = self.routing.fallback.similarity_threshold
+        
+        for name, model in self.models.items():
+            same_provider = []
+            cross_provider = []
+            degraded = []
+            model_quality = model.capabilities.quality
+            
+            for other_name, other in self.models.items():
+                if other_name == name:
+                    continue
+                
+                quality_diff = abs(other.capabilities.quality - model_quality)
+                
+                if other.provider == model.provider:
+                    if quality_diff <= threshold:
+                        same_provider.append((other_name, other.capabilities.quality))
+                else:
+                    if quality_diff <= threshold:
+                        cross_provider.append((other_name, other.capabilities.quality))
+                    elif other.capabilities.quality < model_quality:
+                        degraded.append((other_name, other.capabilities.quality))
+            
+            same_provider.sort(key=lambda x: x[1], reverse=True)
+            cross_provider.sort(key=lambda x: x[1], reverse=True)
+            degraded.sort(key=lambda x: x[1], reverse=True)
+            
+            chain = [n for n, _ in same_provider]
+            chain.extend([n for n, _ in cross_provider])
+            chain.extend([n for n, _ in degraded])
+            chains[name] = chain
+        
+        return chains
+    
+    def get_provider_fallback_chain(self, model_name: str) -> List[str]:
+        if model_name not in self.models:
+            return []
+        
+        original_model = self.models[model_name]
+        original_provider = original_model.provider
+        
+        same_task_candidates = []
+        for name, model in self.models.items():
+            if name == model_name:
+                continue
+            if (set(original_model.supported_tasks) & set(model.supported_tasks) and
+                set(original_model.difficulty_support) & set(model.difficulty_support)):
+                same_task_candidates.append(name)
+        
+        different_provider = [n for n in same_task_candidates 
+                            if self.models[n].provider != original_provider]
+        same_provider = [n for n in same_task_candidates 
+                        if self.models[n].provider == original_provider]
+        
+        return different_provider + same_provider
+    
+    def is_provider_available(self, provider_name: str) -> bool:
+        """检查 provider 是否配置了有效的 API Key"""
+        if provider_name not in self.providers:
+            return False
+        provider = self.providers[provider_name]
+        if provider.api_key.startswith("os.environ/"):
+            env_var = provider.api_key.replace("os.environ/", "")
+            return os.environ.get(env_var) is not None
+        return True  # 直接配置了 key
+    
+    def is_model_available(self, model_name: str) -> bool:
+        """检查模型是否可用（其 provider 的 API Key 已配置）"""
+        if model_name not in self.models:
+            return False
+        model = self.models[model_name]
+        return self.is_provider_available(model.provider)
+    
+    def get_available_models(self) -> List[str]:
+        """获取所有可用模型的名称列表"""
+        return [
+            name for name in self.models.keys()
+            if self.is_model_available(name)
+        ]
+    
     def get_fallback_chain(self, model_name: str) -> List[str]:
-        """获取模型的 fallback 链"""
-        return self._fallback_chains.get(model_name, [])
+        """获取模型的 fallback 链（只包含可用模型）"""
+        chain = self._fallback_chains.get(model_name, [])
+        return [m for m in chain if self.is_model_available(m)]
     
     def get_litellm_params(self, model_name: str) -> dict:
         """运行时组装 LiteLLM 参数"""

@@ -33,7 +33,8 @@ def download_configs(output_dir: Path, force: bool = False) -> bool:
     import urllib.error
     
     for filename in config_files:
-        url = f"{repo_url}/config/examples/v3/{filename}"
+        # Fetch from templates directory to align with new source of config
+        url = f"{repo_url}/src/smart_router/templates/{filename}"
         filepath = output_dir / filename
         
         if filepath.exists() and not force:
