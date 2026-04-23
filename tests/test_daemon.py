@@ -108,6 +108,32 @@ class TestIsProcessRunning:
         assert _is_process_running(fake_pid) is False
 
 
+class TestPortInUse:
+    """端口占用检查测试"""
+
+    def test_port_in_use(self):
+        """端口被占用时返回 True"""
+        from smart_router.daemon import _is_port_in_use
+        import socket
+        # 绑定一个临时端口，然后检查
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+            s.listen(1)
+            assert _is_port_in_use(port) is True
+
+    def test_port_not_in_use(self):
+        """端口未被占用时返回 False"""
+        from smart_router.daemon import _is_port_in_use
+        import socket
+        # 找一个未使用的端口
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        # 端口已释放
+        assert _is_port_in_use(port) is False
+
+
 class TestStartDaemon:
     """start_daemon 测试"""
 
@@ -128,12 +154,24 @@ class TestStartDaemon:
             captured = capsys.readouterr()
             assert "已在运行" in captured.out
 
+    def test_port_in_use_no_pid_file(self, capsys):
+        """端口被占用但 PID 文件丢失时提示"""
+        mock_process = MagicMock()
+        mock_process.pid = 99999
+
+        with patch("smart_router.daemon._get_pid", return_value=None), \
+             patch("smart_router.daemon._is_port_in_use", return_value=True):
+            start_daemon()
+            captured = capsys.readouterr()
+            assert "端口 4000 已被占用" in captured.out
+
     def test_start_success(self, capsys):
         """成功启动服务"""
         mock_process = MagicMock()
         mock_process.pid = 99999
 
         with patch("smart_router.daemon._get_pid", return_value=None), \
+             patch("smart_router.daemon._is_port_in_use", return_value=False), \
              patch("smart_router.daemon._remove_pid"), \
              patch("smart_router.daemon.subprocess.Popen", return_value=mock_process):
             start_daemon()
@@ -147,6 +185,7 @@ class TestStartDaemon:
         config_path = Path("/tmp/test_config.yaml")
 
         with patch("smart_router.daemon._get_pid", return_value=None), \
+             patch("smart_router.daemon._is_port_in_use", return_value=False), \
              patch("smart_router.daemon._remove_pid"), \
              patch("smart_router.daemon.subprocess.Popen", return_value=mock_process) as mock_popen:
             start_daemon(config_path=config_path)
@@ -161,6 +200,7 @@ class TestStartDaemon:
         mock_process.pid = 99999
 
         with patch("smart_router.daemon._get_pid", return_value=None), \
+             patch("smart_router.daemon._is_port_in_use", return_value=False), \
              patch("smart_router.daemon._remove_pid"), \
              patch("smart_router.daemon.subprocess.Popen", return_value=mock_process), \
              patch.dict(os.environ, {"SMART_ROUTER_MASTER_KEY": ""}, clear=False):

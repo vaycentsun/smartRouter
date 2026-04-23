@@ -5,6 +5,7 @@ Smart Router 守护进程管理
 import os
 import signal
 import sys
+import socket
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -16,6 +17,30 @@ console = Console()
 # PID 文件默认位置
 DEFAULT_PID_DIR = Path.home() / ".smart-router"
 DEFAULT_PID_FILE = DEFAULT_PID_DIR / "smart-router.pid"
+
+# 服务监听端口
+DEFAULT_PORT = 4000
+
+
+def _is_port_in_use(port: int = DEFAULT_PORT) -> bool:
+    """检查端口是否被占用
+    
+    用于检测是否有遗留进程占用了服务端口，
+    即使 PID 文件丢失也能发现已有服务在运行。
+    
+    Args:
+        port: 端口号
+        
+    Returns:
+        端口是否被占用
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1)
+            result = s.connect_ex(("127.0.0.1", port))
+            return result == 0
+    except (OSError, socket.error):
+        return False
 
 
 def _get_python_executable() -> str:
@@ -76,11 +101,18 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
     if not master_key:
         console.print("[yellow]警告: 未设置 SMART_ROUTER_MASTER_KEY，服务将无认证运行[/yellow]")
     
-    # 检查是否已在运行
+    # 检查是否已在运行（通过 PID 文件）
     existing_pid = _get_pid()
     if existing_pid and _is_process_running(existing_pid):
         console.print(f"[yellow]Smart Router 已在运行 (PID: {existing_pid})[/yellow]")
         console.print(f"[dim]使用 `smart-router stop` 停止服务[/dim]")
+        return
+    
+    # 检查端口是否被占用（PID 文件丢失时的兜底检测）
+    if _is_port_in_use(DEFAULT_PORT):
+        console.print(f"[yellow]端口 {DEFAULT_PORT} 已被占用，可能已有 Smart Router 实例在运行[/yellow]")
+        console.print(f"[dim]使用 `smart-router stop` 停止服务，或手动 kill 占用端口的进程[/dim]")
+        console.print(f"[dim]排查: lsof -i :{DEFAULT_PORT}[/dim]")
         return
     
     # 清理旧的 PID 文件
@@ -174,6 +206,13 @@ def check_status():
     pid = _get_pid()
     
     if not pid:
+        # PID 文件丢失，检查端口是否被占用
+        if _is_port_in_use(DEFAULT_PORT):
+            console.print(f"[yellow]●[/yellow] Smart Router 端口 {DEFAULT_PORT} 被占用（PID 文件丢失）")
+            console.print(f"[dim]  可能有一个遗留进程在运行[/dim]")
+            console.print(f"[dim]  排查: lsof -i :{DEFAULT_PORT}[/dim]")
+            return True  # 端口被占用，认为服务在运行
+        
         console.print("[yellow]●[/yellow] Smart Router 未运行")
         return False
     
