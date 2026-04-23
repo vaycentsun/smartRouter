@@ -3,7 +3,7 @@ class SmartRouter < Formula
 
   desc "智能模型路由网关 — 基于 LiteLLM 的多服务商自动路由 CLI 工具"
   homepage "https://github.com/vaycentsun/smartRouter"
-  url "https://files.pythonhosted.org/packages/source/s/smart-router/smart-router-1.0.2.tar.gz"
+  url "https://files.pythonhosted.org/packages/source/s/smartrouter/smartrouter-1.0.7.tar.gz"
   sha256 "PLACEHOLDER_SHA256"
   license "MIT"
   head "https://github.com/vaycentsun/smartRouter.git", branch: "main"

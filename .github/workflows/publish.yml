@@ -154,7 +154,7 @@ jobs:
           ### Artifact Attestation（构建来源验证）
           本 release 的构建产物已生成 artifact attestation。可通过 GitHub CLI 验证：
           \`\`\`bash
-          gh attestation verify dist/smart-router-${VERSION}.tar.gz --repo ${REPO}
+           gh attestation verify dist/smartrouter-${VERSION}.tar.gz --repo ${REPO}
           \`\`\`
 
           ---
@@ -208,7 +208,7 @@ jobs:
           curl -fsSL "${CHECKSUM_URL}" -o checksums.sha256
 
           # 提取 sdist 的 SHA256
-          SHA256=$(grep "smart-router-${VERSION}.tar.gz" checksums.sha256 | awk '{print $1}')
+          SHA256=$(grep "smartrouter-${VERSION}.tar.gz" checksums.sha256 | awk '{print $1}')
 
           if [ -z "$SHA256" ]; then
             echo "❌ Failed to extract SHA256 from checksums file"
@@ -226,7 +226,7 @@ jobs:
           FORMULA="Formula/smart-router.rb"
 
           # 更新 url 和 sha256
-          sed -i "s|url \".*\"|url \"https://files.pythonhosted.org/packages/source/s/smart-router/smart-router-${VERSION}.tar.gz\"|" "$FORMULA"
+          sed -i "s|url \".*\"|url \"https://files.pythonhosted.org/packages/source/s/smartrouter/smartrouter-${VERSION}.tar.gz\"|" "$FORMULA"
           sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" "$FORMULA"
 
           echo "=== Updated Formula ==="

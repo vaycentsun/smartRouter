@@ -87,7 +87,7 @@ if [ "$INSTALL_METHOD" == "release" ]; then
 
     # 下载 sdist 和 checksums
     RELEASE_URL="https://github.com/${REPO}/releases/download/v${TARGET_VERSION}"
-    SDIST_FILE="smart-router-${TARGET_VERSION}.tar.gz"
+    SDIST_FILE="smartrouter-${TARGET_VERSION}.tar.gz"
     SDIST_URL="${RELEASE_URL}/${SDIST_FILE}"
     CHECKSUM_URL="${RELEASE_URL}/checksums.sha256"
 
