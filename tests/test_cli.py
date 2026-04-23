@@ -130,89 +130,96 @@ class TestDryRunCommand:
     """dry-run 命令测试"""
     
     @pytest.fixture
-    def test_config_file(self):
-        """创建 V3 测试配置目录"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config_dir = Path(tmpdir)
-            (config_dir / "providers.yaml").write_text("""
+    def test_config_dir(self):
+        """创建 V3 三文件测试配置目录"""
+        config_dir = Path(tempfile.mkdtemp())
+        
+        # providers.yaml
+        (config_dir / "providers.yaml").write_text("""
 providers:
-  test:
-    api_base: http://test.com
-    api_key: test-key
+  openai:
+    api_base: https://api.openai.com/v1
+    api_key: sk-test
 """)
-            (config_dir / "models.yaml").write_text("""
+        
+        # models.yaml
+        (config_dir / "models.yaml").write_text("""
 models:
   gpt-4o:
-    provider: test
+    provider: openai
     litellm_model: openai/gpt-4o
     capabilities:
       quality: 9
-      speed: 5
       cost: 3
       context: 128000
     supported_tasks: [writing, chat]
     difficulty_support: [easy, medium, hard]
+  
   qwen3-122b:
-    provider: test
+    provider: openai
     litellm_model: dashscope/qwen3-122b
     capabilities:
-      quality: 5
-      speed: 7
-      cost: 8
+      quality: 8
+      cost: 5
       context: 32000
     supported_tasks: [writing, chat]
     difficulty_support: [easy, medium]
 """)
-            (config_dir / "routing.yaml").write_text("""
+        
+        # routing.yaml
+        (config_dir / "routing.yaml").write_text("""
 tasks:
   writing:
-    name: "写作"
-    description: "写文章、写作"
+    name: "Writing"
+    description: "Write articles"
     capability_weights:
       quality: 0.6
-      speed: 0.2
-      cost: 0.2
+      cost: 0.4
+    keywords: ["写", "文章"]
+    examples: ["帮我写一篇文章"]
+  
   chat:
-    name: "聊天"
-    description: "日常对话"
+    name: "Chat"
+    description: "General chat"
     capability_weights:
-      quality: 0.4
-      speed: 0.3
-      cost: 0.3
+      quality: 0.3
+      cost: 0.7
 
 difficulties:
   easy:
-    name: "简单"
-    description: "简单问题"
-    max_tokens: 2000
+    description: "Easy"
+    max_tokens: 1000
   medium:
-    name: "中等"
-    description: "中等难度"
+    description: "Medium"
     max_tokens: 4000
   hard:
-    name: "困难"
-    description: "困难问题"
+    description: "Hard"
     max_tokens: 8000
 
 strategies:
   auto:
-    name: "自动"
-    description: "自动选择"
+    description: "Auto"
   quality:
-    name: "质量优先"
-    description: "质量优先"
+    description: "Quality"
   cost:
-    name: "成本优先"
-    description: "成本优先"
+    description: "Cost"
+  balanced:
+    description: "Balanced"
 
 fallback:
   mode: auto
+  similarity_threshold: 2
 """)
-            yield str(config_dir)
+        
+        yield config_dir
+        
+        # 清理
+        import shutil
+        shutil.rmtree(config_dir)
     
-    def test_dry_run_basic(self, test_config_file):
+    def test_dry_run_basic(self, test_config_dir):
         """测试基本 dry-run"""
-        result = runner.invoke(app, ["dry-run", "帮我写篇文章", "--config", test_config_file])
+        result = runner.invoke(app, ["dry-run", "帮我写篇文章", "--config", str(test_config_dir)])
         
         assert result.exit_code == 0
         assert "路由决策" in result.stdout
@@ -220,9 +227,9 @@ fallback:
         assert "难度评估" in result.stdout
         assert "模型选择" in result.stdout
     
-    def test_dry_run_with_all_flag(self, test_config_file):
+    def test_dry_run_with_all_flag(self, test_config_dir):
         """测试 --all 参数显示候选模型"""
-        result = runner.invoke(app, ["dry-run", "写", "--config", test_config_file, "--all"])
+        result = runner.invoke(app, ["dry-run", "写", "--config", str(test_config_dir), "--all"])
         
         assert result.exit_code == 0
         assert "候选模型" in result.stdout

@@ -6,7 +6,7 @@ from .utils.markers import parse_markers, strip_markers, MarkerResult
 from .utils.token_counter import estimate_messages_tokens
 from .classifier import TaskClassifier
 from .classifier.types import ClassificationResult, get_default_classification
-from .selector.v3_selector import V3ModelSelector, SelectionResult
+from .selector.v3_selector import V3ModelSelector
 from .config.schema import Config, ModelConfig
 
 
@@ -16,6 +16,12 @@ class SmartRouter(Router):
     
     继承 LiteLLM 的 Router，重写 get_available_deployment 方法，
     在请求到达 LiteLLM 原生路由前注入智能模型选择逻辑。
+    
+    使用 V3ModelSelector 进行模型选择，支持：
+    - auto: 基于任务权重自动选择
+    - quality: 质量优先
+    - cost: 成本优先（带质量门槛）
+    - balanced: 平衡模式
     """
     
     def __init__(self, config: Config, *args, **kwargs):
@@ -23,7 +29,7 @@ class SmartRouter(Router):
         # 存储最后选中的模型，用于响应头
         self.last_selected_model: Optional[str] = None
         
-        # 从 V3 配置构建分类规则
+        # 从 V3 配置构建分类规则（向后兼容）
         classification_rules = [
             {
                 "pattern": f"(?i)({task_config.name.lower().replace('_', '|')})",
@@ -33,6 +39,16 @@ class SmartRouter(Router):
             for task_id, task_config in config.routing.tasks.items()
         ]
         
+        # 从 V3 配置构建 task_configs（包含 keywords 和 examples）
+        task_configs = {
+            task_id: {
+                "keywords": list(getattr(task_config, "keywords", [])),
+                "examples": list(getattr(task_config, "examples", [])),
+                "description": task_config.description
+            }
+            for task_id, task_config in config.routing.tasks.items()
+        }
+        
         embedding_config = {
             "enabled": True,
             "threshold": 0.6,
@@ -41,16 +57,15 @@ class SmartRouter(Router):
         
         self.classifier = TaskClassifier(
             rules=classification_rules,
-            embedding_config=embedding_config
+            embedding_config=embedding_config,
+            task_configs=task_configs
         )
         
         # 获取可用模型列表（API Key 已配置的模型）
         available_models = config.get_available_models()
         
-        self.selector = V3ModelSelector(
-            config=config,
-            available_models=available_models
-        )
+        # 使用 V3 选择器
+        self.selector = V3ModelSelector(config=config, available_models=available_models)
         
         # 构建 LiteLLM 模型列表（只包含可用模型）
         litellm_model_list = []
@@ -80,7 +95,7 @@ class SmartRouter(Router):
         model_hint: str,
         messages: Optional[List[Dict]] = None,
         strategy: str = "auto"
-    ) -> SelectionResult:
+    ) -> Any:
         """
         统一路由决策入口。
         
