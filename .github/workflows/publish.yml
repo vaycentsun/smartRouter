@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@b4ffde65f46336abcc2363fcefb9423e7d7d982 # v4
     
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@0c7c3abd3f3c0bdbc5ebc6027ae4f47e85f55e7d # v5
       with:
         python-version: '3.11'
     
@@ -34,7 +34,7 @@ jobs:
       run: twine check dist/*
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: dist
         path: dist/
@@ -50,13 +50,13 @@ jobs:
     
     steps:
     - name: Download artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@8caf195ad4b1dee92908e23f56eeb0696f1dd42d # v4
       with:
         name: dist
         path: dist/
     
     - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+      uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
 
   create-github-release:
     name: Create GitHub Release
@@ -67,16 +67,16 @@ jobs:
       contents: write
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@b4ffde65f46336abcc2363fcefb9423e7d7d982 # v4
     
     - name: Download artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@8caf195ad4b1dee92908e23f56eeb0696f1dd42d # v4
       with:
         name: dist
         path: dist/
     
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
       with:
         files: dist/*
         generate_release_notes: true
@@ -92,7 +92,7 @@ jobs:
       contents: write
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@b4ffde65f46336abcc2363fcefb9423e7d7d982 # v4
       with:
         ref: main
         token: ${{ secrets.GITHUB_TOKEN }}
