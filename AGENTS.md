@@ -138,17 +138,6 @@ smartRouter/
 │   │   └── plans/                  # 实现计划
 │   └── archived/                   # 已归档规格
 │
-├── skills/sw-superpower/           # AI 编码 Agent 软件工程技能集
-│   ├── sw-brainstorming/           # 头脑风暴与需求分析
-│   ├── sw-writing-specs/           # 编写实现计划
-│   ├── sw-subagent-development/    # 子 Agent 驱动开发
-│   ├── sw-test-driven-dev/         # 测试驱动开发（RED-GREEN-REFACTOR）
-│   ├── sw-code-review/             # 两阶段代码审查
-│   ├── sw-systematic-debugging/    # 系统化调试
-│   ├── sw-verification-before-completion/ # 完成前验证
-│   ├── sw-finishing-branch/        # 分支收尾
-│   └── ...
-│
 ├── homebrew/
 │   └── smart-router.rb             # Homebrew Formula
 │
@@ -327,30 +316,6 @@ smr doctor
 
 ---
 
-## 开发工作流约定（skills/sw-superpower）
-
-本项目内嵌 **sw-superpower** 技能集，定义了完整的软件开发工作流。AI 编码 Agent 修改代码时应遵循：
-
-| Skill | 用途 | 触发条件 |
-|-------|------|----------|
-| **sw-brainstorming** | 头脑风暴与需求分析 | 开始新功能开发 |
-| **sw-writing-specs** | 创建详细的实现计划 | 设计已批准 |
-| **sw-subagent-development** | 使用子 Agent 执行计划 | 有实现计划 |
-| **sw-test-driven-dev** | 强制 RED-GREEN-REFACTOR | 实现任何功能或修复 Bug |
-| **sw-code-review** | 两阶段代码审查 | 完成任务后 |
-| **sw-systematic-debugging** | 系统化 Bug 调查 | 发现 Bug |
-| **sw-verification-before-completion** | 标记完成前验证 | 准备标记完成 |
-| **sw-finishing-branch** | 验证、决策、清理分支 | 所有任务完成 |
-
-### 铁律
-
-1. **所有代码修改必须通过 sw-test-driven-dev**: RED → GREEN → REFACTOR
-2. **新功能必须先 sw-brainstorming**: 产出设计文档到 `specs/active/`
-3. **任务完成后必须 sw-code-review**: 两阶段审查后才能标记完成
-4. **完成前必须 sw-verification-before-completion**: 验证测试、文档、规范一致性
-
----
-
 ## 故障排查速查
 
 | 现象 | 排查步骤 |
@@ -389,4 +354,3 @@ LiteLLM 原生支持 100+ 服务商。只需在 `config/examples/v3/providers.ya
 | `docs/ARCHITECTURE_V2.md` | V2 架构设计文档 |
 | `specs/active/2026-04-19--config-v3-refactor.md` | V3 配置架构设计规格与迁移指南 |
 | `specs/active/2026-04-21--routing-architecture-fix.md` | 路由架构修复规格 |
-| `skills/sw-superpower/README.zh.md` | 软件工程技能集说明 |
