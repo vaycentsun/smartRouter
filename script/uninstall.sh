@@ -32,7 +32,7 @@ fi
 # 4. 尝试从虚拟环境卸载
 if [ -f "$VENV_DIR/bin/pip" ]; then
     echo "📦 从虚拟环境卸载 Python 包..."
-    "$VENV_DIR/bin/pip" uninstall -q -y smart-router 2>/dev/null || true
+    "$VENV_DIR/bin/pip" uninstall -q -y smartRouter 2>/dev/null || true
 fi
 
 # 5. 删除配置文件和数据

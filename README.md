@@ -29,7 +29,7 @@ Choose one of the following methods:
 #### Option A: pip install (Recommended)
 
 ```bash
-pip install smart-router
+pip install smartRouter
 ```
 
 #### Option B: One-line curl install
@@ -68,7 +68,7 @@ Or manually:
 smart-router stop
 
 # Uninstall package
-pip uninstall smart-router
+pip uninstall smartRouter
 
 # Clean up data
 rm -rf ~/.smart-router

@@ -29,7 +29,7 @@
 #### 方式 A: pip 安装（推荐）
 
 ```bash
-pip install smart-router
+pip install smartRouter
 ```
 
 #### 方式 B: 一行命令安装
@@ -68,7 +68,7 @@ curl -fsSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/
 smart-router stop
 
 # 卸载包
-pip uninstall smart-router
+pip uninstall smartRouter
 
 # 清理数据
 rm -rf ~/.smart-router

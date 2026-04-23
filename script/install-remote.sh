@@ -87,7 +87,7 @@ if [ "$INSTALL_METHOD" == "release" ]; then
 
     # 下载 sdist 和 checksums
     RELEASE_URL="https://github.com/${REPO}/releases/download/v${TARGET_VERSION}"
-    SDIST_FILE="smart-router-${TARGET_VERSION}.tar.gz"
+    SDIST_FILE="smartrouter-${TARGET_VERSION}.tar.gz"
     SDIST_URL="${RELEASE_URL}/${SDIST_FILE}"
     CHECKSUM_URL="${RELEASE_URL}/checksums.sha256"
 
@@ -123,11 +123,11 @@ elif [ "$INSTALL_METHOD" == "git" ]; then
     echo "📦 从 Git 源码安装开发版..."
     REPO_URL="https://github.com/${REPO}.git"
 
-    if pip3 show smart-router &> /dev/null; then
-        echo "  发现已安装的 smart-router，正在升级..."
-        pip3 install -q --force-reinstall --no-deps "git+${REPO_URL}#egg=smart-router[dev]"
+    if pip3 show smartRouter &> /dev/null; then
+        echo "  发现已安装的 smartRouter，正在升级..."
+        pip3 install -q --force-reinstall --no-deps "git+${REPO_URL}#egg=smartRouter[dev]"
     else
-        pip3 install -q "git+${REPO_URL}#egg=smart-router[dev]"
+        pip3 install -q "git+${REPO_URL}#egg=smartRouter[dev]"
     fi
     echo "✓ 开发版安装成功"
 fi

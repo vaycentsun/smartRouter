@@ -8,7 +8,7 @@
 
 ## 项目概述
 
-Smart Router（智能模型路由网关，PyPI 包名 `smart-router`）是一个基于 LiteLLM Proxy 的本地 CLI 工具，对外暴露统一的 OpenAI API 接口，根据任务类型、难度和阶段标记自动将请求路由到最合适的底层大模型。
+Smart Router（智能模型路由网关，PyPI 包名 `smartRouter`）是一个基于 LiteLLM Proxy 的本地 CLI 工具，对外暴露统一的 OpenAI API 接口，根据任务类型、难度和阶段标记自动将请求路由到最合适的底层大模型。
 
 **版本**: 1.0.2  
 **Python 要求**: >= 3.9  
@@ -301,7 +301,7 @@ smr doctor
 - **GitHub Actions**（`.github/workflows/publish.yml`）：
   - 触发条件：`push tags v*` 或手动 `workflow_dispatch`
   - 流程：build → check → upload artifact → publish to PyPI（使用 trusted publishing）→ create GitHub Release
-- **PyPI 包名**: `smart-router`
+- **PyPI 包名**: `smartRouter`
 - **版本管理**：`pyproject.toml` 和 `src/smart_router/__init__.py` 以及 `cli.py` 中的 `__version__` 需同步更新
 
 ---

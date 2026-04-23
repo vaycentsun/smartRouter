@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-04-23
+
+### Fixed
+- 修复 PyPI 包名不一致问题：`pyproject.toml` 中的 `name` 从 `smart-router` 改为 `smartRouter`，与 PyPI 实际发布的包名保持一致
+- 同步更新所有文档、脚本和 CI 配置中的 pip 安装命令：`pip install smartRouter` / `pip uninstall smartRouter`
+- 同步更新版本号到 1.0.7（`__init__.py`、`cli.py`）
+
 ## [1.0.5] - 2026-04-23
 
 ### Fixed

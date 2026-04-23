@@ -27,9 +27,9 @@ if command -v smart-router &> /dev/null; then
 fi
 
 # 2. 尝试从系统 Python 卸载旧版本
-if pip3 show smart-router &> /dev/null; then
+if pip3 show smartRouter &> /dev/null; then
     echo "  📦 发现系统 Python 中的旧版本，正在卸载..."
-    pip3 uninstall -q -y smart-router 2>/dev/null || true
+    pip3 uninstall -q -y smartRouter 2>/dev/null || true
 fi
 
 # 3. 配置目录
