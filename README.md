@@ -41,7 +41,7 @@ curl -fsSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/
 #### Option C: Homebrew (macOS/Linux)
 
 ```bash
-brew tap vaycentsun/smart-router
+brew tap vaycentsun/smart-router https://github.com/vaycentsun/smartRouter.git
 brew install smart-router
 ```
 

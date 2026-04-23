@@ -138,8 +138,7 @@ smartRouter/
 │   │   └── plans/                  # 实现计划
 │   └── archived/                   # 已归档规格
 │
-├── Formula/
-│   └── smart-router.rb             # Homebrew Formula
+├── smart-router.rb                 # Homebrew Formula
 │
 └── .github/workflows/
     └── publish.yml                 # GitHub Actions: 打 tag 时自动构建并发布到 PyPI
