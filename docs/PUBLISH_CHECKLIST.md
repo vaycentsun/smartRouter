@@ -64,10 +64,30 @@ curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/ins
 ### 方式四：Homebrew（macOS/Linux）
 
 ```bash
+brew tap vaycentsun/smart-router
 brew install smart-router
 ```
 
-需要更新 `homebrew/smart-router.rb` 中的版本号和 SHA256。
+> **自动更新**：GitHub Actions 会在发布到 PyPI 后自动更新 `Formula/smart-router.rb` 中的版本号和 SHA256，无需手动操作。
+
+---
+
+## 同步更新机制
+
+打 tag 后，GitHub Actions 会自动完成以下同步：
+
+| 分发方式 | 更新方式 | 是否自动 |
+|---------|---------|---------|
+| **pip (PyPI)** | GitHub Actions 构建并上传 | 是 |
+| **curl** | 脚本从 main 分支实时获取 | 是（无需额外操作） |
+| **Homebrew** | GitHub Actions 自动更新 Formula | 是 |
+
+**操作流程**：
+1. 更新版本号（`pyproject.toml`、`__init__.py`、`cli.py`）
+2. 提交并推送代码到 main 分支
+3. 打 tag：`git tag -a v1.0.3 -m "Release v1.0.3"`
+4. 推送 tag：`git push origin v1.0.3`
+5. GitHub Actions 自动完成所有分发渠道的更新
 
 ---
 
@@ -102,4 +122,4 @@ curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/ins
 | PyPI 上传失败 | 检查 API Token，确认版本号不重复 |
 | curl 安装失败 | 检查 GitHub raw URL，确保仓库公开 |
 | GitHub Actions 失败 | 检查 Secrets 设置，查看 Actions 日志 |
-| Homebrew 安装失败 | 更新 Formula 中的 SHA256 |
+| Homebrew 安装失败 | 确认 GitHub Actions 中 `update-homebrew-formula` job 是否成功；检查 `Formula/smart-router.rb` 中的版本号是否与 tag 一致 |

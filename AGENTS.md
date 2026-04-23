@@ -138,7 +138,7 @@ smartRouter/
 │   │   └── plans/                  # 实现计划
 │   └── archived/                   # 已归档规格
 │
-├── homebrew/
+├── Formula/
 │   └── smart-router.rb             # Homebrew Formula
 │
 └── .github/workflows/
