@@ -4,6 +4,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
+from unittest.mock import patch
 from smart_router.config.v3_loader import ConfigV3Loader, ConfigV3Error, load_v3_config
 
 
@@ -147,3 +148,32 @@ fallback: {mode: auto}
         
         assert "openai" in config.providers
         assert "gpt-4o" in config.models
+
+    def test_validate_unexpected_error(self):
+        """validate 遇到非 ConfigError 异常时应捕获"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            
+            # 创建会导致非 ConfigError 的配置文件
+            (config_dir / "providers.yaml").write_text("providers: {}\n")
+            (config_dir / "models.yaml").write_text("models: {}\n")
+            (config_dir / "routing.yaml").write_text(
+                "tasks: {}\ndifficulties: {}\nstrategies: {}\nfallback: {}\n"
+            )
+            
+            loader = ConfigV3Loader(config_dir)
+            
+            # 正常情况下不应有意外错误，这里通过 mock 模拟
+            with patch.object(loader, 'load', side_effect=RuntimeError("Unexpected error")):
+                errors = loader.validate()
+                assert len(errors) == 1
+                assert "Unexpected error" in errors[0]
+
+    def test_load_with_speed_in_capabilities(self, valid_config_dir):
+        """capabilities 中包含 speed 字段时应被忽略（schema 不校验未知字段）"""
+        loader = ConfigV3Loader(valid_config_dir)
+        config = loader.load()
+        
+        # 验证模型能正常加载，speed 字段作为额外字段存在
+        assert "gpt-4o" in config.models
+        # Pydantic v2 允许额外字段取决于配置，这里主要验证不崩溃

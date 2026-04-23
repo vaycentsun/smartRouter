@@ -1,5 +1,6 @@
 """赞助二维码生成和显示模块"""
 
+import base64
 import io
 from pathlib import Path
 from typing import Optional

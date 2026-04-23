@@ -1,8 +1,109 @@
-"""Tests for refactored TaskClassifier with keywords and examples"""
+"""任务分类器测试 — 合并 TaskTypeClassifier 与 TaskClassifier 测试"""
 
 import pytest
-from smart_router.classifier.task_classifier import TaskClassifier, TaskTypeClassifier
+from smart_router.classifier.task_classifier import TaskTypeClassifier, TaskTypeResult, TaskClassifier
 from smart_router.classifier.types import ClassificationResult
+
+
+class TestTaskTypeClassifier:
+    """任务类型分类器测试"""
+    
+    @pytest.fixture
+    def classifier(self):
+        return TaskTypeClassifier({
+            "writing": {
+                "keywords": ["写", "文章", "邮件", "write", "draft"],
+                "description": "写作任务"
+            },
+            "code_review": {
+                "keywords": ["review", "审查", "代码", "code"],
+                "description": "代码审查"
+            },
+            "chat": {
+                "keywords": ["解释", "什么是", "explain", "what"],
+                "description": "普通对话"
+            }
+        })
+    
+    def test_classify_writing(self, classifier):
+        """测试写作任务分类"""
+        messages = [{"role": "user", "content": "帮我写一封邮件"}]
+        result = classifier.classify(messages)
+        
+        assert result.task_type == "writing"
+        assert result.source == "keyword"
+        assert result.confidence > 0
+    
+    def test_classify_code_review(self, classifier):
+        """测试代码审查分类"""
+        messages = [{"role": "user", "content": "review 这段代码"}]
+        result = classifier.classify(messages)
+        
+        assert result.task_type == "code_review"
+        assert result.source == "keyword"
+    
+    def test_classify_default_chat(self, classifier):
+        """测试默认分类为 chat"""
+        messages = [{"role": "user", "content": "随便说点什么"}]
+        result = classifier.classify(messages)
+        
+        assert result.task_type == "chat"
+        assert result.source == "default"
+    
+    def test_classify_empty_input(self, classifier):
+        """测试空输入"""
+        messages = [{"role": "user", "content": ""}]
+        result = classifier.classify(messages)
+        
+        assert result.task_type == "chat"
+        assert result.source == "default"
+        assert result.confidence == 0.0
+
+
+class TestTaskTypeClassifierWithKeywords:
+    """TaskTypeClassifier 使用 keywords 的测试"""
+    
+    @pytest.fixture
+    def classifier(self):
+        return TaskTypeClassifier({
+            "writing": {
+                "keywords": ["写", "文章", "邮件", "write", "draft"],
+                "examples": ["帮我写一封邮件", "起草一份报告"]
+            },
+            "code_review": {
+                "keywords": ["review", "审查", "代码", "code"],
+                "examples": ["review 这段代码"]
+            },
+            "chat": {
+                "keywords": ["解释", "什么是", "explain", "what"],
+                "examples": []
+            }
+        })
+    
+    def test_classify_by_keyword(self, classifier):
+        """关键词匹配"""
+        messages = [{"role": "user", "content": "帮我写一封邮件"}]
+        result = classifier.classify(messages)
+        
+        assert result.task_type == "writing"
+        assert result.source == "keyword"
+        assert result.confidence > 0
+    
+    def test_classify_by_example(self, classifier):
+        """示例相似度匹配"""
+        messages = [{"role": "user", "content": "请帮我起草一份项目报告"}]
+        result = classifier.classify(messages)
+        
+        assert result.task_type == "writing"
+        assert result.source == "embedding"
+    
+    def test_classify_default(self, classifier):
+        """默认分类"""
+        messages = [{"role": "user", "content": "随便说点什么"}]
+        result = classifier.classify(messages)
+        
+        assert result.task_type == "chat"
+        assert result.source == "default"
 
 
 class TestTaskClassifierWithKeywords:
@@ -137,52 +238,6 @@ class TestTaskClassifierWithKeywords:
         assert result.task_type == "code_review"
 
 
-class TestTaskTypeClassifierWithKeywords:
-    """TaskTypeClassifier 使用 keywords 的测试"""
-    
-    @pytest.fixture
-    def classifier(self):
-        return TaskTypeClassifier({
-            "writing": {
-                "keywords": ["写", "文章", "邮件", "write", "draft"],
-                "examples": ["帮我写一封邮件", "起草一份报告"]
-            },
-            "code_review": {
-                "keywords": ["review", "审查", "代码", "code"],
-                "examples": ["review 这段代码"]
-            },
-            "chat": {
-                "keywords": ["解释", "什么是", "explain", "what"],
-                "examples": []
-            }
-        })
-    
-    def test_classify_by_keyword(self, classifier):
-        """关键词匹配"""
-        messages = [{"role": "user", "content": "帮我写一封邮件"}]
-        result = classifier.classify(messages)
-        
-        assert result.task_type == "writing"
-        assert result.source == "keyword"
-        assert result.confidence > 0
-    
-    def test_classify_by_example(self, classifier):
-        """示例相似度匹配"""
-        messages = [{"role": "user", "content": "请帮我起草一份项目报告"}]
-        result = classifier.classify(messages)
-        
-        assert result.task_type == "writing"
-        assert result.source == "embedding"
-    
-    def test_classify_default(self, classifier):
-        """默认分类"""
-        messages = [{"role": "user", "content": "随便说点什么"}]
-        result = classifier.classify(messages)
-        
-        assert result.task_type == "chat"
-        assert result.source == "default"
-
-
 class TestTaskClassifierBackwardCompatibility:
     """向后兼容性测试：无 task_configs 时仍能正常工作"""
     
@@ -206,3 +261,43 @@ class TestTaskClassifierBackwardCompatibility:
         
         assert result.task_type == "writing"
         assert result.confidence > 0
+
+
+class TestTaskClassifierDifficultyAdjustment:
+    """测试 TaskClassifier 的难度升降档逻辑"""
+
+    @pytest.fixture
+    def task_classifier(self):
+        return TaskClassifier(rules=[], embedding_config={})
+
+    def test_bump_easy_to_medium(self, task_classifier):
+        """easy 应升一档到 medium"""
+        assert task_classifier._bump_difficulty("easy") == "medium"
+
+    def test_bump_medium_to_hard(self, task_classifier):
+        """medium 应升一档到 hard"""
+        assert task_classifier._bump_difficulty("medium") == "hard"
+
+    def test_bump_hard_to_expert(self, task_classifier):
+        """hard 应升一档到 expert（V3 支持 4 档）"""
+        assert task_classifier._bump_difficulty("hard") == "expert"
+
+    def test_bump_expert_stays_expert(self, task_classifier):
+        """expert 已最高档，应保持不变"""
+        assert task_classifier._bump_difficulty("expert") == "expert"
+
+    def test_lower_medium_to_easy(self, task_classifier):
+        """medium 应降一档到 easy"""
+        assert task_classifier._lower_difficulty("medium") == "easy"
+
+    def test_lower_hard_to_medium(self, task_classifier):
+        """hard 应降一档到 medium"""
+        assert task_classifier._lower_difficulty("hard") == "medium"
+
+    def test_lower_expert_to_hard(self, task_classifier):
+        """expert 应降一档到 hard"""
+        assert task_classifier._lower_difficulty("expert") == "hard"
+
+    def test_lower_easy_stays_easy(self, task_classifier):
+        """easy 已最低档，应保持不变"""
+        assert task_classifier._lower_difficulty("easy") == "easy"

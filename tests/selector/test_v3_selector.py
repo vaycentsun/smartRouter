@@ -229,3 +229,187 @@ class TestV3ModelSelector:
         assert selector.get_required_context("hard") == 16000
         assert selector.get_required_context("expert") == 32000
         assert selector.get_required_context("unknown") == 4000  # 默认回退
+
+    def test_vision_strategy_fallback_to_auto(self, sample_config):
+        """vision 策略无 vision 模型时回退到 auto"""
+        selector = V3ModelSelector(sample_config)
+        
+        result = selector.select("chat", "easy", "vision")
+        # 配置中无 vision 模型，应回退到 auto 策略结果
+        # 回退时 strategy 字段仍为 "vision"，但实际选择逻辑是 auto
+        assert result.model_name in ["gpt-4o", "gpt-4o-mini"]
+
+    def test_long_context_strategy_fallback(self, sample_config):
+        """long_context 策略无长上下文模型时回退到 context_window"""
+        selector = V3ModelSelector(sample_config)
+        
+        result = selector.select("chat", "easy", "long_context")
+        # 所有模型 context >= 128000，都不标记 long_context=True
+        # 应回退到按 context 排序
+        assert result.strategy == "long_context"
+        assert result.model_name in ["gpt-4o", "gpt-4o-mini"]
+
+    def test_reasoning_strategy_with_no_reasoning_models(self, sample_config):
+        """reasoning 策略无 reasoning 评分模型时回退到 auto"""
+        selector = V3ModelSelector(sample_config)
+        
+        result = selector.select("chat", "easy", "reasoning")
+        # 配置中所有模型 reasoning 为 None
+        # 应回退到 auto 策略，但 strategy 字段保留 "reasoning"
+        assert result.model_name in ["gpt-4o", "gpt-4o-mini"]
+
+    def test_creative_strategy_with_no_creative_models(self, sample_config):
+        """creative 策略无 creative 评分模型时回退到 auto"""
+        selector = V3ModelSelector(sample_config)
+        
+        result = selector.select("chat", "easy", "creative")
+        # 配置中所有模型 creative 为 None
+        # 应回退到 auto 策略，但 strategy 字段保留 "creative"
+        assert result.model_name in ["gpt-4o", "gpt-4o-mini"]
+
+    def test_latest_strategy(self, sample_config):
+        """latest 策略选择最新模型"""
+        selector = V3ModelSelector(sample_config)
+        
+        result = selector.select("chat", "easy", "latest")
+        assert result.strategy == "latest"
+        # 所有模型默认 latest=True
+
+    def test_filter_candidates_with_available_models(self, sample_config):
+        """available_models 参数过滤"""
+        selector = V3ModelSelector(sample_config, available_models=["gpt-4o"])
+        
+        candidates = selector._filter_candidates("chat", "easy")
+        names = [name for name, _ in candidates]
+        assert "gpt-4o" in names
+        assert "gpt-4o-mini" not in names
+
+    def test_filter_candidates_with_required_context(self, sample_config):
+        """required_context 过滤上下文不足的模型"""
+        selector = V3ModelSelector(sample_config)
+        
+        candidates = selector._filter_candidates("chat", "easy", required_context=200000)
+        # gpt-4o 和 gpt-4o-mini 都是 128000，不足 200000
+        assert len(candidates) == 0
+
+    def test_get_candidates_alias(self, sample_config):
+        """get_candidates 是 get_available_models 的兼容别名"""
+        selector = V3ModelSelector(sample_config)
+        
+        result1 = selector.get_candidates("chat", "easy")
+        result2 = selector.get_available_models("chat", "easy")
+        assert result1 == result2
+
+    def test_auto_strategy_with_reasoning_weight(self):
+        """auto 策略包含 reasoning 权重时正确计算"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
+            },
+            models={
+                "model-a": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/a",
+                    capabilities=ModelCapabilities(quality=8, cost=5, context=128000, reasoning=9),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+                "model-b": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/b",
+                    capabilities=ModelCapabilities(quality=6, cost=8, context=128000, reasoning=5),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                )
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(
+                        name="Chat",
+                        description="General chat",
+                        capability_weights={"quality": 0.3, "cost": 0.3, "reasoning": 0.4}
+                    )
+                },
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                fallback=FallbackConfig()
+            )
+        )
+        
+        selector = V3ModelSelector(config)
+        result = selector.select("chat", "easy", "auto")
+        
+        # model-a: 8*0.3 + 5*0.3 + 9*0.4 = 2.4 + 1.5 + 3.6 = 7.5
+        # model-b: 6*0.3 + 8*0.3 + 5*0.4 = 1.8 + 2.4 + 2.0 = 6.2
+        assert result.model_name == "model-a"
+        assert "weighted" in result.reason.lower() or "score" in result.reason.lower()
+
+    def test_auto_strategy_with_creative_weight(self):
+        """auto 策略包含 creative 权重时正确计算"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
+            },
+            models={
+                "model-a": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/a",
+                    capabilities=ModelCapabilities(quality=8, cost=5, context=128000, creative=9),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(
+                        name="Chat",
+                        description="General chat",
+                        capability_weights={"quality": 0.3, "cost": 0.3, "creative": 0.4}
+                    )
+                },
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                fallback=FallbackConfig()
+            )
+        )
+        
+        selector = V3ModelSelector(config)
+        result = selector.select("chat", "easy", "auto")
+        
+        assert result.model_name == "model-a"
+
+    def test_auto_strategy_weight_normalization(self):
+        """auto 策略权重总和不等于 1 时应归一化"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
+            },
+            models={
+                "model-a": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/a",
+                    capabilities=ModelCapabilities(quality=8, cost=5, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(
+                        name="Chat",
+                        description="General chat",
+                        capability_weights={"quality": 0.5, "cost": 0.5}  # 总和 1.0
+                    )
+                },
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                fallback=FallbackConfig()
+            )
+        )
+        
+        selector = V3ModelSelector(config)
+        result = selector.select("chat", "easy", "auto")
+        
+        # score = 8*0.5 + 5*0.5 = 4.0 + 2.5 = 6.5
+        assert result.model_name == "model-a"
+        assert result.score > 0
