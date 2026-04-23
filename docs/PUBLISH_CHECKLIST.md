@@ -64,11 +64,11 @@ curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/ins
 ### 方式四：Homebrew（macOS/Linux）
 
 ```bash
-brew tap vaycentsun/smart-router
+brew tap vaycentsun/smart-router https://github.com/vaycentsun/smartRouter.git
 brew install smart-router
 ```
 
-> **自动更新**：GitHub Actions 会在发布到 PyPI 后自动更新 `Formula/smart-router.rb` 中的版本号和 SHA256，无需手动操作。
+> **自动更新**：GitHub Actions 会在发布到 PyPI 后自动更新 `smart-router.rb` 中的版本号和 SHA256，无需手动操作。
 
 ---
 
@@ -122,4 +122,4 @@ curl -fsSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/ins
 | PyPI 上传失败 | 检查 API Token，确认版本号不重复 |
 | curl 安装失败 | 检查 GitHub raw URL，确保仓库公开 |
 | GitHub Actions 失败 | 检查 Secrets 设置，查看 Actions 日志 |
-| Homebrew 安装失败 | 确认 GitHub Actions 中 `update-homebrew-formula` job 是否成功；检查 `Formula/smart-router.rb` 中的版本号是否与 tag 一致 |
+| Homebrew 安装失败 | 确认 GitHub Actions 中 `update-homebrew-formula` job 是否成功；检查 `smart-router.rb` 中的版本号是否与 tag 一致 |

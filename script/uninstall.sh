@@ -35,11 +35,17 @@ if [ -f "$VENV_DIR/bin/pip" ]; then
     "$VENV_DIR/bin/pip" uninstall -q -y smartRouter 2>/dev/null || true
 fi
 
-# 5. 删除配置文件和数据
+# 5. 尝试从系统/当前 Python 环境卸载（如果 pip 可用）
+if command -v pip &> /dev/null; then
+    echo "📦 从系统 Python 环境卸载 Python 包..."
+    pip uninstall -q -y smartRouter 2>/dev/null || true
+fi
+
+# 6. 删除配置文件和数据
 echo "🧹 清理数据文件..."
 rm -rf "$CONFIG_DIR"
 
-# 6. 删除系统级 symlink
+# 7. 删除系统级 symlink
 echo "🧹 清理系统命令..."
 if [ -L "/usr/local/bin/smart-router" ]; then
     # 检查是否指向我们的 venv
@@ -57,7 +63,7 @@ if [ -L "/usr/local/bin/smart-router" ]; then
     fi
 fi
 
-# 7. 清理项目目录下的旧 venv（如果存在）
+# 8. 清理项目目录下的旧 venv（如果存在）
 if [ -d "$PROJECT_DIR/venv" ]; then
     echo "🧹 清理项目目录下的旧虚拟环境..."
     rm -rf "$PROJECT_DIR/venv"
