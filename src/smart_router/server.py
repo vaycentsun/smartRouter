@@ -44,14 +44,12 @@ def start_server(config_path: Optional[Path] = None):
             console.print(f"  - {err}")
         sys.exit(1)
     
-    # 从环境变量获取 master_key（不再提供默认值，强制用户设置）
+    # 从环境变量获取 master_key（可选，未设置时不启用认证）
     master_key = os.environ.get("SMART_ROUTER_MASTER_KEY")
-    if not master_key:
-        console.print("[red]错误: 未设置 SMART_ROUTER_MASTER_KEY 环境变量[/red]")
-        console.print("[dim]请设置一个强密码作为 API 认证密钥，例如:[/dim]")
-        console.print("  export SMART_ROUTER_MASTER_KEY='your-strong-password'")
-        sys.exit(1)
-    os.environ["LITELLM_MASTER_KEY"] = master_key
+    if master_key:
+        os.environ["LITELLM_MASTER_KEY"] = master_key
+    else:
+        console.print("[yellow]警告: 未设置 SMART_ROUTER_MASTER_KEY，服务将无认证运行[/yellow]")
     
     console.print("[cyan]正在初始化智能路由...[/cyan]")
     router = SmartRouter(config=config)
@@ -91,10 +89,9 @@ def start_server(config_path: Optional[Path] = None):
             "router_settings": {
                 "routing_strategy": "simple-shuffle",
             },
-            "general_settings": {
-                "master_key": master_key,
-            }
         }
+        if master_key:
+            litellm_config["general_settings"] = {"master_key": master_key}
         if fallbacks:
             litellm_config["router_settings"]["fallbacks"] = fallbacks
         
