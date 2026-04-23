@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2024-04-19
+## [0.1.1] - 2026-04-19
+
+### Added
+
+- Coffee sponsor command (`smr coffee`) with QR code display
+- ASCII art mode for QR code display (no image dependency)
+- Support for custom sponsor links (Alipay, WeChat, GitHub Sponsors)
+- Default sponsor link: GitHub Sponsors
+
+### Changed
+
+- `coffee_qr.py` module refactored into `misc/coffee_qr.py`
+- QR code asset moved to `assets/coffee_qr.png`
+
+## [0.1.0] - 2026-04-18
 
 ### Added
 - Initial release of Smart Router
