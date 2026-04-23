@@ -21,10 +21,10 @@ jobs:
       attestations: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336abcc2363fcefb9423e7d7d982 # v4
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@0c7c3abd3f3c0bdbc5ebc6027ae4f47e85f55e7d # v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -44,7 +44,7 @@ jobs:
           cat ../checksums.sha256
 
       - name: Upload dist artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
@@ -52,7 +52,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload checksums artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@v4
         with:
           name: checksums
           path: checksums.sha256
@@ -61,7 +61,7 @@ jobs:
 
       # 生成 artifact attestation，用户可通过 gh attestation verify 验证构建来源
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/*
@@ -77,13 +77,13 @@ jobs:
       id-token: write
     steps:
       - name: Download dist artifacts
-        uses: actions/download-artifact@8caf195ad4b1dee92908e23f56eeb0696f1dd42d # v4
+        uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
 
       - name: Publish to PyPI via trusted publishing
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   create-github-release:
     name: Create GitHub Release
@@ -95,16 +95,16 @@ jobs:
       attestations: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336abcc2363fcefb9423e7d7d982 # v4
+        uses: actions/checkout@v4
 
       - name: Download dist artifacts
-        uses: actions/download-artifact@8caf195ad4b1dee92908e23f56eeb0696f1dd42d # v4
+        uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
 
       - name: Download checksums
-        uses: actions/download-artifact@8caf195ad4b1dee92908e23f56eeb0696f1dd42d # v4
+        uses: actions/download-artifact@v4
         with:
           name: checksums
 
@@ -167,7 +167,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/*
@@ -186,7 +186,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout main branch
-        uses: actions/checkout@b4ffde65f46336abcc2363fcefb9423e7d7d982 # v4
+        uses: actions/checkout@v4
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
