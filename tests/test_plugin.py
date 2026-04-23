@@ -87,7 +87,7 @@ class TestSmartRouterSelectModel:
         result = smart_router.select_model("auto", messages)
 
         assert result.model_name in sample_config.models
-        assert result.confidence > 0
+        assert result.score > 0
 
     def test_select_model_with_stage_prefix(self, smart_router):
         """model_hint 为 stage:xxx 时应直接使用对应 task_type"""
@@ -193,12 +193,12 @@ class TestSmartRouterGetAvailableDeployment:
     @pytest.mark.asyncio
     async def test_get_available_deployment_for_auto_delegates_to_select_model(self, smart_router):
         """model=auto 时应调用 select_model 并传入 super"""
-        from smart_router.selector.model_selector import ModelSelectionResult
+        from smart_router.selector.v3_selector import SelectionResult
         
         with patch.object(smart_router, 'select_model') as mock_select:
-            mock_select.return_value = ModelSelectionResult(
+            mock_select.return_value = SelectionResult(
                 model_name='gpt-4o', task_type='chat', difficulty='medium',
-                confidence=0.9, reason='test'
+                strategy='auto', score=0.9, reason='test'
             )
             
             with patch('smart_router.plugin.Router.get_available_deployment', new_callable=AsyncMock) as mock_super:

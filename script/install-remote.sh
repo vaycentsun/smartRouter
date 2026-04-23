@@ -1,6 +1,6 @@
 #!/bin/bash
 # Smart Router 远程安装脚本
-# 使用方法: curl -sSL https://raw.githubusercontent.com/vaycent/smartRouter/main/script/install-remote.sh | bash
+# 使用方法: curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/script/install-remote.sh | bash
 #
 # 这个脚本用于:
 # 1. 从 GitHub 源码安装最新版 smart-router
@@ -59,7 +59,8 @@ echo "⬇️  下载配置文件..."
 
 download_config() {
     local filename=$1
-    local url="$REPO_RAW_URL/config/examples/v3/$filename"
+    # Use templates directory as source for configuration templates
+    local url="$REPO_RAW_URL/src/smart_router/templates/$filename"
     local output="$CONFIG_DIR/$filename"
     
     if curl -fsSL "$url" -o "$output" 2>/dev/null; then

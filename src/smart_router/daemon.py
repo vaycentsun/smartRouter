@@ -71,15 +71,10 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
         config_path: 配置文件路径
         log_file: 日志文件路径（默认 ~/.smart-router/smart-router.log）
     """
-    # 前置检查：必须设置 MASTER_KEY，避免后台启动后静默退出
+    # 前置检查：可选的 MASTER_KEY
     master_key = os.environ.get("SMART_ROUTER_MASTER_KEY")
     if not master_key:
-        console.print("[red]错误: 未设置 SMART_ROUTER_MASTER_KEY 环境变量[/red]")
-        console.print("[dim]请设置一个强密码作为 API 认证密钥，例如:[/dim]")
-        console.print("  export SMART_ROUTER_MASTER_KEY='your-strong-password'")
-        console.print("\n[dim]提示: 如需写入 shell 配置文件永久生效:[/dim]")
-        console.print("  echo \"export SMART_ROUTER_MASTER_KEY='your-password'\" >> ~/.zshrc")
-        sys.exit(1)
+        console.print("[yellow]警告: 未设置 SMART_ROUTER_MASTER_KEY，服务将无认证运行[/yellow]")
     
     # 检查是否已在运行
     existing_pid = _get_pid()

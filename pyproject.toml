@@ -70,7 +70,6 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/smart_router"]
-include = [
-    "config/examples/v3/*.yaml",
-    "src/smart_router/templates/*.yaml",
-]
+    include = [
+        "src/smart_router/templates/*.yaml",
+    ]

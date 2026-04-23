@@ -31,9 +31,10 @@ class V3ModelSelector:
         self,
         task_type: str,
         difficulty: str,
-        strategy: str = "auto"
+        strategy: str = "auto",
+        required_context: int = 0
     ) -> SelectionResult:
-        candidates = self._filter_candidates(task_type, difficulty)
+        candidates = self._filter_candidates(task_type, difficulty, required_context)
         
         if not candidates:
             raise NoModelAvailableError(
@@ -64,7 +65,8 @@ class V3ModelSelector:
     def _filter_candidates(
         self,
         task_type: str,
-        difficulty: str
+        difficulty: str,
+        required_context: int = 0
     ) -> List[Tuple[str, dict]]:
         candidates = []
         
@@ -76,6 +78,10 @@ class V3ModelSelector:
                 continue
             
             if difficulty not in model.difficulty_support:
+                continue
+            
+            # 上下文窗口过滤
+            if required_context > 0 and model.capabilities.context < required_context:
                 continue
             
             candidates.append((name, model))
@@ -245,11 +251,21 @@ class V3ModelSelector:
     def get_available_models(
         self,
         task_type: str,
-        difficulty: str
+        difficulty: str,
+        required_context: int = 0
     ) -> List[str]:
         """获取所有符合条件的模型（用于 fallback）"""
-        candidates = self._filter_candidates(task_type, difficulty)
+        candidates = self._filter_candidates(task_type, difficulty, required_context)
         return [name for name, _ in candidates]
+    
+    def get_candidates(
+        self,
+        task_type: str,
+        difficulty: str,
+        required_context: int = 0
+    ) -> List[str]:
+        """获取所有符合条件的模型（兼容 v2 接口别名）"""
+        return self.get_available_models(task_type, difficulty, required_context)
 
 
 class NoModelAvailableError(Exception):

@@ -130,3 +130,15 @@ class TestV3ModelSelector:
         models = selector.get_available_models("chat", "hard")
         assert "gpt-4o" in models
         assert "gpt-4o-mini" not in models
+    
+    def test_required_context_filtering(self, sample_config):
+        """Test context window filtering"""
+        selector = V3ModelSelector(sample_config)
+        
+        # Both models have context=128000, required_context=50000 should pass both
+        result = selector.select("chat", "easy", required_context=50000)
+        assert result.model_name in ["gpt-4o", "gpt-4o-mini"]
+        
+        # required_context=200000 should exclude all models and raise error
+        with pytest.raises(NoModelAvailableError):
+            selector.select("chat", "easy", required_context=200000)

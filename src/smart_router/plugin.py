@@ -6,7 +6,7 @@ from .utils.markers import parse_markers, strip_markers, MarkerResult
 from .utils.token_counter import estimate_messages_tokens
 from .classifier import TaskClassifier
 from .classifier.types import ClassificationResult, get_default_classification
-from .selector.strategies import ModelSelector, ModelSelectionResult
+from .selector.v3_selector import V3ModelSelector, SelectionResult
 from .config.schema import Config, ModelConfig
 
 
@@ -47,34 +47,10 @@ class SmartRouter(Router):
         # 获取可用模型列表（API Key 已配置的模型）
         available_models = config.get_available_models()
         
-        # 从 V3 配置构建 model_pool（只包含可用模型）
-        capabilities = {}
-        for model_name in available_models:
-            model_cfg = config.models[model_name]
-            priority = 11 - model_cfg.capabilities.quality
-            capabilities[model_name] = {
-                "difficulties": list(model_cfg.difficulty_support),
-                "task_types": list(model_cfg.supported_tasks),
-                "priority": priority,
-                "quality": model_cfg.capabilities.quality,
-                "cost": model_cfg.capabilities.cost,
-                "context": model_cfg.capabilities.context
-            }
-        
-        if available_models:
-            default_model = max(
-                [(n, config.models[n]) for n in available_models],
-                key=lambda x: x[1].capabilities.quality
-            )[0]
-        else:
-            default_model = "gpt-4o"
-        model_pool = {
-            "capabilities": capabilities,
-            "default_model": default_model,
-            "available_models": available_models
-        }
-        
-        self.selector = ModelSelector(model_pool=model_pool)
+        self.selector = V3ModelSelector(
+            config=config,
+            available_models=available_models
+        )
         
         # 构建 LiteLLM 模型列表（只包含可用模型）
         litellm_model_list = []
@@ -104,7 +80,7 @@ class SmartRouter(Router):
         model_hint: str,
         messages: Optional[List[Dict]] = None,
         strategy: str = "auto"
-    ) -> ModelSelectionResult:
+    ) -> SelectionResult:
         """
         统一路由决策入口。
         
@@ -117,7 +93,7 @@ class SmartRouter(Router):
             strategy: 路由策略（auto/quality/cost）
         
         Returns:
-            ModelSelectionResult: 包含选中的模型名及决策原因
+            SelectionResult: 包含选中的模型名及决策原因
         """
         if messages is None:
             messages = []

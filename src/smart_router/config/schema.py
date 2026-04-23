@@ -136,7 +136,10 @@ class Config(BaseModel):
     @model_validator(mode='after')
     def init_fallback_chains(self):
         """预计算 fallback 链"""
-        self._fallback_chains = self._derive_fallback_chains()
+        if self.routing.fallback.mode == "intelligent":
+            self._fallback_chains = self._derive_intelligent_fallback_chains()
+        else:
+            self._fallback_chains = self._derive_fallback_chains()
         return self
     
     def _derive_fallback_chains(self) -> Dict[str, List[str]]:

@@ -1,5 +1,20 @@
-"""Selector Strategies - Compatibility module"""
+"""Selector Strategies - Compatibility module
 
-from .model_selector import ModelSelector, ModelSelectionResult
+统一导出 V3 模型选择器，v2 ModelSelector 已废弃。
+"""
 
-__all__ = ["ModelSelector", "ModelSelectionResult"]
+from .v3_selector import V3ModelSelector, SelectionResult, NoModelAvailableError, UnknownStrategyError
+
+# 向后兼容别名（废弃）
+ModelSelector = V3ModelSelector
+ModelSelectionResult = SelectionResult
+
+__all__ = [
+    "V3ModelSelector",
+    "SelectionResult",
+    "NoModelAvailableError",
+    "UnknownStrategyError",
+    # 兼容别名
+    "ModelSelector",
+    "ModelSelectionResult",
+]

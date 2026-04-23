@@ -1,7 +1,7 @@
 """v2 架构分类器测试"""
 
 import pytest
-from smart_router.classifier.task_classifier import TaskTypeClassifier, TaskTypeResult
+from smart_router.classifier.task_classifier import TaskTypeClassifier, TaskTypeResult, TaskClassifier
 from smart_router.classifier.difficulty_classifier import DifficultyClassifier, DifficultyResult
 
 
@@ -166,3 +166,43 @@ class TestDifficultyClassifier:
         result = classifier.classify("")
         
         assert result.difficulty == "medium"
+
+
+class TestTaskClassifierDifficultyAdjustment:
+    """测试 TaskClassifier 的难度升降档逻辑"""
+
+    @pytest.fixture
+    def task_classifier(self):
+        return TaskClassifier(rules=[], embedding_config={})
+
+    def test_bump_easy_to_medium(self, task_classifier):
+        """easy 应升一档到 medium"""
+        assert task_classifier._bump_difficulty("easy") == "medium"
+
+    def test_bump_medium_to_hard(self, task_classifier):
+        """medium 应升一档到 hard"""
+        assert task_classifier._bump_difficulty("medium") == "hard"
+
+    def test_bump_hard_to_expert(self, task_classifier):
+        """hard 应升一档到 expert（V3 支持 4 档）"""
+        assert task_classifier._bump_difficulty("hard") == "expert"
+
+    def test_bump_expert_stays_expert(self, task_classifier):
+        """expert 已最高档，应保持不变"""
+        assert task_classifier._bump_difficulty("expert") == "expert"
+
+    def test_lower_medium_to_easy(self, task_classifier):
+        """medium 应降一档到 easy"""
+        assert task_classifier._lower_difficulty("medium") == "easy"
+
+    def test_lower_hard_to_medium(self, task_classifier):
+        """hard 应降一档到 medium"""
+        assert task_classifier._lower_difficulty("hard") == "medium"
+
+    def test_lower_expert_to_hard(self, task_classifier):
+        """expert 应降一档到 hard"""
+        assert task_classifier._lower_difficulty("expert") == "hard"
+
+    def test_lower_easy_stays_easy(self, task_classifier):
+        """easy 已最低档，应保持不变"""
+        assert task_classifier._lower_difficulty("easy") == "easy"

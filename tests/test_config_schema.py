@@ -16,6 +16,74 @@ from smart_router.config.schema import (
 )
 
 
+@pytest.fixture
+def multi_provider_config():
+    """创建用于测试 intelligent fallback 的多 provider 配置"""
+    return Config(
+        providers={
+            "openai": ProviderConfig(
+                api_base="https://api.openai.com/v1",
+                api_key="sk-test"
+            ),
+            "anthropic": ProviderConfig(
+                api_base="https://api.anthropic.com",
+                api_key="sk-test"
+            ),
+            "aliyun": ProviderConfig(
+                api_base="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                api_key="sk-test"
+            ),
+        },
+        models={
+            "gpt-4o": ModelConfig(
+                provider="openai",
+                litellm_model="openai/gpt-4o",
+                capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                supported_tasks=["chat", "coding"],
+                difficulty_support=["easy", "medium", "hard"]
+            ),
+            "gpt-4o-mini": ModelConfig(
+                provider="openai",
+                litellm_model="openai/gpt-4o-mini",
+                capabilities=ModelCapabilities(quality=6, cost=9, context=128000),
+                supported_tasks=["chat"],
+                difficulty_support=["easy", "medium"]
+            ),
+            "claude-3-opus": ModelConfig(
+                provider="anthropic",
+                litellm_model="anthropic/claude-3-opus",
+                capabilities=ModelCapabilities(quality=10, cost=2, context=200000),
+                supported_tasks=["chat", "coding"],
+                difficulty_support=["easy", "medium", "hard"]
+            ),
+            "claude-3-haiku": ModelConfig(
+                provider="anthropic",
+                litellm_model="anthropic/claude-3-haiku",
+                capabilities=ModelCapabilities(quality=7, cost=8, context=200000),
+                supported_tasks=["chat"],
+                difficulty_support=["easy", "medium"]
+            ),
+            "qwen-max": ModelConfig(
+                provider="aliyun",
+                litellm_model="openai/qwen-max",
+                capabilities=ModelCapabilities(quality=8, cost=5, context=32000),
+                supported_tasks=["chat", "coding"],
+                difficulty_support=["easy", "medium", "hard"]
+            ),
+        },
+        routing=RoutingConfig(
+            tasks={},
+            difficulties={},
+            strategies={},
+            fallback=FallbackConfig(
+                mode="intelligent",
+                similarity_threshold=2,
+                provider_isolation=True
+            )
+        )
+    )
+
+
 class TestConfigFallbackChains:
     """测试 fallback 链在 Pydantic v2 下正确预计算"""
 
@@ -140,3 +208,138 @@ class TestConfigFallbackChains:
             )
         )
         assert config.get_fallback_chain("gpt-4o") == []
+
+    def test_intelligent_fallback_uses_provider_isolation(self, multi_provider_config):
+        """intelligent fallback 应优先选择同 provider 的模型"""
+        chain = multi_provider_config.get_fallback_chain("gpt-4o")
+
+        # gpt-4o (openai, quality=9) 的同 provider 候选：
+        # gpt-4o-mini (openai, quality=6) 差异 3 > 2，不满足 similarity_threshold
+        # 所以同 provider 列表应为空
+
+        # 跨 provider 且 quality 差 <=2：
+        # claude-3-opus (anthropic, quality=10) 差异 1 <= 2
+        # qwen-max (aliyun, quality=8) 差异 1 <= 2
+        assert "claude-3-opus" in chain
+        assert "qwen-max" in chain
+
+    def test_intelligent_fallback_priority_order(self, multi_provider_config):
+        """intelligent fallback 应按同 provider > 跨 provider > 降级排序"""
+        # 使用 claude-3-opus 测试：同 provider 有 claude-3-haiku (quality=7, 差异 3)
+        # 如果 threshold=3，claude-3-haiku 会被包含在 same_provider
+        # 当前 threshold=2，所以 claude-3-haiku 差异 3 > 2 不在 same_provider
+        # 但 gpt-4o (quality=9, 差异 1) 和 qwen-max (quality=8, 差异 2) 在 cross_provider
+
+        chain = multi_provider_config.get_fallback_chain("claude-3-opus")
+
+        # 验证 quality 降序
+        qualities = [
+            multi_provider_config.models[m].capabilities.quality
+            for m in chain
+        ]
+        assert qualities == sorted(qualities, reverse=True)
+
+    def test_intelligent_fallback_includes_degraded_models(self, multi_provider_config):
+        """intelligent fallback 应包含 quality 更低的降级模型（跨 provider）"""
+        # claude-3-opus (quality=10) 的降级模型：
+        # cross_provider (差异 <=2)：gpt-4o (差异1), qwen-max (差异2)
+        # degraded (差异 >2 且 quality < 10, 跨 provider)：gpt-4o-mini (差异4)
+        # 注意：同 provider 的 claude-3-haiku (差异3) 不满足 same_provider 条件，也不属于 degraded
+        chain = multi_provider_config.get_fallback_chain("claude-3-opus")
+
+        # intelligent 模式下应包含跨 provider 的降级模型
+        assert "gpt-4o-mini" in chain, (
+            "intelligent fallback 应包含跨 provider 的降级模型"
+        )
+
+        # cross_provider 应在 degraded 之前
+        opus_idx = chain.index("gpt-4o")
+        mini_idx = chain.index("gpt-4o-mini")
+        assert opus_idx < mini_idx, (
+            "cross_provider 模型应在 degraded 模型之前"
+        )
+
+    def test_standard_fallback_excludes_degraded_models(self):
+        """标准 fallback 不应包含 quality 差异超过 threshold 的降级模型"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(
+                    api_base="https://api.openai.com/v1", api_key="sk-test"
+                ),
+                "anthropic": ProviderConfig(
+                    api_base="https://api.anthropic.com", api_key="sk-test"
+                ),
+            },
+            models={
+                "claude-3-opus": ModelConfig(
+                    provider="anthropic",
+                    litellm_model="anthropic/claude-3-opus",
+                    capabilities=ModelCapabilities(quality=10, cost=2, context=200000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+                "claude-3-haiku": ModelConfig(
+                    provider="anthropic",
+                    litellm_model="anthropic/claude-3-haiku",
+                    capabilities=ModelCapabilities(quality=7, cost=8, context=200000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={},
+                strategies={},
+                fallback=FallbackConfig(mode="auto", similarity_threshold=2)
+            )
+        )
+        chain = config.get_fallback_chain("claude-3-opus")
+        # standard fallback 只包含 quality 差异 <=2 的模型
+        assert "claude-3-haiku" not in chain, (
+            "标准 fallback 不应包含 quality 差异超过 threshold 的模型"
+        )
+        assert "gpt-4o" in chain
+
+    def test_intelligent_fallback_with_auto_mode_uses_standard(self):
+        """fallback.mode=auto 时应使用标准 fallback 逻辑"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(
+                    api_base="https://api.openai.com/v1", api_key="sk-test"
+                ),
+                "anthropic": ProviderConfig(
+                    api_base="https://api.anthropic.com", api_key="sk-test"
+                ),
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+                "claude-3-opus": ModelConfig(
+                    provider="anthropic",
+                    litellm_model="anthropic/claude-3-opus",
+                    capabilities=ModelCapabilities(quality=10, cost=2, context=200000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={},
+                strategies={},
+                fallback=FallbackConfig(mode="auto", similarity_threshold=2)
+            )
+        )
+        chain = config.get_fallback_chain("gpt-4o")
+        assert "claude-3-opus" in chain
