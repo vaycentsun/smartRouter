@@ -28,7 +28,7 @@ app = typer.Typer(name="smart-router", help="智能模型路由网关")
 console = Console()
 
 # 版本号
-__version__ = "1.0.9"
+__version__ = "1.1.0"
 
 
 @app.command()
