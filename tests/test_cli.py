@@ -276,9 +276,9 @@ class TestServiceCommands:
     def test_start_foreground(self, monkeypatch):
         """测试 start --foreground 调用 start_server"""
         from unittest.mock import MagicMock
-        import smart_router.server
+        import smart_router.gateway.server
         mock_server = MagicMock()
-        monkeypatch.setattr(smart_router.server, "start_server", mock_server)
+        monkeypatch.setattr(smart_router.gateway.server, "start_server", mock_server)
         
         result = runner.invoke(app, ["start", "--foreground"])
         assert result.exit_code == 0
@@ -287,9 +287,9 @@ class TestServiceCommands:
     def test_start_foreground_with_config(self, monkeypatch):
         """测试 start --foreground --config 传递正确路径"""
         from unittest.mock import MagicMock
-        import smart_router.server
+        import smart_router.gateway.server
         mock_server = MagicMock()
-        monkeypatch.setattr(smart_router.server, "start_server", mock_server)
+        monkeypatch.setattr(smart_router.gateway.server, "start_server", mock_server)
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
             config_path = f.name

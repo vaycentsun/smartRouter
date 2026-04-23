@@ -18,8 +18,8 @@ from .classifier.task_classifier import TaskTypeClassifier
 from .classifier.difficulty_classifier import DifficultyClassifier
 from .selector.v3_selector import V3ModelSelector
 from .utils.markers import parse_markers
-from .daemon import start_daemon, stop_daemon, restart_daemon, check_status, view_logs
-from .coffee_qr import (
+from .gateway.daemon import start_daemon, stop_daemon, restart_daemon, check_status, view_logs
+from .misc.coffee_qr import (
     get_qr_code_path, QR_CODE_PATH,
     open_image_system, copy_to_clipboard
 )
@@ -340,7 +340,7 @@ def start(
 ):
     """启动 Smart Router 服务"""
     if foreground:
-        from .server import start_server
+        from .gateway.server import start_server
         start_server(config_path=config)
     else:
         start_daemon(config_path=config)
@@ -537,7 +537,7 @@ def doctor(
             checks_failed += 2
     
     # 检查 3: 服务状态
-    from .daemon import _get_pid, _is_process_running
+    from .gateway.daemon import _get_pid, _is_process_running
     pid = _get_pid()
     if pid and _is_process_running(pid):
         console.print(f"[green]✓[/green] 服务运行中 (PID: {pid})")
@@ -741,7 +741,7 @@ def coffee(
     qr_path = get_qr_code_path()
     
     if link:
-        from .coffee_qr import generate_qr_code
+        from .misc.coffee_qr import generate_qr_code
         qr_path = generate_qr_code(link)
     
     if ascii:
@@ -795,7 +795,7 @@ def coffee(
             
             console.print("\n请使用微信扫描下方二维码:\n")
             
-            from .coffee_qr import display_image_terminal
+            from .misc.coffee_qr import display_image_terminal
             if not display_image_terminal(qr_path, width=150):
                 console.print("┌" + "─" * 38 + "┐", style="yellow")
                 console.print("│  📱 请运行: smr coffee --open" + " " * 5 + "│", style="bold yellow")

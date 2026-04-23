@@ -125,7 +125,7 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
     
     # 构建启动命令 - 使用虚拟环境的 Python
     python_exe = _get_python_executable()
-    cmd = [python_exe, "-m", "smart_router.server_main"]
+    cmd = [python_exe, "-m", "smart_router.gateway.server_main"]
     if config_path:
         cmd.extend(["--config", str(config_path)])
     

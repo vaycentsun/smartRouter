@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import patch, AsyncMock
 
-from smart_router.plugin import SmartRouter
+from smart_router.router.plugin import SmartRouter
 from smart_router.config.schema import (
     Config,
     ProviderConfig,
@@ -73,7 +73,7 @@ def sample_config():
 @pytest.fixture
 def smart_router(sample_config):
     """创建 Mock 了 Router.__init__ 的 SmartRouter"""
-    with patch('smart_router.plugin.Router.__init__', return_value=None):
+    with patch('smart_router.router.plugin.Router.__init__', return_value=None):
         router = SmartRouter(config=sample_config)
     return router
 
@@ -171,7 +171,7 @@ class TestSmartRouterFallbacks:
             )
         )
         
-        with patch('smart_router.plugin.Router.__init__', return_value=None) as mock_super:
+        with patch('smart_router.router.plugin.Router.__init__', return_value=None) as mock_super:
             SmartRouter(config=config)
             
             call_kwargs = mock_super.call_args.kwargs
@@ -201,7 +201,7 @@ class TestSmartRouterGetAvailableDeployment:
                 strategy='auto', score=0.9, reason='test'
             )
             
-            with patch('smart_router.plugin.Router.get_available_deployment', new_callable=AsyncMock) as mock_super:
+            with patch('smart_router.router.plugin.Router.get_available_deployment', new_callable=AsyncMock) as mock_super:
                 mock_super.return_value = {"model": "gpt-4o"}
                 await smart_router.get_available_deployment("auto", messages=[{"role": "user", "content": "hi"}])
                 
