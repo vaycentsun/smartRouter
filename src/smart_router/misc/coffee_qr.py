@@ -1,16 +1,9 @@
-"""赞助二维码生成和显示模块"""
+"""赞助二维码显示模块"""
 
 import base64
 import io
 from pathlib import Path
 from typing import Optional
-
-try:
-    import qrcode
-    from PIL import Image as PILImage
-    QR_AVAILABLE = True
-except ImportError:
-    QR_AVAILABLE = False
 
 
 def display_image_terminal(image_path: Path, width: int = 300) -> bool:
@@ -161,42 +154,6 @@ def open_image_system(image_path: Path) -> bool:
     return False
 
 
-def generate_short_url_qr(url: str, filename: str = "sponsor") -> Optional[Path]:
-    """生成短链接二维码（用于支付宝/微信收款）
-    
-    Args:
-        url: 短链接 URL
-        filename: 输出文件名
-        
-    Returns:
-        生成的二维码路径
-    """
-    if not QR_AVAILABLE:
-        return None
-    
-    try:
-        qr = qrcode.QRCode(
-            version=3,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=10,
-            border=2,
-        )
-        qr.add_data(url)
-        qr.make(fit=True)
-        
-        # 生成图片
-        img = qr.make_image(fill_color="black", back_color="white")
-        
-        # 保存到临时目录
-        import tempfile
-        output_path = Path(tempfile.gettempdir()) / f"{filename}_qr.png"
-        img.save(output_path)
-        
-        return output_path
-    except Exception:
-        return None
-
-
 def copy_to_clipboard(text: str) -> bool:
     """复制文本到剪贴板
     
@@ -228,122 +185,16 @@ def copy_to_clipboard(text: str) -> bool:
     
     return False
 
-# 默认的赞助链接（用户可以替换为自己的）
-# 支持支付宝、微信、PayPal 等任何链接
-DEFAULT_SPONSOR_LINK = "https://github.com/sponsors"  # 默认使用 GitHub Sponsors
 
-# 二维码图片保存路径
 QR_CODE_PATH = Path(__file__).parent / "assets" / "coffee_qr.png"
 
 
-def generate_qr_code(data: Optional[str] = None, save_path: Optional[Path] = None) -> Optional[Path]:
-    """生成二维码图片
-    
-    Args:
-        data: 二维码内容（URL 或文本），默认使用 DEFAULT_SPONSOR_LINK
-        save_path: 保存路径，默认使用 QR_CODE_PATH
-        
-    Returns:
-        生成的图片路径，如果失败返回 None
-    """
-    if not QR_AVAILABLE:
-        return None
-    
-    data = data or DEFAULT_SPONSOR_LINK
-    save_path = save_path or QR_CODE_PATH
-    
-    # 确保目录存在
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    try:
-        # 创建二维码
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(data)
-        qr.make(fit=True)
-        
-        # 生成图片
-        img = qr.make_image(fill_color="black", back_color="white")
-        img.save(save_path)
-        
-        return save_path
-    except Exception:
-        return None
-
-
 def get_qr_code_path() -> Optional[Path]:
-    """获取二维码图片路径
-    
-    如果二维码不存在，尝试生成一个默认的
+    """获取赞助二维码图片路径
     
     Returns:
-        图片路径，如果不存在返回 None
+        静态二维码图片路径
     """
-    # 首先检查是否已有二维码
     if QR_CODE_PATH.exists():
         return QR_CODE_PATH
-    
-    # 检查 assets 目录下是否有其他二维码图片
-    assets_dir = Path(__file__).parent / "assets"
-    if assets_dir.exists():
-        for ext in ["*.png", "*.jpg", "*.jpeg"]:
-            files = list(assets_dir.glob(ext))
-            if files:
-                return files[0]
-    
-    # 尝试生成默认二维码
-    return generate_qr_code()
-
-
-def generate_ascii_qr(data: Optional[str] = None) -> str:
-    """生成 ASCII 艺术二维码（无需外部库）
-    
-    Args:
-        data: 二维码内容
-        
-    Returns:
-        ASCII 艺术字符串
-    """
-    if not QR_AVAILABLE:
-        # 简单的 ASCII 咖啡杯作为占位符
-        return '''
-        ☕ 请作者喝一杯咖啡 ☕
-        
-           ( (
-            ) )
-          ........
-          |      |]
-          \\      /
-           `----'
-        
-    感谢您的支持！
-        '''
-    
-    data = data or DEFAULT_SPONSOR_LINK
-    
-    try:
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=1,
-            border=2,
-        )
-        qr.add_data(data)
-        qr.make(fit=True)
-        
-        # 生成 ASCII 表示
-        lines = []
-        modules = qr.modules
-        for row in modules:
-            line = ""
-            for cell in row:
-                line += "██" if cell else "  "
-            lines.append(line)
-        
-        return "\n".join(lines)
-    except Exception:
-        return "二维码生成失败"
+    return None

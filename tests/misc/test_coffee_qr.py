@@ -1,4 +1,4 @@
-"""coffee_qr 模块测试 — 覆盖 QR 生成/路径/ASCII、系统图片打开、剪贴板"""
+"""coffee_qr 模块测试 — 覆盖 QR 路径、系统图片打开、剪贴板"""
 
 import pytest
 from pathlib import Path
@@ -8,13 +8,9 @@ from smart_router.misc.coffee_qr import (
     display_image_terminal,
     open_image_system,
     open_image_terminal,
-    generate_qr_code,
     get_qr_code_path,
-    generate_short_url_qr,
     copy_to_clipboard,
-    generate_ascii_qr,
-    QR_AVAILABLE,
-    DEFAULT_SPONSOR_LINK,
+    QR_CODE_PATH,
 )
 
 
@@ -109,8 +105,6 @@ class TestOpenImageSystem:
         with patch("platform.system", return_value="Windows"), \
              patch.dict("os.__dict__", {"startfile": mock_start}, clear=False):
             result = open_image_system(Path("/tmp/test.png"))
-            # Windows startfile 只在 Windows 上存在，测试可能无法完全模拟
-            # 但至少函数不应崩溃
             assert result is True or result is False
 
     def test_open_failure(self):
@@ -119,49 +113,6 @@ class TestOpenImageSystem:
              patch("subprocess.run", side_effect=Exception("fail")):
             result = open_image_system(Path("/tmp/test.png"))
             assert result is False
-
-
-class TestGenerateQrCode:
-    """二维码生成测试"""
-
-    def test_qr_not_available(self):
-        """qrcode 库不可用时返回 None"""
-        with patch("smart_router.misc.coffee_qr.QR_AVAILABLE", False):
-            result = generate_qr_code()
-            assert result is None
-
-    def test_default_data_and_path(self):
-        """使用默认数据和路径"""
-        if not QR_AVAILABLE:
-            pytest.skip("qrcode 库未安装")
-        
-        with patch("smart_router.misc.coffee_qr.QR_AVAILABLE", True), \
-             patch("qrcode.QRCode") as mock_qr, \
-             patch("tempfile.gettempdir", return_value="/tmp"), \
-             patch.object(Path, "mkdir"):
-            mock_instance = MagicMock()
-            mock_qr.return_value = mock_instance
-            mock_instance.make_image.return_value = MagicMock()
-            
-            result = generate_qr_code(data="https://example.com")
-            # 由于 mock 复杂，只要验证函数执行不崩溃即可
-            assert result is not None or True
-
-    def test_generate_short_url_qr_not_available(self):
-        """qrcode 不可用时 generate_short_url_qr 返回 None"""
-        with patch("smart_router.misc.coffee_qr.QR_AVAILABLE", False):
-            result = generate_short_url_qr("https://example.com")
-            assert result is None
-
-    def test_generate_short_url_qr_failure(self):
-        """generate_short_url_qr 异常时返回 None"""
-        if not QR_AVAILABLE:
-            pytest.skip("qrcode 库未安装")
-        
-        with patch("smart_router.misc.coffee_qr.QR_AVAILABLE", True), \
-             patch("qrcode.QRCode", side_effect=Exception("fail")):
-            result = generate_short_url_qr("https://example.com")
-            assert result is None
 
 
 class TestGetQrCodePath:
@@ -173,17 +124,9 @@ class TestGetQrCodePath:
             result = get_qr_code_path()
             assert result is not None
 
-    def test_no_qr_fallback_to_assets(self):
-        """默认路径不存在时查找 assets 目录"""
-        with patch.object(Path, "exists", return_value=False), \
-             patch("smart_router.misc.coffee_qr.generate_qr_code", return_value=Path("/tmp/qr.png")):
-            result = get_qr_code_path()
-            assert result == Path("/tmp/qr.png")
-
-    def test_generate_qr_code_failure(self):
-        """生成失败时返回 None"""
-        with patch.object(Path, "exists", return_value=False), \
-             patch("smart_router.misc.coffee_qr.generate_qr_code", return_value=None):
+    def test_no_qr_returns_none(self):
+        """二维码不存在时返回 None"""
+        with patch.object(Path, "exists", return_value=False):
             result = get_qr_code_path()
             assert result is None
 
@@ -221,33 +164,3 @@ class TestCopyToClipboard:
              patch("subprocess.run", side_effect=Exception("fail")):
             result = copy_to_clipboard("test text")
             assert result is False
-
-
-class TestGenerateAsciiQr:
-    """ASCII 二维码生成测试"""
-
-    def test_qr_not_available_placeholder(self):
-        """qrcode 不可用时返回占位符"""
-        with patch("smart_router.misc.coffee_qr.QR_AVAILABLE", False):
-            result = generate_ascii_qr()
-            assert "☕" in result
-            assert "咖啡" in result
-
-    def test_qr_available(self):
-        """qrcode 可用时生成 ASCII"""
-        if not QR_AVAILABLE:
-            pytest.skip("qrcode 库未安装")
-        
-        result = generate_ascii_qr("https://example.com")
-        assert result is not None
-        assert len(result) > 0
-
-    def test_qr_generation_failure(self):
-        """生成失败时返回错误信息"""
-        if not QR_AVAILABLE:
-            pytest.skip("qrcode 库未安装")
-        
-        with patch("smart_router.misc.coffee_qr.QR_AVAILABLE", True), \
-             patch("qrcode.QRCode", side_effect=Exception("fail")):
-            result = generate_ascii_qr()
-            assert "失败" in result

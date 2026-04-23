@@ -733,16 +733,11 @@ def list_models(
 
 @app.command()
 def coffee(
-    link: Optional[str] = typer.Option(None, "--link", "-l", help="自定义赞助链接"),
     ascii: bool = typer.Option(False, "--ascii", "-a", help="纯文字模式"),
     open: bool = typer.Option(False, "--open", "-o", help="打开图片")
 ):
     """☕ 请作者喝一杯咖啡"""
     qr_path = get_qr_code_path()
-    
-    if link:
-        from .misc.coffee_qr import generate_qr_code
-        qr_path = generate_qr_code(link)
     
     if ascii:
         content = Text()

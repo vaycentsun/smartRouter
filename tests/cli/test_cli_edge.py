@@ -128,13 +128,6 @@ class TestListCommandEdgeCases:
 class TestCoffeeCommandEdgeCases:
     """coffee 命令边缘情况测试"""
 
-    def test_coffee_link_option(self):
-        """coffee --link 自定义链接"""
-        result = runner.invoke(app, ["coffee", "--link", "https://example.com"])
-        
-        # 即使有错误也不应崩溃
-        assert result.exit_code == 0
-
     def test_coffee_open_option(self):
         """coffee --open 打开图片"""
         result = runner.invoke(app, ["coffee", "--open"])
