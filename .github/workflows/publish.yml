@@ -45,10 +45,6 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     
-    environment:
-      name: pypi
-      url: https://pypi.org/p/smart-router
-    
     permissions:
       id-token: write
     
