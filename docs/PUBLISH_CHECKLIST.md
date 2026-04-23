@@ -96,7 +96,7 @@ brew install smart-router
 ### PyPI 安装测试
 
 ```bash
-pip install smart-router
+pip install smartRouter
 smart-router --version
 ```
 
