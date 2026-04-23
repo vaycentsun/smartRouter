@@ -59,7 +59,8 @@ echo "⬇️  下载配置文件..."
 
 download_config() {
     local filename=$1
-    local url="$REPO_RAW_URL/config/examples/v3/$filename"
+    # Use templates directory as source for configuration templates
+    local url="$REPO_RAW_URL/src/smart_router/templates/$filename"
     local output="$CONFIG_DIR/$filename"
     
     if curl -fsSL "$url" -o "$output" 2>/dev/null; then

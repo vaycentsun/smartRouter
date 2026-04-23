@@ -16,7 +16,7 @@ from rich import box
 from .config.loader import ConfigLoader, ConfigError, load_config
 from .classifier.task_classifier import TaskTypeClassifier
 from .classifier.difficulty_classifier import DifficultyClassifier
-from .selector.model_selector import ModelSelector
+from .selector.v3_selector import V3ModelSelector
 from .utils.markers import parse_markers
 from .daemon import start_daemon, stop_daemon, restart_daemon, check_status, view_logs
 from .coffee_qr import (
@@ -433,36 +433,8 @@ def dry_run(
         difficulty_result = difficulty_classifier.classify(prompt, task_type=task_result.task_type)
     
     # 3. 模型选择
-    # 获取可用模型（API Key 已配置的模型）
     available_models = cfg.get_available_models()
-    
-    # 从 V3 models 构建 model_pool（只包含可用模型）
-    capabilities = {}
-    for model_name in available_models:
-        model_config = cfg.models[model_name]
-        priority = 11 - model_config.capabilities.quality  # quality 10 -> priority 1
-        capabilities[model_name] = {
-            "difficulties": list(model_config.difficulty_support),
-            "task_types": list(model_config.supported_tasks),
-            "priority": priority,
-            "quality": model_config.capabilities.quality,
-            "cost": model_config.capabilities.cost
-        }
-    
-    if available_models:
-        default_model = max(
-            [(n, cfg.models[n]) for n in available_models],
-            key=lambda x: x[1].capabilities.quality
-        )[0]
-    else:
-        default_model = "gpt-4o"
-    model_pool = {
-        "capabilities": capabilities,
-        "default_model": default_model,
-        "available_models": available_models
-    }
-    
-    selector = ModelSelector(model_pool)
+    selector = V3ModelSelector(config=cfg, available_models=available_models)
     
     selection_result = selector.select(
         task_type=task_result.task_type,

@@ -157,8 +157,10 @@ fallback:
             # (task, difficulty, strategy, expected)
             ("chat", "easy", "auto", "gpt-4o"),
             ("chat", "hard", "quality", "gpt-4o"),
-            # gpt-4o (9*0.7+8*0.2+3*0.1=8.2) > claude-3-opus (10*0.7+4*0.2+2*0.1=8.0) for auto
-            ("code_review", "medium", "auto", "gpt-4o"),
+            # auto 按 capability_weights (quality 0.7 + cost 0.1) 计算:
+            # gpt-4o: 9*0.7 + 3*0.1 = 6.6
+            # claude-3-opus: 10*0.7 + 2*0.1 = 7.2
+            ("code_review", "medium", "auto", "claude-3-opus"),
             ("code_review", "hard", "quality", "claude-3-opus"),
         ]
         

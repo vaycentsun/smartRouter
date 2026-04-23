@@ -1,5 +1,5 @@
 # Models Configuration
-# 模型能力声明配置
+# 模型能力声明配置（新版多维度能力体系）
 
 models:
   # ==================== OpenAI ====================
@@ -10,6 +10,11 @@ models:
       quality: 9
       cost: 3
       context: 128000
+      reasoning: 9
+      creative: 8
+      vision: true
+      long_context: true
+      latest: true
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
     
@@ -20,6 +25,11 @@ models:
       quality: 6
       cost: 9
       context: 128000
+      reasoning: 6
+      creative: 6
+      vision: true
+      long_context: false
+      latest: false
     supported_tasks: [writing, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium]
     
@@ -31,6 +41,11 @@ models:
       quality: 9
       cost: 4
       context: 200000
+      reasoning: 9
+      creative: 9
+      vision: true
+      long_context: true
+      latest: true
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
     
@@ -41,6 +56,11 @@ models:
       quality: 10
       cost: 2
       context: 200000
+      reasoning: 10
+      creative: 10
+      vision: true
+      long_context: true
+      latest: false
     supported_tasks: [code_review, writing, creative, reasoning, analysis]
     difficulty_support: [hard, expert]
     
@@ -260,6 +280,17 @@ models:
       cost: 7
       context: 8000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  # ==================== LM Studio (本地) ====================
+  lmstudio-local:
+    provider: lmstudio
+    litellm_model: openai/lmstudio-model
+    capabilities:
+      quality: 5
+      cost: 10
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium]
     
   # ==================== DeepSeek (可选) ====================

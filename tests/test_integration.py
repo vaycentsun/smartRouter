@@ -13,7 +13,7 @@ from smart_router.config.schema import (
 from smart_router.utils.markers import parse_markers
 from smart_router.classifier.task_classifier import TaskTypeClassifier
 from smart_router.classifier.difficulty_classifier import DifficultyClassifier
-from smart_router.selector.model_selector import ModelSelector
+from smart_router.selector.v3_selector import V3ModelSelector
 
 
 @pytest.fixture
@@ -84,23 +84,6 @@ def sample_config():
     )
 
 
-@pytest.fixture
-def model_pool_from_config(sample_config):
-    """从 V3 Config 构建 ModelSelector 可用的 model_pool"""
-    capabilities = {}
-    for name, model in sample_config.models.items():
-        capabilities[name] = {
-            "difficulties": list(model.difficulty_support),
-            "task_types": list(model.supported_tasks),
-            "priority": 11 - model.capabilities.quality,
-            "quality": model.capabilities.quality,
-            "cost": model.capabilities.cost,
-            "context": model.capabilities.context,
-        }
-    default_model = max(sample_config.models.items(), key=lambda x: x[1].capabilities.quality)[0]
-    return {"capabilities": capabilities, "default_model": default_model}
-
-
 def test_stage_marker_parsing():
     """测试阶段标记解析"""
     messages = [{"role": "user", "content": "[stage:chat] 你好"}]
@@ -156,7 +139,7 @@ fallback:
         assert "gpt-4o" in config.models
 
 
-def test_full_routing_flow_with_markers(sample_config, model_pool_from_config):
+def test_full_routing_flow_with_markers(sample_config):
     """测试带标记的完整路由流程"""
     messages = [{"role": "user", "content": "[stage:writing] [difficulty:hard] 写论文"}]
 
@@ -166,14 +149,14 @@ def test_full_routing_flow_with_markers(sample_config, model_pool_from_config):
     assert markers.difficulty == "hard"
 
     # 2. 模型选择
-    selector = ModelSelector(model_pool_from_config)
+    selector = V3ModelSelector(sample_config)
     result = selector.select(task_type=markers.stage, difficulty=markers.difficulty)
 
     # hard writing 应该选 claude-3-opus（唯一支持 hard + writing 的模型）
     assert result.model_name == "claude-3-opus"
 
 
-def test_auto_classification_flow(sample_config, model_pool_from_config):
+def test_auto_classification_flow(sample_config):
     """测试自动分类流程（无标记）"""
     # 短文本应该 easy chat
     messages = [{"role": "user", "content": "你好"}]
@@ -201,15 +184,17 @@ def test_auto_classification_flow(sample_config, model_pool_from_config):
     assert difficulty_result.difficulty == "easy"  # 短文本
 
     # 3. 模型选择
-    selector = ModelSelector(model_pool_from_config)
+    selector = V3ModelSelector(sample_config)
     selection_result = selector.select(
         task_type=task_result.task_type,
         difficulty=difficulty_result.difficulty
     )
 
-    # easy chat：gpt-4o（quality=9, priority=2）和 gpt-4o-mini（quality=6, priority=5）都支持
-    # auto 策略按 priority 升序，选 gpt-4o（priority 更小即 quality 更高）
-    assert selection_result.model_name == "gpt-4o"
+    # easy chat：gpt-4o（quality=9）和 gpt-4o-mini（quality=6）都支持
+    # auto 策略按 capability_weights 加权（chat 的 weights 是 quality 0.5 + cost 0.5）
+    # gpt-4o: 9*0.5 + 3*0.5 = 6.0; gpt-4o-mini: 6*0.5 + 9*0.5 = 7.5
+    # 所以应选 gpt-4o-mini
+    assert selection_result.model_name == "gpt-4o-mini"
 
 
 def test_validate_config_with_empty_models():

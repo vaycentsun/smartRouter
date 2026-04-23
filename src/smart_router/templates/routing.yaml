@@ -103,7 +103,7 @@ difficulties:
 strategies:
   auto:
     name: "智能自动"
-    description: "根据任务类型和难度动态计算最佳模型"
+    description: "根据任务类型和难度动态计算最佳模型（capability_weights 加权）"
     
   quality:
     name: "质量优先"
@@ -116,9 +116,30 @@ strategies:
   balanced:
     name: "平衡模式"
     description: "quality和cost权重相等(各0.5)"
+    
+  reasoning:
+    name: "推理优先"
+    description: "选择 reasoning 能力最强的模型（数学、逻辑、代码推理）"
+    
+  creative:
+    name: "创意优先"
+    description: "选择 creative 能力最强的模型（写作、广告、头脑风暴）"
+    
+  vision:
+    name: "视觉优先"
+    description: "选择支持多模态视觉的模型"
+    
+  long_context:
+    name: "长上下文"
+    description: "选择上下文窗口最大的模型"
+    
+  latest:
+    name: "最新模型"
+    description: "选择最新发布的模型（最新知识）"
 
 # ==================== Fallback 配置 ====================
 fallback:
-  mode: auto
-  similarity_threshold: 2    # quality差异在2以内的模型可作为fallback
-  max_attempts: 3           # 最多尝试3次fallback
+  mode: intelligent
+  similarity_threshold: 2
+  provider_isolation: true
+  max_attempts: 3

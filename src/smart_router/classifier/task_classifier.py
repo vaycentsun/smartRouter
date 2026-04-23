@@ -233,23 +233,35 @@ class TaskClassifier:
             source="dynamic_difficulty" if difficulty_result.source == "rule" else source
         )
     
-    def _bump_difficulty(self, difficulty: str) -> str:
-        """提升难度一档
-        
+    DIFFICULTY_ORDER = ["easy", "medium", "hard", "expert"]
+
+    def _adjust_difficulty(self, difficulty: str, delta: int) -> str:
+        """按档位调整难度
+
         Args:
             difficulty: 当前难度
-            
+            delta: 调整量（正数提升，负数降低）
+
         Returns:
-            提升后的难度
+            调整后的难度
         """
-        order = ["easy", "medium", "hard"]
+        order = self.DIFFICULTY_ORDER
         try:
             idx = order.index(difficulty)
-            if idx < len(order) - 1:
-                return order[idx + 1]
+            new_idx = idx + delta
+            if 0 <= new_idx < len(order):
+                return order[new_idx]
         except ValueError:
             pass
         return difficulty
+
+    def _bump_difficulty(self, difficulty: str) -> str:
+        """提升难度一档"""
+        return self._adjust_difficulty(difficulty, 1)
+
+    def _lower_difficulty(self, difficulty: str) -> str:
+        """降低难度一档"""
+        return self._adjust_difficulty(difficulty, -1)
     
     def _match_pattern(self, text: str, pattern: str) -> bool:
         """匹配正则模式"""
