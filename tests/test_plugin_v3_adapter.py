@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from smart_router.plugin_v3_adapter import SmartRouterV3Adapter
+from smart_router.router.plugin_v3_adapter import SmartRouterV3Adapter
 
 
 @pytest.fixture
@@ -81,7 +81,7 @@ class TestSmartRouterV3AdapterFallbacks:
 
     def test_fallbacks_passed_to_litellm_router(self, v3_config_dir):
         """SmartRouterV3Adapter 应将 Config 的 fallback 链转为 LiteLLM fallbacks 格式并传入 Router"""
-        with patch('smart_router.plugin_v3_adapter.Router.__init__', return_value=None) as mock_super:
+        with patch('smart_router.router.plugin_v3_adapter.Router.__init__', return_value=None) as mock_super:
             SmartRouterV3Adapter(config_dir=v3_config_dir)
             
             call_kwargs = mock_super.call_args.kwargs

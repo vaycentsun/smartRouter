@@ -6,7 +6,7 @@ import signal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from smart_router.daemon import (
+from smart_router.gateway.daemon import (
     _get_pid,
     _is_process_running,
     _write_pid,
@@ -44,7 +44,7 @@ class TestPidFileManagement:
         test_pid_file = tmp_path / "test.pid"
         test_pid_file.write_text("12345")
 
-        with patch("smart_router.daemon.DEFAULT_PID_FILE", test_pid_file):
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_FILE", test_pid_file):
             assert _get_pid() == 12345
 
     def test_get_pid_invalid_content(self, tmp_path):
@@ -52,14 +52,14 @@ class TestPidFileManagement:
         test_pid_file = tmp_path / "test.pid"
         test_pid_file.write_text("invalid")
 
-        with patch("smart_router.daemon.DEFAULT_PID_FILE", test_pid_file):
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_FILE", test_pid_file):
             assert _get_pid() is None
 
     def test_write_pid(self, tmp_path):
         """写入 PID 文件"""
         test_pid_file = tmp_path / "test.pid"
 
-        with patch("smart_router.daemon.DEFAULT_PID_FILE", test_pid_file):
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_FILE", test_pid_file):
             _write_pid(54321)
             assert test_pid_file.read_text() == "54321"
 
@@ -68,7 +68,7 @@ class TestPidFileManagement:
         test_pid_file = tmp_path / "test.pid"
         test_pid_file.write_text("12345")
 
-        with patch("smart_router.daemon.DEFAULT_PID_FILE", test_pid_file):
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_FILE", test_pid_file):
             _remove_pid()
             assert not test_pid_file.exists()
 
@@ -76,14 +76,14 @@ class TestPidFileManagement:
         """PID 文件不存在时删除不报错"""
         test_pid_file = tmp_path / "test.pid"
 
-        with patch("smart_router.daemon.DEFAULT_PID_FILE", test_pid_file):
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_FILE", test_pid_file):
             _remove_pid()
 
     def test_ensure_pid_dir(self, tmp_path):
         """确保 PID 目录存在"""
         test_pid_dir = tmp_path / "new_dir"
 
-        with patch("smart_router.daemon.DEFAULT_PID_DIR", test_pid_dir):
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", test_pid_dir):
             _ensure_pid_dir()
             assert test_pid_dir.exists()
 
@@ -113,7 +113,7 @@ class TestPortInUse:
 
     def test_port_in_use(self):
         """端口被占用时返回 True"""
-        from smart_router.daemon import _is_port_in_use
+        from smart_router.gateway.daemon import _is_port_in_use
         import socket
         # 绑定一个临时端口，然后检查
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -124,7 +124,7 @@ class TestPortInUse:
 
     def test_port_not_in_use(self):
         """端口未被占用时返回 False"""
-        from smart_router.daemon import _is_port_in_use
+        from smart_router.gateway.daemon import _is_port_in_use
         import socket
         # 找一个未使用的端口
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -148,8 +148,8 @@ class TestStartDaemon:
 
     def test_already_running(self, capsys):
         """服务已在运行时提示"""
-        with patch("smart_router.daemon._get_pid", return_value=12345), \
-             patch("smart_router.daemon._is_process_running", return_value=True):
+        with patch("smart_router.gateway.daemon._get_pid", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", return_value=True):
             start_daemon()
             captured = capsys.readouterr()
             assert "已在运行" in captured.out
@@ -159,8 +159,8 @@ class TestStartDaemon:
         mock_process = MagicMock()
         mock_process.pid = 99999
 
-        with patch("smart_router.daemon._get_pid", return_value=None), \
-             patch("smart_router.daemon._is_port_in_use", return_value=True):
+        with patch("smart_router.gateway.daemon._get_pid", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=True):
             start_daemon()
             captured = capsys.readouterr()
             assert "端口 4000 已被占用" in captured.out
@@ -170,10 +170,10 @@ class TestStartDaemon:
         mock_process = MagicMock()
         mock_process.pid = 99999
 
-        with patch("smart_router.daemon._get_pid", return_value=None), \
-             patch("smart_router.daemon._is_port_in_use", return_value=False), \
-             patch("smart_router.daemon._remove_pid"), \
-             patch("smart_router.daemon.subprocess.Popen", return_value=mock_process):
+        with patch("smart_router.gateway.daemon._get_pid", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=False), \
+             patch("smart_router.gateway.daemon._remove_pid"), \
+             patch("smart_router.gateway.daemon.subprocess.Popen", return_value=mock_process):
             start_daemon()
             captured = capsys.readouterr()
             assert "已启动" in captured.out
@@ -184,10 +184,10 @@ class TestStartDaemon:
         mock_process.pid = 99999
         config_path = Path("/tmp/test_config.yaml")
 
-        with patch("smart_router.daemon._get_pid", return_value=None), \
-             patch("smart_router.daemon._is_port_in_use", return_value=False), \
-             patch("smart_router.daemon._remove_pid"), \
-             patch("smart_router.daemon.subprocess.Popen", return_value=mock_process) as mock_popen:
+        with patch("smart_router.gateway.daemon._get_pid", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=False), \
+             patch("smart_router.gateway.daemon._remove_pid"), \
+             patch("smart_router.gateway.daemon.subprocess.Popen", return_value=mock_process) as mock_popen:
             start_daemon(config_path=config_path)
             mock_popen.assert_called_once()
             call_args = mock_popen.call_args[0][0]
@@ -199,10 +199,10 @@ class TestStartDaemon:
         mock_process = MagicMock()
         mock_process.pid = 99999
 
-        with patch("smart_router.daemon._get_pid", return_value=None), \
-             patch("smart_router.daemon._is_port_in_use", return_value=False), \
-             patch("smart_router.daemon._remove_pid"), \
-             patch("smart_router.daemon.subprocess.Popen", return_value=mock_process), \
+        with patch("smart_router.gateway.daemon._get_pid", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=False), \
+             patch("smart_router.gateway.daemon._remove_pid"), \
+             patch("smart_router.gateway.daemon.subprocess.Popen", return_value=mock_process), \
              patch.dict(os.environ, {"SMART_ROUTER_MASTER_KEY": ""}, clear=False):
             start_daemon()
             captured = capsys.readouterr()
@@ -224,16 +224,16 @@ class TestStopDaemon:
 
     def test_not_running(self, capsys):
         """服务未运行时提示"""
-        with patch("smart_router.daemon._get_pid", return_value=None):
+        with patch("smart_router.gateway.daemon._get_pid", return_value=None):
             stop_daemon()
             captured = capsys.readouterr()
             assert "未运行" in captured.out
 
     def test_process_not_exists(self, capsys):
         """进程不存在时清理 PID 文件"""
-        with patch("smart_router.daemon._get_pid", return_value=12345), \
-             patch("smart_router.daemon._is_process_running", return_value=False), \
-             patch("smart_router.daemon._remove_pid") as mock_remove:
+        with patch("smart_router.gateway.daemon._get_pid", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", return_value=False), \
+             patch("smart_router.gateway.daemon._remove_pid") as mock_remove:
             stop_daemon()
             captured = capsys.readouterr()
             assert "已不存在" in captured.out
@@ -254,10 +254,10 @@ class TestStopDaemon:
                 return True
             return False
         
-        with patch("smart_router.daemon._get_pid", return_value=12345), \
-             patch("smart_router.daemon._is_process_running", side_effect=mock_is_running), \
-             patch("smart_router.daemon.os.kill") as mock_kill, \
-             patch("smart_router.daemon._remove_pid"), \
+        with patch("smart_router.gateway.daemon._get_pid", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", side_effect=mock_is_running), \
+             patch("smart_router.gateway.daemon.os.kill") as mock_kill, \
+             patch("smart_router.gateway.daemon._remove_pid"), \
              patch.object(time, "sleep"):
             stop_daemon()
             captured = capsys.readouterr()
@@ -267,10 +267,10 @@ class TestStopDaemon:
     def test_stop_force_kill(self, capsys):
         """SIGTERM 失败后强制 SIGKILL"""
         import time
-        with patch("smart_router.daemon._get_pid", return_value=12345), \
-             patch("smart_router.daemon._is_process_running", return_value=True), \
-             patch("smart_router.daemon.os.kill") as mock_kill, \
-             patch("smart_router.daemon._remove_pid"), \
+        with patch("smart_router.gateway.daemon._get_pid", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", return_value=True), \
+             patch("smart_router.gateway.daemon.os.kill") as mock_kill, \
+             patch("smart_router.gateway.daemon._remove_pid"), \
              patch.object(time, "sleep"):
             stop_daemon()
             captured = capsys.readouterr()
@@ -283,8 +283,8 @@ class TestRestartDaemon:
 
     def test_restart_calls_stop_and_start(self, capsys):
         """重启调用停止和启动"""
-        with patch("smart_router.daemon.stop_daemon") as mock_stop, \
-             patch("smart_router.daemon.start_daemon") as mock_start:
+        with patch("smart_router.gateway.daemon.stop_daemon") as mock_stop, \
+             patch("smart_router.gateway.daemon.start_daemon") as mock_start:
             restart_daemon()
             mock_stop.assert_called_once()
             mock_start.assert_called_once()
@@ -292,8 +292,8 @@ class TestRestartDaemon:
     def test_restart_with_config(self):
         """带配置重启"""
         config_path = Path("/tmp/config.yaml")
-        with patch("smart_router.daemon.stop_daemon"), \
-             patch("smart_router.daemon.start_daemon") as mock_start:
+        with patch("smart_router.gateway.daemon.stop_daemon"), \
+             patch("smart_router.gateway.daemon.start_daemon") as mock_start:
             restart_daemon(config_path=config_path)
             mock_start.assert_called_once()
 
@@ -303,7 +303,7 @@ class TestCheckStatus:
 
     def test_not_running(self, capsys):
         """服务未运行"""
-        with patch("smart_router.daemon._get_pid", return_value=None):
+        with patch("smart_router.gateway.daemon._get_pid", return_value=None):
             result = check_status()
             captured = capsys.readouterr()
             assert "未运行" in captured.out
@@ -311,8 +311,8 @@ class TestCheckStatus:
 
     def test_running(self, capsys):
         """服务运行中"""
-        with patch("smart_router.daemon._get_pid", return_value=12345), \
-             patch("smart_router.daemon._is_process_running", return_value=True):
+        with patch("smart_router.gateway.daemon._get_pid", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", return_value=True):
             result = check_status()
             captured = capsys.readouterr()
             assert "运行中" in captured.out
@@ -320,9 +320,9 @@ class TestCheckStatus:
 
     def test_pid_exists_but_process_not(self, capsys):
         """PID 文件存在但进程不存在"""
-        with patch("smart_router.daemon._get_pid", return_value=12345), \
-             patch("smart_router.daemon._is_process_running", return_value=False), \
-             patch("smart_router.daemon._remove_pid"):
+        with patch("smart_router.gateway.daemon._get_pid", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", return_value=False), \
+             patch("smart_router.gateway.daemon._remove_pid"):
             result = check_status()
             captured = capsys.readouterr()
             assert "已不存在" in captured.out
@@ -334,7 +334,7 @@ class TestViewLogs:
 
     def test_log_file_not_exists(self, capsys):
         """日志文件不存在"""
-        with patch("smart_router.daemon.DEFAULT_PID_DIR", Path("/nonexistent")):
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", Path("/nonexistent")):
             view_logs()
             captured = capsys.readouterr()
             assert "不存在" in captured.out
@@ -344,7 +344,7 @@ class TestViewLogs:
         log_file = tmp_path / "smart-router.log"
         log_file.write_text("line1\nline2\nline3\n")
 
-        with patch("smart_router.daemon.DEFAULT_PID_DIR", tmp_path):
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", tmp_path):
             view_logs(lines=2)
             captured = capsys.readouterr()
             assert "line2" in captured.out or "line3" in captured.out
@@ -355,7 +355,7 @@ class TestViewLogs:
         log_file = tmp_path / "smart-router.log"
         log_file.write_text("line1\n")
 
-        with patch("smart_router.daemon.DEFAULT_PID_DIR", tmp_path), \
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", tmp_path), \
              patch.object(time, "sleep", side_effect=KeyboardInterrupt()):
             view_logs(follow=True)
             captured = capsys.readouterr()

@@ -81,11 +81,11 @@ class TestStartServer:
 
     def test_config_load_error(self, capsys):
         """配置加载错误时退出"""
-        with patch("smart_router.server.ConfigLoader") as mock_loader:
+        with patch("smart_router.gateway.server.ConfigLoader") as mock_loader:
             mock_loader.return_value.load.side_effect = Exception("Config error")
 
             with pytest.raises(SystemExit):
-                from smart_router.server import start_server
+                from smart_router.gateway.server import start_server
                 start_server()
 
             captured = capsys.readouterr()
@@ -93,12 +93,12 @@ class TestStartServer:
 
     def test_config_validation_error(self, capsys):
         """配置验证错误时退出"""
-        with patch("smart_router.server.ConfigLoader") as mock_loader:
+        with patch("smart_router.gateway.server.ConfigLoader") as mock_loader:
             mock_loader.return_value.load.return_value = MagicMock()
             mock_loader.return_value.validate.return_value = ["Error 1", "Error 2"]
 
             with pytest.raises(SystemExit):
-                from smart_router.server import start_server
+                from smart_router.gateway.server import start_server
                 start_server()
 
             captured = capsys.readouterr()
@@ -112,13 +112,13 @@ class TestStartServer:
         mock_config.get_litellm_params.return_value = {}
         mock_config.get_fallback_chain.return_value = []
 
-        with patch("smart_router.server.ConfigLoader") as mock_loader, \
-             patch("smart_router.server.SmartRouter"):
+        with patch("smart_router.gateway.server.ConfigLoader") as mock_loader, \
+             patch("smart_router.gateway.server.SmartRouter"):
             mock_loader.return_value.load.return_value = mock_config
             mock_loader.return_value.validate.return_value = []
 
             with pytest.raises(SystemExit):
-                from smart_router.server import start_server
+                from smart_router.gateway.server import start_server
                 start_server()
 
             captured = capsys.readouterr()

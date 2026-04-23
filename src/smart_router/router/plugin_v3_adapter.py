@@ -8,10 +8,10 @@ from pathlib import Path
 
 from litellm.router import Router
 
-from .config.v3_loader import ConfigV3Loader
-from .config.v3_schema import ConfigV3
-from .selector.v3_selector import V3ModelSelector
-from .utils.markers import parse_markers
+from ..config.v3_loader import ConfigV3Loader
+from ..config.v3_schema import ConfigV3
+from ..selector.v3_selector import V3ModelSelector
+from ..utils.markers import parse_markers
 
 
 class SmartRouterV3Adapter(Router):

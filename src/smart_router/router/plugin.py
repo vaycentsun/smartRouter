@@ -2,12 +2,12 @@ from typing import List, Dict, Optional, Any
 
 from litellm.router import Router
 
-from .utils.markers import parse_markers, strip_markers, MarkerResult
-from .utils.token_counter import estimate_messages_tokens
-from .classifier import TaskClassifier
-from .classifier.types import ClassificationResult, get_default_classification
-from .selector.v3_selector import V3ModelSelector
-from .config.schema import Config, ModelConfig
+from ..utils.markers import parse_markers, strip_markers, MarkerResult
+from ..utils.token_counter import estimate_messages_tokens
+from ..classifier import TaskClassifier
+from ..classifier.types import ClassificationResult, get_default_classification
+from ..selector.v3_selector import V3ModelSelector
+from ..config.schema import Config, ModelConfig
 
 
 class SmartRouter(Router):

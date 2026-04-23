@@ -7,9 +7,9 @@ from typing import Optional
 from fastapi import Request
 from rich.console import Console
 
-from .config.loader import ConfigLoader
-from .config.schema import Config
-from .plugin import SmartRouter
+from ..config.loader import ConfigLoader
+from ..config.schema import Config
+from ..router.plugin import SmartRouter
 
 
 console = Console()
