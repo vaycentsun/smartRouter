@@ -137,6 +137,9 @@ strategies:
     name: "最新模型"
     description: "选择最新发布的模型（最新知识）"
 
+# ==================== 全局路由参数 ====================
+cost_quality_threshold: 5  # cost 策略的最低质量门槛（1-10），低于此值的模型会被过滤
+
 # ==================== Fallback 配置 ====================
 fallback:
   mode: intelligent

@@ -108,6 +108,8 @@ class RoutingConfig(BaseModel):
     difficulties: Dict[str, DifficultyConfig]
     strategies: Dict[str, StrategyConfig]
     fallback: FallbackConfig
+    cost_quality_threshold: int = Field(default=5, ge=1, le=10,
+                                        description="cost 策略的最低质量门槛，低于此值的模型会被过滤")
 
 
 class Config(BaseModel):

@@ -159,6 +159,113 @@ class TestV3ModelSelector:
         # 然后选择 cost 最高的：model-b (cost=8)
         assert result.model_name == "model-b"
     
+    def test_routing_config_accepts_cost_quality_threshold(self):
+        """RoutingConfig 应支持 cost_quality_threshold 配置项，默认值为 5"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={},
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={},
+                strategies={},
+                fallback=FallbackConfig(),
+            )
+        )
+        assert config.routing.cost_quality_threshold == 5
+
+    def test_cost_strategy_uses_config_threshold_not_hardcoded(self):
+        """cost 策略应读取 routing.cost_quality_threshold 而非类硬编码常量"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "mid-model": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/mid",
+                    capabilities=ModelCapabilities(quality=7, cost=8, context=8000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+                "cheap-model": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/cheap",
+                    capabilities=ModelCapabilities(quality=8, cost=5, context=8000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+                "cheap-low": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/low",
+                    capabilities=ModelCapabilities(quality=4, cost=10, context=8000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(
+                        name="Chat", description="General chat",
+                        capability_weights={"quality": 0.5, "cost": 0.5}
+                    )
+                },
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={
+                    "auto": StrategyConfig(description="Auto"),
+                    "cost": StrategyConfig(description="Cost"),
+                },
+                fallback=FallbackConfig(),
+                cost_quality_threshold=8,  # 自定义门槛
+            )
+        )
+
+        selector = V3ModelSelector(config)
+        result = selector.select("chat", "easy", "cost")
+
+        # 门槛=8: cheap-low(quality=4)被过滤, mid-model(quality=7)被过滤
+        # 只剩 cheap-model(quality=8, cost=5) → 就是它
+        assert result.model_name == "cheap-model", (
+            f"with cost_quality_threshold=8, expected cheap-model (quality=8), "
+            f"got {result.model_name}"
+        )
+
+    def test_cost_strategy_default_threshold_is_5(self):
+        """cost_quality_threshold 默认值为 5，不设置时的行为应与旧代码一致"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "quality-6-model": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/q6",
+                    capabilities=ModelCapabilities(quality=6, cost=9, context=8000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+                "cheap-low": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/low",
+                    capabilities=ModelCapabilities(quality=4, cost=10, context=8000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(
+                        name="Chat", description="General chat",
+                        capability_weights={"quality": 0.5, "cost": 0.5}
+                    )
+                },
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"cost": StrategyConfig(description="Cost")},
+                fallback=FallbackConfig(),
+            )
+        )
+
+        selector = V3ModelSelector(config)
+        result = selector.select("chat", "easy", "cost")
+
+        # 默认门槛=5: cheap-low(quality=4)被过滤, quality-6-model(cost=9)胜出
+        assert result.model_name == "quality-6-model"
+
     def test_balanced_strategy(self, sample_config):
         """balanced 策略应使用 quality 和 cost 权重各 0.5"""
         selector = V3ModelSelector(sample_config)
