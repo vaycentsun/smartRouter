@@ -33,8 +33,6 @@ class V3ModelSelector:
         "balanced"
     }
     
-    # cost 策略的质量门槛：低于此值的模型会被过滤，避免选到"便宜但不可用"的模型
-    COST_QUALITY_THRESHOLD: int = 5
     
     def __init__(self, config: Config, available_models: Optional[List[str]] = None):
         self.config = config
@@ -209,13 +207,14 @@ class V3ModelSelector:
     ) -> SelectionResult:
         """cost 策略：选择最便宜的模型，但过滤掉低质量模型
         
+        质量门槛从 routing.cost_quality_threshold 读取（默认 5）。
         如果过滤后没有候选，回退到不过滤（避免无模型可用）。
         """
-        # 先尝试过滤低质量模型
+        threshold = self.config.routing.cost_quality_threshold
         filtered = [
             (name, model)
             for name, model in candidates
-            if model.capabilities.quality >= self.COST_QUALITY_THRESHOLD
+            if model.capabilities.quality >= threshold
         ]
         
         # 如果过滤后没有候选，回退到原始列表

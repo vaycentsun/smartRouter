@@ -132,9 +132,13 @@ class SmartRouter(Router):
         if model_hint.startswith("strategy-"):
             strategy = model_hint.replace("strategy-", "")
         
-        # 估算所需上下文窗口（输入 token + 输出预留 4000）
+        # 估算所需上下文窗口（输入 token + 按难度分级的输出预留）
         estimated_input = estimate_messages_tokens(messages)
-        required_context = estimated_input + 4000 if estimated_input > 0 else 0
+        if estimated_input > 0:
+            output_tokens = self.selector.get_required_context(classification.estimated_difficulty)
+            required_context = estimated_input + output_tokens
+        else:
+            required_context = 0
         
         result = self.selector.select(
             task_type=classification.task_type,

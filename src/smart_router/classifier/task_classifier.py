@@ -11,6 +11,7 @@
 """
 
 import re
+from collections import OrderedDict
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
@@ -266,6 +267,10 @@ class TaskClassifier:
         
         # 初始化动态难度评估器
         self._difficulty_classifier = DifficultyClassifier(DEFAULT_DIFFICULTY_RULES)
+        
+        # 分类结果缓存（LRU，基于用户输入文本 + 消息轮数）
+        self._cache: OrderedDict[str, ClassificationResult] = OrderedDict()
+        self._max_cache_size = 128
     
     def classify(self, messages: List[Dict]) -> ClassificationResult:
         """
@@ -297,6 +302,12 @@ class TaskClassifier:
         if not user_content:
             return get_default_classification()
         
+        # 检查分类缓存（LRU，基于用户输入文本 + 消息轮数）
+        cache_key = f"{user_content}|{user_message_count}"
+        if cache_key in self._cache:
+            self._cache.move_to_end(cache_key)
+            return self._cache[cache_key]
+        
         # 任务类型分类（L1 keywords / L2 embedding）
         type_result = self._type_classifier.classify(messages)
         task_type = type_result.task_type
@@ -324,12 +335,19 @@ class TaskClassifier:
         else:
             source = type_result.source
         
-        return ClassificationResult(
+        result = ClassificationResult(
             task_type=task_type,
             estimated_difficulty=difficulty,
             confidence=confidence,
             source=source
         )
+        
+        # 写入缓存（LRU 淘汰）
+        if len(self._cache) >= self._max_cache_size:
+            self._cache.popitem(last=False)
+        self._cache[cache_key] = result
+        
+        return result
     
     DIFFICULTY_ORDER = ["easy", "medium", "hard", "expert"]
 
