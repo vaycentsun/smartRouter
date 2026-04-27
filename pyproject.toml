@@ -62,7 +62,6 @@ include = [
     "/src",
     "/config",
     "/docs",
-    "/tests",
     "/script",
     "/README.md",
     "/LICENSE",
@@ -70,6 +69,15 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/smart_router"]
-    include = [
-        "src/smart_router/templates/*.yaml",
-    ]
+include = [
+    "src/smart_router/templates/*.yaml",
+]
+exclude = [
+    "**/tests",
+    "**/test_*.py",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["src"]
+python_files = ["test_*.py"]
+asyncio_mode = "strict"
