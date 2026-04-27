@@ -4,7 +4,7 @@
 > 项目语言：中文（注释与文档使用中文，代码标识符使用英文）。
 > AI 对话语言：中文
 
-**版本**: 1.1.0 · **Python**: >= 3.9 · **构建后端**: hatchling · **PyPI**: `smartRouter`
+**版本**: 1.1.0 · **Python**: >= 3.9 · **构建后端**: hatchling · **PyPI**: `smartrouter`
 
 ---
 
@@ -20,6 +20,9 @@ pytest -v
 # 运行单个模块的测试
 pytest core/smart_router/selector/tests/ -v
 pytest core/smart_router/tests/integration/ -v
+
+# 运行覆盖率检查
+pytest --cov=smart_router --cov-report=term
 
 # 前台启动服务（调试）
 smart-router start --foreground
@@ -41,19 +44,20 @@ smr dry-run "Review this Python code" --strategy quality
 
 ```
 core/smart_router/
-├── __init__.py                # 版本号定义
-├── cli.py                    # CLI 入口（Typer），__version__ 需与 pyproject.toml 同步
+├── __init__.py                # 版本号（importlib.metadata 动态读取）
+├── cli.py                    # CLI 入口（Typer）
+├── exceptions.py             # 全局异常（NoModelAvailableError / UnknownStrategyError）
 ├── tests/                    # 根级测试：cli + integration
 │   ├── cli/                 # CLI 命令测试
 │   └── integration/         # 集成测试（跨模块）
 ├── gateway/
-│   ├── server.py             # LiteLLM Proxy 封装、前台服务启动
+│   ├── server.py             # LiteLLM Proxy 封装、前台服务启动、配置热重载集成
 │   ├── server_main.py        # 后台服务入口（argparse）
 │   ├── daemon.py             # 后台进程管理（PID 文件、start/stop/status/logs）
 │   └── tests/                # gateway 模块测试
 ├── router/
 │   ├── plugin.py             # SmartRouter 核心插件（继承 litellm.router.Router）
-│   ├── plugin_v3_adapter.py  # V3 配置适配器（备用）
+│   ├── plugin_v3_adapter.py  # V3 配置适配器（备用，已弃用）
 │   └── tests/                # router 模块测试
 ├── classifier/
 │   ├── task_classifier.py    # TaskTypeClassifier（规则引擎）
@@ -69,6 +73,7 @@ core/smart_router/
 ├── config/
 │   ├── schema.py             # Pydantic 配置模型
 │   ├── loader.py             # ConfigLoader：三文件 YAML 加载与验证
+│   ├── watcher.py            # 配置热重载监听器（watchdog）
 │   ├── v3_schema.py          # 向后兼容别名
 │   ├── v3_loader.py          # 向后兼容别名
 │   └── tests/                # config 模块测试
@@ -106,16 +111,24 @@ core/smart_router/
 `Config._derive_fallback_chains()` 基于 quality 差异阈值（默认 2）自动计算 fallback 链，支持 `provider_isolation` 模式。修改模型 quality 分数会静默改变 fallback 行为。
 
 ### 4. 上下文过滤逻辑
-`plugin.py` 中通过 `estimate_messages_tokens()` 估算输入 token，**+4000 预留输出**，再过滤不满足 context 窗口的模型。若长文本被路由到小窗口模型，先检查 token 估算是否溢出。
+`plugin.py` 中通过 `estimate_messages_tokens()` 估算输入 token，结合 difficulty 对应的 `max_tokens` 预留输出，再过滤不满足 context 窗口的模型。若长文本被路由到小窗口模型，先检查 token 估算是否溢出。
+
+### 5. 全局异常集中定义
+`exceptions.py` 集中定义 `NoModelAvailableError` 和 `UnknownStrategyError`，避免 `config/__init__.py` 与 `selector/v3_selector.py` 之间的循环导入。
+
+### 6. 配置热重载
+`config/watcher.py` 基于 `watchdog` 监听配置目录 YAML 变更，500ms 去抖动后调用 `SmartRouter.reload_config()` 重建分类器和选择器。YAML 语法错误或验证失败时保留旧配置。
+
+### 7. 中间件注册方式
+`gateway/server.py` 使用 `SmartRouterMiddleware(BaseHTTPMiddleware)` 子类，通过 `app.add_middleware()` 在条件分支内注册，避免 `@app.middleware("http")` 装饰器在热重载时重复叠加。
 
 ---
 
 ## 版本同步规则
 
-发布新版本时，**三处必须同步**：
-1. `pyproject.toml` 的 `version`
-2. `core/smart_router/__init__.py` 的 `__version__`
-3. `core/smart_router/cli.py` 的 `__version__`
+**单源版本号**：`core/smart_router/__init__.py` 通过 `importlib.metadata.version("smartrouter")` 动态读取 `pyproject.toml` 的版本号，`cli.py` 从 `smart_router` 导入 `__version__`。
+
+发布新版本时**只需修改一处**：`pyproject.toml` 的 `version`。
 
 CI（`.github/workflows/publish.yml`）在 `push tags v*` 时自动构建并发布到 PyPI（trusted publishing），同时更新 Homebrew Formula。
 

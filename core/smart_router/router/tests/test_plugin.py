@@ -239,6 +239,147 @@ class TestSmartRouterFallbacks:
             assert "model-b" in model_a_entry["model-a"], "model-a 的 fallback 链应包含 model-b"
 
 
+class TestSmartRouterGracefulFallback:
+    """测试无匹配模型时的优雅降级"""
+
+    def test_select_model_fallback_when_no_match(self):
+        """当没有模型支持请求的任务/难度时，应 fallback 到第一个可用模型"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(
+                    api_base="https://api.openai.com/v1",
+                    api_key="sk-test"
+                )
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(
+                        name="Chat",
+                        description="Chat",
+                        capability_weights={"quality": 0.5, "cost": 0.5}
+                    ),
+                },
+                difficulties={
+                    "easy": DifficultyConfig(description="Easy", max_tokens=1000),
+                },
+                strategies={
+                    "auto": StrategyConfig(description="Auto"),
+                },
+                fallback=FallbackConfig()
+            )
+        )
+
+        with patch('smart_router.router.plugin.Router.__init__', return_value=None):
+            router = SmartRouter(config=config)
+
+        # 请求一个完全不存在的任务类型（没有任何模型支持）
+        messages = [{"role": "user", "content": "test"}]
+        result = router.select_model("stage:unknown_task", messages)
+
+        # 应该 graceful fallback，而不是抛出异常
+        assert result.model_name == "gpt-4o"
+        assert result.strategy == "fallback"
+        assert "fallback" in result.reason.lower()
+
+    def test_select_model_raises_when_no_models_available(self):
+        """当完全没有可用模型时，应抛出 NoModelAvailableError"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(
+                    api_base="https://api.openai.com/v1",
+                    api_key="sk-test"
+                )
+            },
+            models={},
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={},
+                strategies={},
+                fallback=FallbackConfig()
+            )
+        )
+
+        with patch('smart_router.router.plugin.Router.__init__', return_value=None):
+            router = SmartRouter(config=config)
+
+        from smart_router.selector.v3_selector import NoModelAvailableError
+        with pytest.raises(NoModelAvailableError):
+            router.select_model("auto", messages=[{"role": "user", "content": "test"}])
+
+
+class TestSmartRouterReloadConfig:
+    """测试 reload_config 运行时配置更新"""
+
+    def test_reload_config_updates_selector(self):
+        """reload_config 应更新 selector 以反映新配置"""
+        from smart_router.config.schema import ProviderConfig, ModelConfig, ModelCapabilities
+        from smart_router.config.schema import RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig
+
+        config1 = Config(
+            providers={
+                "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=1000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                fallback=FallbackConfig()
+            )
+        )
+
+        with patch('smart_router.router.plugin.Router.__init__', return_value=None):
+            router = SmartRouter(config=config1)
+
+        # 初始配置下 gpt-4o 可用
+        assert router.selector.config.models["gpt-4o"].capabilities.quality == 9
+
+        # 新配置：更新模型能力评分
+        config2 = Config(
+            providers={
+                "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=5, cost=5, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=1000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                fallback=FallbackConfig()
+            )
+        )
+
+        router.reload_config(config2)
+
+        # 验证 selector 已更新
+        assert router.selector.config.models["gpt-4o"].capabilities.quality == 5
+        assert router.sr_config is config2
+
+
 class TestSmartRouterGetAvailableDeployment:
     """测试 get_available_deployment 委托给 select_model"""
 

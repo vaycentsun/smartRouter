@@ -27,6 +27,12 @@ class TestVersionCommand:
         assert "Smart Router" in result.stdout
         assert __version__ in result.stdout
 
+    def test_version_matches_package_metadata(self):
+        """版本号应与 package metadata 一致（单源）"""
+        from importlib.metadata import version
+
+        assert __version__ == version("smartrouter")
+
 
 class TestInitCommand:
     """init 命令测试"""

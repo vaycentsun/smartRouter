@@ -13,6 +13,8 @@ from rich.align import Align
 from rich.text import Text
 from rich import box
 
+from smart_router import __version__
+
 from .config.loader import ConfigLoader, ConfigError, load_config
 from .classifier.task_classifier import TaskTypeClassifier
 from .classifier.difficulty_classifier import DifficultyClassifier
@@ -26,9 +28,6 @@ from .misc.coffee_qr import (
 
 app = typer.Typer(name="smart-router", help="智能模型路由网关")
 console = Console()
-
-# 版本号
-__version__ = "1.1.0"
 
 
 @app.command()
