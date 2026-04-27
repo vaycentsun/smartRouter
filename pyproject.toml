@@ -71,6 +71,7 @@ include = [
 packages = ["core/smart_router"]
 include = [
     "core/smart_router/templates/*.yaml",
+    "core/smart_router/web/static/**/*",
 ]
 exclude = [
     "**/tests",

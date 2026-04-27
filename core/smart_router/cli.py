@@ -815,6 +815,24 @@ def coffee(
     console.print(panel)
 
 
+@app.command()
+def dashboard(
+    port: int = typer.Option(8080, "--port", "-p", help="Dashboard port"),
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind host"),
+):
+    """启动 Web Dashboard"""
+    import uvicorn
+
+    static_dir = Path(__file__).parent / "web" / "static"
+    if not static_dir.exists() or not (static_dir / "index.html").exists():
+        console.print("[red]❌ Dashboard 前端未构建。[/red]")
+        console.print("[dim]  请先运行: make build-web[/dim]")
+        raise typer.Exit(1)
+
+    console.print(f"[green]🚀 Dashboard: http://{host}:{port}[/green]")
+    uvicorn.run("smart_router.web.server:app", host=host, port=port)
+
+
 def main():
     app()
 
