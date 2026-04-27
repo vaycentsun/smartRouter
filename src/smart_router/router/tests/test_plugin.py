@@ -133,6 +133,58 @@ class TestSmartRouterSelectModel:
         assert smart_router.last_selected_model == result.model_name
 
 
+    def test_select_model_context_uses_difficulty_based_tokens_not_fixed_4000(self, smart_router):
+        """select_model 的 required_context 应使用难度分级 max_tokens，而非固定 +4000"""
+        from smart_router.selector.v3_selector import SelectionResult
+
+        messages = [{"role": "user", "content": "[difficulty:easy] simple"}]
+        fixed_input_tokens = 500
+
+        with patch('smart_router.router.plugin.estimate_messages_tokens', return_value=fixed_input_tokens):
+            with patch.object(smart_router.selector, 'select') as mock_select:
+                mock_select.return_value = SelectionResult(
+                    model_name='gpt-4o', task_type='chat', difficulty='easy',
+                    strategy='auto', score=0.9, reason='test'
+                )
+                smart_router.select_model("auto", messages)
+                required_context = mock_select.call_args.kwargs['required_context']
+
+        # easy max_tokens = 2000 (from sample_config)
+        # 期望: 500 + 2000 = 2500
+        # 旧代码 (固定 +4000): 500 + 4000 = 4500 ← BUG
+        assert required_context == 2500, (
+            f"expected required_context=2500 (input=500 + easy_max_tokens=2000), "
+            f"got {required_context} (current code may be using fixed +4000)"
+        )
+
+    def test_select_model_different_difficulties_produce_different_context(self, smart_router):
+        """不同难度应产生不同的 required_context"""
+        from smart_router.selector.v3_selector import SelectionResult
+
+        fixed_input = 100
+
+        def get_context_for_difficulty(difficulty_marker):
+            messages = [{"role": "user", "content": f"[difficulty:{difficulty_marker}] test"}]
+            with patch('smart_router.router.plugin.estimate_messages_tokens', return_value=fixed_input):
+                with patch.object(smart_router.selector, 'select') as mock_select:
+                    mock_select.return_value = SelectionResult(
+                        model_name='gpt-4o', task_type='chat', difficulty=difficulty_marker,
+                        strategy='auto', score=0.9, reason='test'
+                    )
+                    smart_router.select_model("auto", messages)
+                    return mock_select.call_args.kwargs['required_context']
+
+        easy_ctx = get_context_for_difficulty("easy")
+        medium_ctx = get_context_for_difficulty("medium")
+
+        # easy max_tokens=2000, medium=8000，不同难度应有不同上下文需求
+        assert easy_ctx != medium_ctx, (
+            f"不同难度应产生不同的 required_context: easy={easy_ctx}, medium={medium_ctx}"
+        )
+        assert easy_ctx == 2100, f"expected easy=2100, got {easy_ctx}"  # 100 + 2000
+        assert medium_ctx == 8100, f"expected medium=8100, got {medium_ctx}"  # 100 + 8000
+
+
 class TestSmartRouterFallbacks:
     """测试 LiteLLM fallback 配置注入"""
 

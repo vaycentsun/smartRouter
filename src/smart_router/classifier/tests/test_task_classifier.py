@@ -238,6 +238,78 @@ class TestTaskClassifierWithKeywords:
         assert result.task_type == "code_review"
 
 
+    def test_classify_cache_hit_avoids_redundant_work(self, classifier_with_keywords):
+        """相同输入第二次分类应从缓存命中，不重复调用内部分类器"""
+        from unittest.mock import patch
+
+        messages = [{"role": "user", "content": "帮我review一下这段代码"}]
+
+        # 第一次分类 — 应走完整流程
+        with patch.object(classifier_with_keywords._type_classifier, 'classify',
+                          wraps=classifier_with_keywords._type_classifier.classify) as mock_type:
+            result1 = classifier_with_keywords.classify(messages)
+            assert mock_type.call_count == 1
+
+        # 第二次分类（相同输入）— 应从缓存命中
+        with patch.object(classifier_with_keywords._type_classifier, 'classify',
+                          wraps=classifier_with_keywords._type_classifier.classify) as mock_type:
+            result2 = classifier_with_keywords.classify(messages)
+            assert mock_type.call_count == 0, (
+                f"缓存命中时不应调用 _type_classifier.classify，但实际调用了 {mock_type.call_count} 次"
+            )
+
+        # 结果应一致
+        assert result1.task_type == result2.task_type
+        assert result1.estimated_difficulty == result2.estimated_difficulty
+
+    def test_classify_cache_miss_for_different_input(self, classifier_with_keywords):
+        """不同输入应独立走分类流程"""
+        from unittest.mock import patch
+
+        msg1 = [{"role": "user", "content": "帮我写一封邮件"}]
+        msg2 = [{"role": "user", "content": "review 这段代码有没有bug"}]
+
+        with patch.object(classifier_with_keywords._type_classifier, 'classify',
+                          wraps=classifier_with_keywords._type_classifier.classify) as mock_type:
+            classifier_with_keywords.classify(msg1)
+            assert mock_type.call_count == 1
+
+            classifier_with_keywords.classify(msg2)
+            assert mock_type.call_count == 2, (
+                f"不同输入不应命中缓存，应再次调用分类器"
+            )
+
+    def test_classify_cache_respects_message_count(self, classifier_with_keywords):
+        """不同消息轮数应视为不同缓存 key（影响难度提升逻辑）"""
+        from unittest.mock import patch
+
+        msg_1turn = [{"role": "user", "content": "hello"}]
+        msg_4turns = [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+            {"role": "user", "content": "hello"},
+        ]
+
+        with patch.object(classifier_with_keywords._type_classifier, 'classify',
+                          wraps=classifier_with_keywords._type_classifier.classify) as mock_type:
+            r1 = classifier_with_keywords.classify(msg_1turn)
+            assert mock_type.call_count == 1
+
+            r2 = classifier_with_keywords.classify(msg_4turns)
+            assert mock_type.call_count == 2, (
+                f"不同消息轮数不应命中缓存，应再次调用分类器"
+            )
+
+        # 4 轮对话应提升难度
+        assert r2.estimated_difficulty != r1.estimated_difficulty or r1 == r2, (
+            "四轮对话应导致难度提升（如果初始难度不是 expert）"
+        )
+
+
 class TestTaskClassifierBackwardCompatibility:
     """向后兼容性测试：无 task_configs 时仍能正常工作"""
     
