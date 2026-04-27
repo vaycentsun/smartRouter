@@ -272,9 +272,12 @@ class Config(BaseModel):
             env_var = api_key.replace("os.environ/", "")
             api_key = os.environ.get(env_var, "")
         
-        return {
+        params = {
             "model": model.litellm_model,
             "api_key": api_key,
             "api_base": provider.api_base,
             "timeout": provider.timeout,
         }
+        if provider.rate_limit is not None:
+            params["rpm_limit"] = provider.rate_limit
+        return params

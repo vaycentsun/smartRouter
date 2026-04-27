@@ -6,8 +6,9 @@ from ..utils.markers import parse_markers, strip_markers, MarkerResult
 from ..utils.token_counter import estimate_messages_tokens
 from ..classifier import TaskClassifier
 from ..classifier.types import ClassificationResult, get_default_classification
-from ..selector.v3_selector import V3ModelSelector
+from ..selector.v3_selector import V3ModelSelector, SelectionResult
 from ..config.schema import Config, ModelConfig
+from ..exceptions import NoModelAvailableError
 
 
 class SmartRouter(Router):
@@ -140,12 +141,27 @@ class SmartRouter(Router):
         else:
             required_context = 0
         
-        result = self.selector.select(
-            task_type=classification.task_type,
-            difficulty=classification.estimated_difficulty,
-            strategy=strategy,
-            required_context=required_context
-        )
+        try:
+            result = self.selector.select(
+                task_type=classification.task_type,
+                difficulty=classification.estimated_difficulty,
+                strategy=strategy,
+                required_context=required_context
+            )
+        except NoModelAvailableError:
+            # Graceful fallback: 当没有模型匹配时，选择第一个可用模型
+            available = self.sr_config.get_available_models()
+            if available:
+                result = SelectionResult(
+                    model_name=available[0],
+                    task_type=classification.task_type,
+                    difficulty=classification.estimated_difficulty,
+                    strategy="fallback",
+                    score=0.0,
+                    reason=f"No model supports {classification.task_type}/{classification.estimated_difficulty}, using fallback"
+                )
+            else:
+                raise
         
         # 存储选中的模型名用于响应头
         self.last_selected_model = result.model_name
@@ -196,3 +212,75 @@ class SmartRouter(Router):
     def get_fallback_chain(self, model_name: str) -> List[str]:
         """获取模型的 fallback 链"""
         return self.sr_config.get_fallback_chain(model_name)
+    
+    def reload_config(self, config: Config):
+        """运行时重新加载配置
+        
+        在配置热重载时被调用，更新 SmartRouter 内部的路由决策状态
+        （分类器、选择器、配置引用）。
+        
+        注意：此方法不更新 LiteLLM Router 父类的模型列表，
+        因为 LiteLLM Router 的运行时模型列表更新受限。
+        
+        Args:
+            config: 新的 Config 实例
+        """
+        self.sr_config = config
+        
+        # 重建分类器
+        classification_rules = [
+            {
+                "pattern": f"(?i)({task_config.name.lower().replace('_', '|')})",
+                "task_type": task_id,
+                "difficulty": "medium"
+            }
+            for task_id, task_config in config.routing.tasks.items()
+        ]
+        
+        task_configs = {
+            task_id: {
+                "keywords": list(getattr(task_config, "keywords", [])),
+                "examples": list(getattr(task_config, "examples", [])),
+                "description": task_config.description
+            }
+            for task_id, task_config in config.routing.tasks.items()
+        }
+        
+        self.classifier = TaskClassifier(
+            rules=classification_rules,
+            embedding_config={"enabled": True, "threshold": 0.6, "default_task": "chat"},
+            task_configs=task_configs
+        )
+        
+        # 重建选择器
+        available_models = config.get_available_models()
+        self.selector = V3ModelSelector(config=config, available_models=available_models)
+        
+        # 更新 LiteLLM Router 的模型列表（如果父类已初始化且支持）
+        litellm_model_list = []
+        for model_name in available_models:
+            litellm_params = config.get_litellm_params(model_name)
+            litellm_model_list.append({
+                "model_name": model_name,
+                "litellm_params": litellm_params
+            })
+        
+        fallbacks = []
+        for model_name in available_models:
+            chain = config.get_fallback_chain(model_name)
+            if chain:
+                fallbacks.append({model_name: chain})
+        
+        # 安全地更新父类 Router 的模型列表（仅在父类已完整初始化时）
+        try:
+            if hasattr(self, 'set_model_list') and hasattr(self, 'deployment_names'):
+                self.set_model_list(litellm_model_list)
+                if fallbacks and hasattr(self, 'set_fallbacks'):
+                    self.set_fallbacks(fallbacks)
+            else:
+                self.model_list = litellm_model_list
+                self.fallbacks = fallbacks if fallbacks else None
+        except Exception:
+            # 如果父类更新失败，至少保证 SmartRouter 自己的状态已更新
+            self.model_list = litellm_model_list
+            self.fallbacks = fallbacks if fallbacks else None

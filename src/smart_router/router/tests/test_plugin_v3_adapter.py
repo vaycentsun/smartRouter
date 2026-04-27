@@ -3,7 +3,7 @@
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 from smart_router.router.plugin_v3_adapter import SmartRouterV3Adapter
 
@@ -113,6 +113,61 @@ class TestSmartRouterV3AdapterRouting:
             # 由于我们重写了方法，mock 父类的实际调用比较困难
             # 这里验证对于具体模型名，不会走智能路由分支
             pass  # 已在集成测试中覆盖
+
+    @pytest.mark.asyncio
+    async def test_smart_router_request_uses_selector(self, adapter):
+        """智能路由请求应使用 selector 选择模型"""
+        from smart_router.selector.v3_selector import SelectionResult
+        
+        with patch.object(adapter.selector, 'select') as mock_select, \
+             patch('smart_router.router.plugin_v3_adapter.Router.get_available_deployment', new_callable=AsyncMock) as mock_super:
+            mock_select.return_value = SelectionResult(
+                model_name='model-a', task_type='chat', difficulty='easy',
+                strategy='auto', score=0.9, reason='test'
+            )
+            mock_super.return_value = {"model": "model-a"}
+            
+            result = await adapter.get_available_deployment("auto", messages=[{"role": "user", "content": "hi"}])
+            
+            mock_select.assert_called_once()
+            mock_super.assert_called_once()
+            assert adapter.last_selected_model == "model-a"
+
+    @pytest.mark.asyncio
+    async def test_stage_prefix_request(self, adapter):
+        """stage: 前缀请求应解析任务类型"""
+        from smart_router.selector.v3_selector import SelectionResult
+        
+        with patch.object(adapter.selector, 'select') as mock_select, \
+             patch('smart_router.router.plugin_v3_adapter.Router.get_available_deployment', new_callable=AsyncMock) as mock_super:
+            mock_select.return_value = SelectionResult(
+                model_name='model-a', task_type='chat', difficulty='easy',
+                strategy='auto', score=0.9, reason='test'
+            )
+            mock_super.return_value = {"model": "model-a"}
+            
+            result = await adapter.get_available_deployment("stage:chat", messages=[{"role": "user", "content": "hi"}])
+            
+            mock_select.assert_called_once()
+            assert mock_select.call_args.kwargs['task_type'] == 'chat'
+
+    @pytest.mark.asyncio
+    async def test_no_messages_defaults_to_chat(self, adapter):
+        """无 messages 时默认使用 chat 任务"""
+        from smart_router.selector.v3_selector import SelectionResult
+        
+        with patch.object(adapter.selector, 'select') as mock_select, \
+             patch('smart_router.router.plugin_v3_adapter.Router.get_available_deployment', new_callable=AsyncMock) as mock_super:
+            mock_select.return_value = SelectionResult(
+                model_name='model-a', task_type='chat', difficulty='easy',
+                strategy='auto', score=0.9, reason='test'
+            )
+            mock_super.return_value = {"model": "model-a"}
+            
+            result = await adapter.get_available_deployment("auto")
+            
+            mock_select.assert_called_once()
+            assert mock_select.call_args.kwargs['task_type'] == 'chat'
 
     def test_build_litellm_model_list(self, v3_config_dir):
         """_build_litellm_model_list 返回正确结构"""
