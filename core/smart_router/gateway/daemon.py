@@ -272,17 +272,17 @@ def check_status():
 def view_logs(lines: int = 50, follow: bool = False):
     """
     查看服务日志
-    
+
     Args:
         lines: 显示最后 N 行
         follow: 是否持续跟踪（类似 tail -f）
     """
     log_file = DEFAULT_PID_DIR / "smart-router.log"
-    
+
     if not log_file.exists():
         console.print("[yellow]日志文件不存在[/yellow]")
         return
-    
+
     if follow:
         # 持续跟踪模式
         try:
@@ -290,7 +290,7 @@ def view_logs(lines: int = 50, follow: bool = False):
             with open(log_file, "r") as f:
                 # 跳到文件末尾
                 f.seek(0, 2)
-                
+
                 console.print(f"[dim]正在跟踪日志 (按 Ctrl+C 退出)...[/dim]\n")
                 while True:
                     line = f.readline()
@@ -305,11 +305,216 @@ def view_logs(lines: int = 50, follow: bool = False):
         try:
             with open(log_file, "r") as f:
                 all_lines = f.readlines()
-                
+
             console.print(f"[dim]显示最后 {min(lines, len(all_lines))} 行日志:[/dim]\n")
-            
+
             for line in all_lines[-lines:]:
                 console.print(line.rstrip())
-                
+
         except IOError as e:
             console.print(f"[red]读取日志失败: {e}[/red]")
+
+
+# ==================== Dashboard 进程管理 ====================
+
+DASHBOARD_PID_FILE = DEFAULT_PID_DIR / "dashboard.pid"
+DASHBOARD_PORT = 8080
+DASHBOARD_LOG_FILE = DEFAULT_PID_DIR / "dashboard.log"
+
+
+def _get_pid_from_file(pid_file: Path) -> Optional[int]:
+    """从 PID 文件读取进程 ID"""
+    if pid_file.exists():
+        try:
+            return int(pid_file.read_text().strip())
+        except (ValueError, IOError):
+            return None
+    return None
+
+
+def _write_pid_to_file(pid_file: Path, pid: int):
+    """写入 PID 文件"""
+    _ensure_pid_dir()
+    pid_file.write_text(str(pid))
+
+
+def _remove_pid_file(pid_file: Path):
+    """删除 PID 文件"""
+    if pid_file.exists():
+        pid_file.unlink()
+
+
+def _kill_orphan_process(port: int) -> bool:
+    """尝试清理占用指定端口的孤儿进程
+
+    Returns:
+        True if successfully killed or no orphan found
+        False if port still occupied after attempt
+    """
+    try:
+        result = subprocess.run(
+            ["lsof", "-ti", f":{port}"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        orphan_pids = [int(p) for p in result.stdout.strip().split() if p]
+        for orphan_pid in orphan_pids:
+            console.print(
+                f"[yellow]发现端口 {port} 被孤儿进程 (PID: {orphan_pid}) 占用，正在清理...[/yellow]"
+            )
+            try:
+                os.kill(orphan_pid, signal.SIGKILL)
+            except (OSError, ProcessLookupError):
+                pass
+        time.sleep(0.5)
+        return not _is_port_in_use(port)
+    except (subprocess.CalledProcessError, ValueError):
+        # lsof 失败或没有进程占用
+        return not _is_port_in_use(port)
+
+
+def start_dashboard_daemon(
+    host: str = "127.0.0.1",
+    port: int = DASHBOARD_PORT,
+    foreground: bool = True,
+):
+    """启动 Dashboard 服务
+
+    Args:
+        host: 绑定地址
+        port: 监听端口
+        foreground: True=前台运行（默认），False=后台运行
+    """
+    # 检查是否已在运行
+    existing_pid = _get_pid_from_file(DASHBOARD_PID_FILE)
+    if existing_pid and _is_process_running(existing_pid):
+        console.print(f"[yellow]Dashboard 已在运行 (PID: {existing_pid})[/yellow]")
+        console.print(f"[dim]使用 `smr dashboard --stop` 停止[/dim]")
+        return
+
+    # 检查端口占用
+    if _is_port_in_use(port):
+        if not _kill_orphan_process(port):
+            console.print(f"[red]端口 {port} 仍被占用，请手动排查: lsof -i :{port}[/red]")
+            sys.exit(1)
+
+    # 清理旧 PID 文件
+    _remove_pid_file(DASHBOARD_PID_FILE)
+
+    if foreground:
+        # 前台模式：直接运行 uvicorn
+        import uvicorn
+
+        _write_pid_to_file(DASHBOARD_PID_FILE, os.getpid())
+
+        def _cleanup(signum=None, frame=None):
+            """信号处理器：清理 PID 文件并退出"""
+            _remove_pid_file(DASHBOARD_PID_FILE)
+            if signum is not None:
+                sys.exit(0)
+
+        # 注册信号处理器
+        signal.signal(signal.SIGHUP, _cleanup)
+        signal.signal(signal.SIGINT, _cleanup)
+        signal.signal(signal.SIGTERM, _cleanup)
+
+        # atexit 兜底
+        import atexit
+        atexit.register(_cleanup)
+
+        try:
+            console.print(f"[green]🚀 Dashboard: http://{host}:{port}[/green]")
+            uvicorn.run("smart_router.web.server:app", host=host, port=port)
+        finally:
+            _cleanup()
+    else:
+        # 后台模式
+        python_exe = _get_python_executable()
+        cmd = [
+            python_exe, "-m", "uvicorn",
+            "smart_router.web.server:app",
+            "--host", host,
+            "--port", str(port),
+        ]
+
+        try:
+            with open(DASHBOARD_LOG_FILE, "w") as log:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+
+            _write_pid_to_file(DASHBOARD_PID_FILE, process.pid)
+
+            console.print(f"[green]✓[/green] Dashboard 已启动")
+            console.print(f"  PID: {process.pid}")
+            console.print(f"  日志: {DASHBOARD_LOG_FILE}")
+            console.print(f"  服务: http://{host}:{port}")
+            console.print(f"\n[dim]使用 `smr dashboard --status` 查看状态[/dim]")
+            console.print(f"[dim]使用 `smr dashboard --stop` 停止服务[/dim]")
+
+        except Exception as e:
+            console.print(f"[red]Dashboard 启动失败: {e}[/red]")
+            sys.exit(1)
+
+
+def stop_dashboard_daemon():
+    """停止 Dashboard 服务"""
+    pid = _get_pid_from_file(DASHBOARD_PID_FILE)
+
+    if not pid:
+        console.print("[yellow]Dashboard 未运行[/yellow]")
+        return
+
+    if not _is_process_running(pid):
+        console.print("[yellow]Dashboard 进程已不存在[/yellow]")
+        _remove_pid_file(DASHBOARD_PID_FILE)
+        return
+
+    try:
+        console.print(f"[cyan]正在停止 Dashboard (PID: {pid})...[/cyan]")
+        os.kill(pid, signal.SIGTERM)
+
+        for _ in range(10):
+            time.sleep(0.5)
+            if not _is_process_running(pid):
+                break
+
+        if _is_process_running(pid):
+            os.kill(pid, signal.SIGKILL)
+            console.print(f"[yellow]已强制终止进程[/yellow]")
+
+        _remove_pid_file(DASHBOARD_PID_FILE)
+        console.print("[green]✓[/green] Dashboard 已停止")
+
+    except Exception as e:
+        console.print(f"[red]停止失败: {e}[/red]")
+        sys.exit(1)
+
+
+def check_dashboard_status() -> bool:
+    """检查 Dashboard 运行状态"""
+    pid = _get_pid_from_file(DASHBOARD_PID_FILE)
+
+    if not pid:
+        if _is_port_in_use(DASHBOARD_PORT):
+            console.print(
+                f"[yellow]●[/yellow] Dashboard 端口 {DASHBOARD_PORT} 被占用（PID 文件丢失）"
+            )
+            console.print(f"[dim]  排查: lsof -i :{DASHBOARD_PORT}[/dim]")
+            return True
+        console.print("[yellow]●[/yellow] Dashboard 未运行")
+        return False
+
+    if _is_process_running(pid):
+        console.print("[green]●[/green] Dashboard 运行中")
+        console.print(f"  PID: {pid}")
+        console.print(f"  服务: http://127.0.0.1:{DASHBOARD_PORT}")
+        return True
+    else:
+        console.print("[red]●[/red] Dashboard 进程已不存在（可能异常退出）")
+        _remove_pid_file(DASHBOARD_PID_FILE)
+        return False
