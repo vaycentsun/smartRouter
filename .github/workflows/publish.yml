@@ -6,7 +6,6 @@ on:
       - 'v*'
   workflow_dispatch:
 
-# 顶层权限最小化：默认只读
 permissions:
   contents: read
 
@@ -16,13 +15,31 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # 用于 artifact attestation（OIDC token 签名）
       id-token: write
       attestations: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ===== 前端构建 =====
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install and build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Embed frontend into Python package
+        run: |
+          rm -rf core/smart_router/web/static
+          mkdir -p core/smart_router/web/static
+          cp -r frontend/dist/* core/smart_router/web/static/
+
+      # ===== Python 构建 =====
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -36,20 +53,33 @@ jobs:
       - name: Run tests
         run: pytest -v --tb=short
 
-      - name: Install build dependencies
+      - name: Build package
         run: |
           python -m pip install --upgrade pip
           pip install build
+          python -m build
 
-      - name: Build package
-        run: python -m build
+      # ===== 验证 =====
+      - name: Verify frontend assets in wheel
+        run: |
+          pip install unzip
+          unzip -l dist/*.whl | grep "web/static/index.html" || (echo "❌ Frontend not found in wheel" && exit 1)
+          echo "✓ Frontend assets verified in wheel"
 
+      - name: Dashboard Smoke Test
+        run: |
+          pip install dist/*.whl
+          smart-router dashboard &
+          sleep 3
+          curl -fsSL http://127.0.0.1:8080 || (echo "❌ Dashboard not accessible" && exit 1)
+          echo "✓ Dashboard accessible"
+          pkill -f "smart-router dashboard" || true
+
+      # ===== 产物上传 =====
       - name: Generate SHA256 checksums
         run: |
           cd dist
           sha256sum * > ../checksums.sha256
-          echo "=== Generated checksums ==="
-          cat ../checksums.sha256
 
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v4
@@ -67,7 +97,6 @@ jobs:
           retention-days: 5
           if-no-files-found: error
 
-      # 生成 artifact attestation，用户可通过 gh attestation verify 验证构建来源
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v4
         with:
@@ -81,7 +110,6 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
-      # Trusted publishing（OIDC）只需 id-token: write，无需长期 API Token
       id-token: write
     steps:
       - name: Download dist artifacts
@@ -89,8 +117,7 @@ jobs:
         with:
           name: dist
           path: dist/
-
-      - name: Publish to PyPI via trusted publishing
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
   create-github-release:
@@ -104,76 +131,42 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Download dist artifacts
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
-
       - name: Download checksums
         uses: actions/download-artifact@v4
         with:
           name: checksums
-
       - name: Extract version
         id: extract_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      # 通过 GitHub API 获取自动生成的 release notes，再拼接自定义安装说明
-      - name: Generate release notes with installation guide
+      - name: Generate release notes
         id: generate_body
         run: |
           VERSION="${{ steps.extract_version.outputs.VERSION }}"
           REPO="${{ github.repository }}"
-
-          # 获取 GitHub 自动生成的 release notes
           AUTO_NOTES=$(gh api "repos/${REPO}/releases/generate-notes" \
             -f tag_name="v${VERSION}" \
             -f target_commitish="${{ github.sha }}" \
             --jq '.body')
-
-          # 自定义安装说明头部（使用双引号避免 YAML 解析问题）
           cat > RELEASE_BODY.md << EOF
           ## 📦 安装方式
-
-          ### pip（推荐）
+          ### pip
           \`\`\`bash
           pip install smartRouter==${VERSION}
           \`\`\`
-
-          ### Homebrew
-          \`\`\`bash
-          brew install --formula https://raw.githubusercontent.com/${REPO}/main/smart-router.rb
-          \`\`\`
-
-          ### curl（一键安装）
-          脚本会自动从 GitHub Release 下载版本化包并校验 SHA256：
+          ### curl
           \`\`\`bash
           curl -fsSL https://raw.githubusercontent.com/${REPO}/main/script/install-remote.sh | bash
           \`\`\`
-
-          ### 验证安装包完整性
-          下载 release 文件后，使用 checksums.sha256 校验：
-          \`\`\`bash
-          sha256sum -c checksums.sha256
-          \`\`\`
-
-          ### Artifact Attestation（构建来源验证）
-          本 release 的构建产物已生成 artifact attestation。可通过 GitHub CLI 验证：
-          \`\`\`bash
-          gh attestation verify dist/smartrouter-${VERSION}.tar.gz --repo ${REPO}
-          \`\`\`
-
           ---
-
           EOF
-
-          # 追加自动生成的 changelog
           echo "${AUTO_NOTES}" >> RELEASE_BODY.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
@@ -181,12 +174,9 @@ jobs:
             dist/*
             checksums.sha256
           body_path: RELEASE_BODY.md
-          draft: false
-          prerelease: false
 
   update-homebrew-formula:
     name: Update Homebrew Formula
-    # 确保 PyPI 已发布且 GitHub Release 已创建后再更新公式
     needs: [publish-to-pypi, create-github-release]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
@@ -198,58 +188,19 @@ jobs:
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract version
-        id: extract_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      # 从已发布的 GitHub Release 下载 checksums，而非重新从 PyPI 下载计算
-      # 避免网络中间人攻击导致的 SHA256 不一致
-      - name: Download checksums from release
-        id: get_sha256
+      - name: Extract version and update formula
         run: |
-          VERSION="${{ steps.extract_version.outputs.VERSION }}"
+          VERSION="${GITHUB_REF#refs/tags/v}"
           REPO="${{ github.repository }}"
-          CHECKSUM_URL="https://github.com/${REPO}/releases/download/v${VERSION}/checksums.sha256"
-
-          echo "Downloading checksums from: ${CHECKSUM_URL}"
-          curl -fsSL "${CHECKSUM_URL}" -o checksums.sha256
-
-          # 提取 sdist 的 SHA256
+          curl -fsSL "https://github.com/${REPO}/releases/download/v${VERSION}/checksums.sha256" -o checksums.sha256
           SHA256=$(grep "smartrouter-${VERSION}.tar.gz" checksums.sha256 | awk '{print $1}')
-
-          if [ -z "$SHA256" ]; then
-            echo "❌ Failed to extract SHA256 from checksums file"
-            cat checksums.sha256
-            exit 1
-          fi
-
-          echo "SHA256=${SHA256}" >> $GITHUB_OUTPUT
-          echo "✓ Extracted SHA256: ${SHA256}"
-
-      - name: Update Homebrew Formula
+          sed -i "s|url \".*\"|url \"https://files.pythonhosted.org/packages/source/s/smartrouter/smartrouter-${VERSION}.tar.gz\"|" smart-router.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" smart-router.rb
+      - name: Commit and push
         run: |
-          VERSION="${{ steps.extract_version.outputs.VERSION }}"
-          SHA256="${{ steps.get_sha256.outputs.SHA256 }}"
-          FORMULA="smart-router.rb"
-
-          # 更新 url 和 sha256
-          sed -i "s|url \".*\"|url \"https://files.pythonhosted.org/packages/source/s/smartrouter/smartrouter-${VERSION}.tar.gz\"|" "$FORMULA"
-          sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" "$FORMULA"
-
-          echo "=== Updated Formula ==="
-          cat "$FORMULA"
-
-      - name: Commit and push changes
-        run: |
-          VERSION="${{ steps.extract_version.outputs.VERSION }}"
+          VERSION="${GITHUB_REF#refs/tags/v}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add smart-router.rb
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            # [skip ci] 防止触发不必要的 CI 运行
-            git commit -m "chore: update Homebrew Formula to v${VERSION} [skip ci]"
-            git push origin main
-          fi
+          git diff --cached --quiet || git commit -m "chore: update Homebrew Formula to v${VERSION} [skip ci]"
+          git push origin main
