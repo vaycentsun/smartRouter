@@ -134,10 +134,14 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
     
     # 检查端口是否被占用（PID 文件丢失时的兜底检测）
     if _is_port_in_use(DEFAULT_PORT):
-        console.print(f"[yellow]端口 {DEFAULT_PORT} 已被占用，可能已有 Smart Router 实例在运行[/yellow]")
-        console.print(f"[dim]使用 `smart-router stop` 停止服务，或手动 kill 占用端口的进程[/dim]")
-        console.print(f"[dim]排查: lsof -i :{DEFAULT_PORT}[/dim]")
-        return
+        # 尝试自动清理孤儿进程
+        if _kill_orphan_process(DEFAULT_PORT):
+            pass  # 清理成功，继续启动
+        else:
+            console.print(f"[yellow]端口 {DEFAULT_PORT} 仍被占用，可能已有 Smart Router 实例在运行[/yellow]")
+            console.print(f"[dim]使用 `smart-router stop` 停止服务，或手动 kill 占用端口的进程[/dim]")
+            console.print(f"[dim]排查: lsof -i :{DEFAULT_PORT}[/dim]")
+            return
     
     # 清理旧的 PID 文件
     _remove_pid()
