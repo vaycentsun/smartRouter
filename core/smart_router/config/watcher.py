@@ -88,16 +88,19 @@ class ConfigWatcher:
             print(f"[ConfigWatcher] 配置重载失败: {e}")
 
 
-class _ConfigFileHandler(FileSystemEventHandler):
-    """内部事件处理器"""
-    
-    def __init__(self, callback):
-        self.callback = callback
-    
-    def on_modified(self, event):
-        if not event.is_directory:
-            self.callback(event)
-    
-    def on_created(self, event):
-        if not event.is_directory:
-            self.callback(event)
+if HAS_WATCHDOG:
+    class _ConfigFileHandler(FileSystemEventHandler):
+        """内部事件处理器"""
+
+        def __init__(self, callback):
+            self.callback = callback
+
+        def on_modified(self, event):
+            if not event.is_directory:
+                self.callback(event)
+
+        def on_created(self, event):
+            if not event.is_directory:
+                self.callback(event)
+else:
+    _ConfigFileHandler = None  # type: ignore[misc,assignment]
