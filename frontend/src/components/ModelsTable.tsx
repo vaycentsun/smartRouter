@@ -4,15 +4,31 @@ import type { ModelInfo } from '../types'
 const SORTABLE_KEYS = ['name', 'provider', 'available', 'quality', 'cost', 'context']
 
 function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
-  if (!active) return <span className="text-gray-300 ml-1">↕</span>
-  return <span className="text-blue-600 ml-1">{asc ? '↑' : '↓'}</span>
+  if (!active) return <span className="text-slate-600 ml-1 text-xs">↕</span>
+  return <span className="text-cyan-400 ml-1 text-xs">{asc ? '↑' : '↓'}</span>
 }
 
 function TaskBadge({ task }: { task: string }) {
   return (
-    <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded mr-1">
+    <span className="inline-block px-2 py-0.5 bg-cyan-400/5 text-cyan-300/80 text-xs rounded border border-cyan-400/10 mr-1">
       {task}
     </span>
+  )
+}
+
+function StarRating({ value, colorClass }: { value: number; colorClass: string }) {
+  const filled = Math.floor(value / 2)
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: 5 }, (_, i) => (
+        <span
+          key={i}
+          className={`text-xs ${i < filled ? colorClass : 'text-slate-700'}`}
+        >
+          ★
+        </span>
+      ))}
+    </div>
   )
 }
 
@@ -43,83 +59,74 @@ export function ModelsTable() {
     return 0
   })
 
+  const keyLabels: Record<string, string> = {
+    name: '模型名称',
+    provider: 'Provider',
+    available: '状态',
+    quality: 'Quality',
+    cost: 'Cost',
+    context: 'Context',
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow">
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">模型列表</h2>
+    <div className="glass-card rounded-xl">
+      <div className="p-4 border-b border-cyan-400/10 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-5 bg-cyan-400 rounded-full" />
+          <h2 className="text-base font-semibold text-slate-100 tracking-wide">模型列表</h2>
+        </div>
         <input
           type="text"
           placeholder="搜索模型或 Provider..."
           value={modelsFilter}
           onChange={(e) => setModelsFilter(e.target.value)}
-          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+          className="px-3 py-1.5 rounded-lg text-sm text-slate-200 placeholder-slate-600 input-glow w-64"
         />
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 text-gray-700">
+          <thead className="bg-slate-800/40 text-slate-400">
             <tr>
               {SORTABLE_KEYS.map((key) => (
                 <th
                   key={key}
                   onClick={() => setModelsSort(key)}
-                  className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-cyan-300 select-none transition-colors"
                 >
-                  {key === 'name'
-                    ? '模型名称'
-                    : key === 'provider'
-                    ? 'Provider'
-                    : key === 'available'
-                    ? '状态'
-                    : key === 'quality'
-                    ? 'Quality'
-                    : key === 'cost'
-                    ? 'Cost'
-                    : 'Context'}
-                  <SortIcon
-                    active={modelsSort.key === key}
-                    asc={modelsSort.asc}
-                  />
+                  {keyLabels[key]}
+                  <SortIcon active={modelsSort.key === key} asc={modelsSort.asc} />
                 </th>
               ))}
-              <th className="px-4 py-3 font-medium">支持任务</th>
+              <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">支持任务</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-slate-700/20">
             {sorted.map((model) => (
-              <tr key={model.name} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">
+              <tr key={model.name} className="table-row-hover">
+                <td className="px-4 py-3 font-medium text-slate-200">
                   {model.name}
                 </td>
-                <td className="px-4 py-3 text-gray-600">{model.provider}</td>
+                <td className="px-4 py-3 text-slate-400">{model.provider}</td>
                 <td className="px-4 py-3">
                   {model.available ? (
-                    <span className="text-green-600 font-medium">✓</span>
+                    <span className="inline-flex items-center gap-1.5 text-emerald-400 text-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-glow" />
+                      在线
+                    </span>
                   ) : (
-                    <span className="text-red-500 font-medium">✗</span>
+                    <span className="inline-flex items-center gap-1.5 text-red-400 text-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 pulse-glow-red" />
+                      离线
+                    </span>
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    <span className="text-yellow-500">
-                      {'★'.repeat(Math.floor(model.quality / 2))}
-                    </span>
-                    <span className="text-gray-300">
-                      {'★'.repeat(5 - Math.floor(model.quality / 2))}
-                    </span>
-                  </div>
+                  <StarRating value={model.quality} colorClass="text-amber-400" />
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    <span className="text-green-500">
-                      {'★'.repeat(Math.floor(model.cost / 2))}
-                    </span>
-                    <span className="text-gray-300">
-                      {'★'.repeat(5 - Math.floor(model.cost / 2))}
-                    </span>
-                  </div>
+                  <StarRating value={model.cost} colorClass="text-emerald-400" />
                 </td>
-                <td className="px-4 py-3 text-gray-600">
+                <td className="px-4 py-3 text-slate-400 font-mono text-xs">
                   {model.context >= 1000
                     ? `${Math.floor(model.context / 1000)}k`
                     : model.context}
@@ -130,7 +137,7 @@ export function ModelsTable() {
                       <TaskBadge key={task} task={task} />
                     ))}
                     {model.supported_tasks.length > 3 && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-slate-500">
                         +{model.supported_tasks.length - 3}
                       </span>
                     )}
@@ -142,7 +149,7 @@ export function ModelsTable() {
               <tr>
                 <td
                   colSpan={7}
-                  className="px-4 py-8 text-center text-gray-500"
+                  className="px-4 py-8 text-center text-slate-500"
                 >
                   {modelsFilter
                     ? '没有匹配的模型'

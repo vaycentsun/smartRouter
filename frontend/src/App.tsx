@@ -18,17 +18,20 @@ function App() {
   }, [fetchAll])
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-slate-900 bg-tech-grid bg-tech-gradient relative">
+      {/* 顶部光效 */}
+      <div className="fixed top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent pointer-events-none" />
+
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 relative z-10">
         {/* Error Alert */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="glass-card rounded-xl p-4 flex items-center justify-between border-red-400/20">
+            <p className="text-sm text-red-300">{error}</p>
             <button
               onClick={clearError}
-              className="text-sm text-red-500 hover:text-red-700"
+              className="text-sm text-red-400 hover:text-red-200 transition-colors"
             >
               关闭
             </button>
@@ -56,8 +59,8 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-gray-400">
-        Smart Router Dashboard v0.1
+      <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-slate-500 relative z-10">
+        Smart Router Dashboard
       </footer>
     </div>
   )
