@@ -1,6 +1,11 @@
 """V3 Plugin Adapter
 
 将 V3 配置适配到现有 SmartRouter 插件架构
+
+.. deprecated::
+    此模块已被弃用。请使用 router/plugin.py 中的 SmartRouterPlugin，
+    它已完全支持 V3 配置架构。
+    此文件保留仅作为备用，将在未来版本中移除。
 """
 
 from typing import List, Dict, Optional, Any
@@ -8,8 +13,7 @@ from pathlib import Path
 
 from litellm.router import Router
 
-from ..config.v3_loader import ConfigV3Loader
-from ..config.v3_schema import ConfigV3
+from ..config import Config, ConfigLoader
 from ..selector.v3_selector import V3ModelSelector
 from ..utils.markers import parse_markers
 
@@ -27,7 +31,7 @@ class SmartRouterV3Adapter(Router):
             config_dir: V3 配置目录（包含 providers.yaml, models.yaml, routing.yaml）
         """
         self.config_dir = Path(config_dir)
-        self.config: ConfigV3 = ConfigV3Loader(self.config_dir).load()
+        self.config: Config = ConfigLoader(self.config_dir).load()
         
         # 获取可用模型（API Key 已配置的模型）
         self.available_models = self.config.get_available_models()

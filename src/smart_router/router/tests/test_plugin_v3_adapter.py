@@ -164,8 +164,8 @@ class TestSmartRouterV3AdapterRouting:
         with patch('smart_router.router.plugin_v3_adapter.Router.__init__', return_value=None):
             adapter = SmartRouterV3Adapter(config_dir=v3_config_dir)
             
-            from smart_router.config.v3_schema import ConfigV3
-            assert isinstance(adapter.config, ConfigV3)
+            from smart_router.config import Config
+            assert isinstance(adapter.config, Config)
 
     def test_init_stores_config_dir(self, v3_config_dir):
         """初始化时应存储配置目录"""

@@ -12,12 +12,12 @@ class TestSmartRouterSelectModel:
     def test_select_model_auto_strategy(self):
         """测试 auto 策略路由"""
         from smart_router.selector.v3_selector import V3ModelSelector
-        from smart_router.config.v3_schema import (
-            ConfigV3, ProviderConfig, ModelConfig, ModelCapabilities,
+        from smart_router.config import (
+            Config, ProviderConfig, ModelConfig, ModelCapabilities,
             RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig
         )
 
-        config = ConfigV3(
+        config = Config(
             providers={
                 "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="test")
             },
