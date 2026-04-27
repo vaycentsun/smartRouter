@@ -8,8 +8,7 @@ from pathlib import Path
 
 from litellm.router import Router
 
-from ..config.v3_loader import ConfigV3Loader
-from ..config.v3_schema import ConfigV3
+from ..config import Config, ConfigLoader
 from ..selector.v3_selector import V3ModelSelector
 from ..utils.markers import parse_markers
 
@@ -27,7 +26,7 @@ class SmartRouterV3Adapter(Router):
             config_dir: V3 配置目录（包含 providers.yaml, models.yaml, routing.yaml）
         """
         self.config_dir = Path(config_dir)
-        self.config: ConfigV3 = ConfigV3Loader(self.config_dir).load()
+        self.config: Config = ConfigLoader(self.config_dir).load()
         
         # 获取可用模型（API Key 已配置的模型）
         self.available_models = self.config.get_available_models()

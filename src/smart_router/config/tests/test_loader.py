@@ -5,10 +5,10 @@ import tempfile
 from pathlib import Path
 
 from unittest.mock import patch
-from smart_router.config.v3_loader import ConfigV3Loader, ConfigV3Error, load_v3_config
+from smart_router.config import ConfigLoader, ConfigError, load_config
 
 
-class TestConfigV3Loader:
+class TestConfigLoader:
     """Test V3 Config Loader"""
     
     @pytest.fixture
@@ -69,7 +69,7 @@ fallback:
     
     def test_load_valid_config(self, valid_config_dir):
         """Test loading valid configuration"""
-        loader = ConfigV3Loader(valid_config_dir)
+        loader = ConfigLoader(valid_config_dir)
         config = loader.load()
         
         assert "openai" in config.providers
@@ -79,9 +79,9 @@ fallback:
     def test_missing_file(self):
         """Test error on missing config file"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            loader = ConfigV3Loader(Path(tmpdir))
+            loader = ConfigLoader(Path(tmpdir))
             
-            with pytest.raises(ConfigV3Error) as exc_info:
+            with pytest.raises(ConfigError) as exc_info:
                 loader.load()
             
             assert "not found" in str(exc_info.value)
@@ -108,16 +108,16 @@ strategies: {}
 fallback: {mode: auto}
 """)
             
-            loader = ConfigV3Loader(config_dir)
+            loader = ConfigLoader(config_dir)
             
-            with pytest.raises(ConfigV3Error) as exc_info:
+            with pytest.raises(ConfigError) as exc_info:
                 loader.load()
             
             assert "unknown provider" in str(exc_info.value).lower()
     
     def test_fallback_derivation(self, valid_config_dir):
         """Test fallback chain derivation"""
-        loader = ConfigV3Loader(valid_config_dir)
+        loader = ConfigLoader(valid_config_dir)
         config = loader.load()
         
         # 单模型场景，fallback 应为空
@@ -126,7 +126,7 @@ fallback: {mode: auto}
     
     def test_validate_method(self, valid_config_dir):
         """Test validate method returns empty list for valid config"""
-        loader = ConfigV3Loader(valid_config_dir)
+        loader = ConfigLoader(valid_config_dir)
         errors = loader.validate()
         
         assert errors == []
@@ -134,7 +134,7 @@ fallback: {mode: auto}
     def test_validate_with_missing_files(self):
         """Test validate returns errors for missing files"""
         with tempfile.TemporaryDirectory() as tmpdir:
-            loader = ConfigV3Loader(Path(tmpdir))
+            loader = ConfigLoader(Path(tmpdir))
             errors = loader.validate()
             
             assert len(errors) == 3
@@ -144,7 +144,7 @@ fallback: {mode: auto}
         """Test load_v3_config convenience function"""
         monkeypatch.chdir(valid_config_dir)
         
-        config = load_v3_config()
+        config = load_config()
         
         assert "openai" in config.providers
         assert "gpt-4o" in config.models
@@ -161,7 +161,7 @@ fallback: {mode: auto}
                 "tasks: {}\ndifficulties: {}\nstrategies: {}\nfallback: {}\n"
             )
             
-            loader = ConfigV3Loader(config_dir)
+            loader = ConfigLoader(config_dir)
             
             # 正常情况下不应有意外错误，这里通过 mock 模拟
             with patch.object(loader, 'load', side_effect=RuntimeError("Unexpected error")):
@@ -171,7 +171,7 @@ fallback: {mode: auto}
 
     def test_load_with_speed_in_capabilities(self, valid_config_dir):
         """capabilities 中包含 speed 字段时应被忽略（schema 不校验未知字段）"""
-        loader = ConfigV3Loader(valid_config_dir)
+        loader = ConfigLoader(valid_config_dir)
         config = loader.load()
         
         # 验证模型能正常加载，speed 字段作为额外字段存在

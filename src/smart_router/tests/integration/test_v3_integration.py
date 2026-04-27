@@ -7,8 +7,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from smart_router.config.v3_loader import ConfigV3Loader
-from smart_router.config.v3_schema import ConfigV3
+from smart_router.config import Config, ConfigLoader
 from smart_router.selector.v3_selector import V3ModelSelector
 
 
@@ -111,10 +110,10 @@ fallback:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic-test")
         
         # 1. 加载配置
-        loader = ConfigV3Loader(complete_config_dir)
+        loader = ConfigLoader(complete_config_dir)
         config = loader.load()
         
-        assert isinstance(config, ConfigV3)
+        assert isinstance(config, Config)
         assert "gpt-4o" in config.models
         assert "claude-3-opus" in config.models
         
@@ -149,7 +148,7 @@ fallback:
     
     def test_end_to_end_model_selection_scenarios(self, complete_config_dir):
         """测试端到端场景"""
-        loader = ConfigV3Loader(complete_config_dir)
+        loader = ConfigLoader(complete_config_dir)
         config = loader.load()
         selector = V3ModelSelector(config)
         
