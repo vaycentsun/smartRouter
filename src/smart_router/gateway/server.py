@@ -6,13 +6,89 @@ from typing import Optional
 
 from fastapi import Request
 from rich.console import Console
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..config.loader import ConfigLoader
 from ..config.schema import Config
+from ..config.watcher import ConfigWatcher
 from ..router.plugin import SmartRouter
 
 
 console = Console()
+
+
+class SmartRouterMiddleware(BaseHTTPMiddleware):
+    """智能路由中间件 — 在请求到达 LiteLLM 前注入模型选择逻辑
+    
+    使用 BaseHTTPMiddleware 子类而非 @app.middleware 装饰器，
+    确保可以通过 app.add_middleware() 在条件分支内注册，防止重复添加。
+    """
+    
+    def __init__(self, app, router: SmartRouter):
+        super().__init__(app)
+        self.router = router
+    
+    async def dispatch(self, request: Request, call_next):
+        # 只处理 chat/completions 请求
+        if request.url.path == "/v1/chat/completions" and request.method == "POST":
+            try:
+                # 读取请求体
+                body = await request.body()
+                if body:
+                    data = json.loads(body)
+                    original_model = data.get("model", "")
+                    
+                    # 检查是否需要智能路由
+                    should_route = (
+                        original_model in ("auto", "smart-router", "default") or
+                        original_model.startswith("stage:") or
+                        original_model.startswith("strategy-")
+                    )
+                    
+                    if should_route:
+                        messages = data.get("messages", [])
+                        
+                        try:
+                            result = self.router.select_model(
+                                model_hint=original_model,
+                                messages=messages
+                            )
+                            selected = result.model_name
+                            
+                            console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
+                            
+                            # 修改请求体
+                            data["model"] = selected
+                            
+                            # 保存到 request.state 供后续使用
+                            request.state.smart_router_selected = selected
+                            request.state.smart_router_original = original_model
+                            request.state.smart_router_task = result.task_type
+                            
+                            # 重新构建请求体
+                            modified_body = json.dumps(data).encode("utf-8")
+                            
+                            # 创建新的请求，使用修改后的 body
+                            async def receive():
+                                return {"type": "http.request", "body": modified_body, "more_body": False}
+                            
+                            request = Request(request.scope, receive, request._send)
+                        except Exception as e:
+                            console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
+            except Exception as e:
+                console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
+                import traceback
+                console.print(traceback.format_exc())
+        
+        response = await call_next(request)
+        
+        # 添加响应头
+        if hasattr(request.state, 'smart_router_selected'):
+            response.headers["X-Smart-Router-Model"] = request.state.smart_router_selected
+            response.headers["X-Smart-Router-Original"] = request.state.smart_router_original
+            response.headers["X-Smart-Router-Task"] = request.state.smart_router_task
+        
+        return response
 
 
 def start_server(config_path: Optional[Path] = None):
@@ -121,83 +197,30 @@ def start_server(config_path: Optional[Path] = None):
         
         import uvicorn
         from litellm.proxy.proxy_server import app
-        from starlette.middleware.base import BaseHTTPMiddleware
         
         app.state.smart_router = router
         
         # 在应用启动时只添加一次中间件
-        if not hasattr(app.state, '_smart_router_middleware_added'):
+        if not getattr(app.state, '_smart_router_middleware_added', False):
+            app.add_middleware(SmartRouterMiddleware, router=router)
             app.state._smart_router_middleware_added = True
-            
-            # 添加智能路由中间件（在请求处理前）
-            @app.middleware("http")
-            async def smart_router_middleware(request: Request, call_next):
-                # 只处理 chat/completions 请求
-                if request.url.path == "/v1/chat/completions" and request.method == "POST":
-                    try:
-                        # 读取请求体
-                        body = await request.body()
-                        if body:
-                            data = json.loads(body)
-                            original_model = data.get("model", "")
-                            
-                            # 检查是否需要智能路由
-                            should_route = (
-                                original_model in ("auto", "smart-router", "default") or
-                                original_model.startswith("stage:") or
-                                original_model.startswith("strategy-")
-                            )
-                            
-                            if should_route and hasattr(app.state, 'smart_router'):
-                                messages = data.get("messages", [])
-                                
-                                try:
-                                    result = app.state.smart_router.select_model(
-                                        model_hint=original_model,
-                                        messages=messages
-                                    )
-                                    selected = result.model_name
-                                    
-                                    console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
-                                    
-                                    # 修改请求体
-                                    data["model"] = selected
-                                    
-                                    # 保存到 request.state 供后续使用
-                                    request.state.smart_router_selected = selected
-                                    request.state.smart_router_original = original_model
-                                    request.state.smart_router_task = result.task_type
-                                    
-                                    # 重新构建请求体
-                                    modified_body = json.dumps(data).encode("utf-8")
-                                    
-                                    # 创建新的请求，使用修改后的 body
-                                    async def receive():
-                                        return {"type": "http.request", "body": modified_body, "more_body": False}
-                                    
-                                    request = Request(request.scope, receive, request._send)
-                                except Exception as e:
-                                    console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
-                    except Exception as e:
-                        console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
-                        import traceback
-                        console.print(traceback.format_exc())
-                
-                response = await call_next(request)
-                
-                # 添加响应头
-                if hasattr(request.state, 'smart_router_selected'):
-                    response.headers["X-Smart-Router-Model"] = request.state.smart_router_selected
-                    response.headers["X-Smart-Router-Original"] = request.state.smart_router_original
-                    response.headers["X-Smart-Router-Task"] = request.state.smart_router_task
-                
-                return response
         
-        uvicorn.run(
-            app,
-            host=host,
-            port=port,
+        # 启动配置热重载监听
+        watcher = ConfigWatcher(
+            config_dir=config_dir,
+            on_reload=router.reload_config
         )
+        watcher.start()
+        console.print("[dim]配置热重载已启用[/dim]")
+        
+        try:
+            uvicorn.run(
+                app,
+                host=host,
+                port=port,
+            )
+        finally:
+            watcher.stop()
         
     except ImportError as e:
         console.print(f"[red]启动失败: {e}[/red]")

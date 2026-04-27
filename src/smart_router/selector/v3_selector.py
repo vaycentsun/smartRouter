@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 from ..config.schema import Config
+from ..exceptions import NoModelAvailableError, UnknownStrategyError
 
 
 @dataclass
@@ -373,11 +374,4 @@ class V3ModelSelector:
         return 4000  # 默认回退值
 
 
-class NoModelAvailableError(Exception):
-    """没有可用模型"""
-    pass
 
-
-class UnknownStrategyError(Exception):
-    """未知策略"""
-    pass

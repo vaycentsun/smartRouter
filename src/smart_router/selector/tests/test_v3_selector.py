@@ -337,6 +337,38 @@ class TestV3ModelSelector:
         assert selector.get_required_context("expert") == 32000
         assert selector.get_required_context("unknown") == 4000  # 默认回退
 
+    def test_vision_strategy_with_vision_model(self):
+        """vision 策略有 vision 模型时选择 vision 能力最强的"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "vision-model": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/vision",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000, vision=True),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+                "non-vision": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/nonv",
+                    capabilities=ModelCapabilities(quality=10, cost=3, context=128000, vision=False),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                fallback=FallbackConfig()
+            )
+        )
+        selector = V3ModelSelector(config)
+        result = selector.select("chat", "easy", "vision")
+        assert result.model_name == "vision-model"
+        assert result.strategy == "vision"
+
     def test_vision_strategy_fallback_to_auto(self, sample_config):
         """vision 策略无 vision 模型时回退到 auto"""
         selector = V3ModelSelector(sample_config)
@@ -355,6 +387,32 @@ class TestV3ModelSelector:
         # 应回退到按 context 排序
         assert result.strategy == "long_context"
         assert result.model_name in ["gpt-4o", "gpt-4o-mini"]
+
+    def test_long_context_strategy_with_short_context_models(self):
+        """long_context 策略有小上下文模型时回退到 context_window"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "small-ctx": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/small",
+                    capabilities=ModelCapabilities(quality=5, cost=5, context=32000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                fallback=FallbackConfig()
+            )
+        )
+        selector = V3ModelSelector(config)
+        result = selector.select("chat", "easy", "long_context")
+        # 小上下文模型不满足 long_context 条件，应回退到 context_window
+        assert result.model_name == "small-ctx"
+        assert "context" in result.reason.lower()
 
     def test_reasoning_strategy_with_no_reasoning_models(self, sample_config):
         """reasoning 策略无 reasoning 评分模型时回退到 auto"""
@@ -520,3 +578,28 @@ class TestV3ModelSelector:
         # score = 8*0.5 + 5*0.5 = 4.0 + 2.5 = 6.5
         assert result.model_name == "model-a"
         assert result.score > 0
+
+    def test_auto_strategy_with_unknown_task(self):
+        """auto 策略遇到未知任务时应使用默认权重"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "model-a": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/a",
+                    capabilities=ModelCapabilities(quality=8, cost=5, context=128000),
+                    supported_tasks=["unknown_task"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                fallback=FallbackConfig()
+            )
+        )
+        selector = V3ModelSelector(config)
+        result = selector.select("unknown_task", "easy", "auto")
+        # 未知任务使用默认权重 quality=0.5, cost=0.5
+        assert result.model_name == "model-a"

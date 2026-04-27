@@ -343,3 +343,68 @@ class TestConfigFallbackChains:
         )
         chain = config.get_fallback_chain("gpt-4o")
         assert "claude-3-opus" in chain
+
+
+class TestProviderConfigRateLimit:
+    """测试 rate_limit 字段传递给 LiteLLM"""
+
+    def test_rate_limit_passed_to_litellm_params(self):
+        """provider 的 rate_limit 应映射为 rpm_limit 出现在 litellm_params 中"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(
+                    api_base="https://api.openai.com/v1",
+                    api_key="sk-test",
+                    rate_limit=60
+                )
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={},
+                strategies={},
+                fallback=FallbackConfig()
+            )
+        )
+
+        params = config.get_litellm_params("gpt-4o")
+        assert "rpm_limit" in params, f"rpm_limit 应出现在 litellm_params 中， got {params.keys()}"
+        assert params["rpm_limit"] == 60
+
+    def test_rate_limit_none_not_included(self):
+        """rate_limit 为 None 时不应出现在 litellm_params 中"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(
+                    api_base="https://api.openai.com/v1",
+                    api_key="sk-test",
+                    rate_limit=None
+                )
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={},
+                strategies={},
+                fallback=FallbackConfig()
+            )
+        )
+
+        params = config.get_litellm_params("gpt-4o")
+        assert "rpm_limit" not in params, "rate_limit 为 None 时不应包含 rpm_limit"

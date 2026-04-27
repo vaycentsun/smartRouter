@@ -77,6 +77,44 @@ class TestDisplayImageTerminal:
             result = open_image_terminal(Path("/tmp/test.png"))
             assert result is True
 
+    def test_kitty_command_fails(self):
+        """kitty 命令返回非零退出码时应继续尝试其他方式"""
+        with patch.dict("os.environ", {"TERM": "xterm-kitty"}, clear=False), \
+             patch("shutil.which", return_value="/usr/bin/kitty"), \
+             patch("subprocess.run", return_value=MagicMock(returncode=1)), \
+             patch.dict("os.environ", {}, clear=True):  # 清除其他终端变量
+            result = display_image_terminal(Path("/tmp/test.png"))
+            assert result is False
+
+    def test_iterm2_read_fails(self):
+        """iTerm2 读取图片失败时不应崩溃"""
+        with patch.dict("os.environ", {"TERM_PROGRAM": "iTerm.app"}, clear=False), \
+             patch("builtins.open", side_effect=IOError("cannot read")):
+            result = display_image_terminal(Path("/tmp/test.png"))
+            assert result is False
+
+    def test_chafa_terminal_size_fails(self):
+        """chafa 获取终端尺寸失败时不应崩溃"""
+        with patch("shutil.which", side_effect=lambda x: x == "chafa"), \
+             patch("subprocess.run", return_value=MagicMock(returncode=0)), \
+             patch("os.get_terminal_size", side_effect=OSError("no tty")):
+            result = display_image_terminal(Path("/tmp/test.png"))
+            assert result is False
+
+    def test_viu_command_fails(self):
+        """viu 命令失败时不应崩溃"""
+        with patch("shutil.which", side_effect=lambda x: x == "viu"), \
+             patch("subprocess.run", side_effect=Exception("command not found")):
+            result = display_image_terminal(Path("/tmp/test.png"))
+            assert result is False
+
+    def test_imgcat_command_fails(self):
+        """imgcat 命令失败时不应崩溃"""
+        with patch("shutil.which", side_effect=lambda x: x == "imgcat"), \
+             patch("subprocess.run", side_effect=Exception("command not found")):
+            result = display_image_terminal(Path("/tmp/test.png"))
+            assert result is False
+
 
 class TestOpenImageSystem:
     """系统图片打开测试"""
