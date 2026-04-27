@@ -1,4 +1,10 @@
-"""v2 模型选择器 - 基于模型能力声明"""
+"""v2 模型选择器 - 基于模型能力声明
+
+.. deprecated::
+    此模块已被弃用。请使用 selector/v3_selector.py 中的 V3ModelSelector，
+    它支持 9 种路由策略和完整的 V3 配置架构。
+    此文件保留仅作为备用，将在未来版本中移除。
+"""
 
 from typing import Dict, List, Optional, Literal
 from dataclasses import dataclass

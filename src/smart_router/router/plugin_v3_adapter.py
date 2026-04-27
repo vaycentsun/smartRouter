@@ -1,6 +1,11 @@
 """V3 Plugin Adapter
 
 将 V3 配置适配到现有 SmartRouter 插件架构
+
+.. deprecated::
+    此模块已被弃用。请使用 router/plugin.py 中的 SmartRouterPlugin，
+    它已完全支持 V3 配置架构。
+    此文件保留仅作为备用，将在未来版本中移除。
 """
 
 from typing import List, Dict, Optional, Any
