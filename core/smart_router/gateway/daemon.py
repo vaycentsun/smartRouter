@@ -7,6 +7,7 @@ import signal
 import sys
 import socket
 import subprocess
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -17,9 +18,32 @@ console = Console()
 # PID 文件默认位置
 DEFAULT_PID_DIR = Path.home() / ".smart-router"
 DEFAULT_PID_FILE = DEFAULT_PID_DIR / "smart-router.pid"
+START_TIME_FILE = DEFAULT_PID_DIR / "start_time"
 
 # 服务监听端口
 DEFAULT_PORT = 4000
+
+
+def _write_start_time():
+    """写入启动时间戳"""
+    _ensure_pid_dir()
+    START_TIME_FILE.write_text(str(time.time()))
+
+
+def _remove_start_time():
+    """删除启动时间文件"""
+    if START_TIME_FILE.exists():
+        START_TIME_FILE.unlink()
+
+
+def get_start_time() -> Optional[float]:
+    """获取服务启动时间戳"""
+    if START_TIME_FILE.exists():
+        try:
+            return float(START_TIME_FILE.read_text().strip())
+        except (ValueError, IOError):
+            return None
+    return None
 
 
 def _is_port_in_use(port: int = DEFAULT_PORT) -> bool:
@@ -141,8 +165,9 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
                 start_new_session=True,  # 创建新会话，脱离终端
             )
         
-        # 写入 PID 文件
+        # 写入 PID 文件和启动时间
         _write_pid(process.pid)
+        _write_start_time()
         
         console.print(f"[green]✓[/green] Smart Router 已启动")
         console.print(f"  PID: {process.pid}")
@@ -187,6 +212,7 @@ def stop_daemon():
             console.print(f"[yellow]已强制终止进程[/yellow]")
         
         _remove_pid()
+        _remove_start_time()
         console.print("[green]✓[/green] Smart Router 已停止")
         
     except Exception as e:
