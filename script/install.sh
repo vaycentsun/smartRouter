@@ -61,7 +61,7 @@ TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
 # 复制项目文件到临时目录
-cp -r "$PROJECT_DIR/src" "$TEMP_DIR/"
+cp -r "$PROJECT_DIR/core" "$TEMP_DIR/"
 cp -r "$PROJECT_DIR/script" "$TEMP_DIR/"
 cp -r "$PROJECT_DIR/config" "$TEMP_DIR/" 2>/dev/null || true
 cp "$PROJECT_DIR/pyproject.toml" "$TEMP_DIR/"
