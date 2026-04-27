@@ -21,7 +21,7 @@
 # 更新 pyproject.toml
 vim pyproject.toml  # version = "0.2.0"
 
-# 同步更新 src/smart_router/__init__.py 和 cli.py
+# 同步更新 core/smart_router/__init__.py 和 cli.py
 ```
 
 ---

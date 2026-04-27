@@ -383,17 +383,17 @@ User Request → LiteLLM Proxy → SmartRouter Plugin
 
 ### Components
 
-- `src/smart_router/cli.py` - CLI entry commands
-- `src/smart_router/plugin.py` - SmartRouter core plugin (V2 config)
-- `src/smart_router/plugin_v3_adapter.py` - V3 configuration adapter
-- `src/smart_router/server.py` - LiteLLM Proxy wrapper
-- `src/smart_router/config/` - Configuration loading and validation
+- `core/smart_router/cli.py` - CLI entry commands
+- `core/smart_router/plugin.py` - SmartRouter core plugin (V2 config)
+- `core/smart_router/plugin_v3_adapter.py` - V3 configuration adapter
+- `core/smart_router/server.py` - LiteLLM Proxy wrapper
+- `core/smart_router/config/` - Configuration loading and validation
   - `v3_schema.py` - V3 Pydantic schemas
   - `v3_loader.py` - V3 three-file config loader
-- `src/smart_router/classifier/` - Task classifier (L1 Rules + L2 Embedding)
-- `src/smart_router/selector/` - Model selection strategies
+- `core/smart_router/classifier/` - Task classifier (L1 Rules + L2 Embedding)
+- `core/smart_router/selector/` - Model selection strategies
   - `v3_selector.py` - V3 capability-based selector
-- `src/smart_router/utils/` - Utility functions
+- `core/smart_router/utils/` - Utility functions
 
 ---
 
