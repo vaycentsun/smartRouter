@@ -818,9 +818,24 @@ def coffee(
 def dashboard(
     port: int = typer.Option(8080, "--port", "-p", help="Dashboard port"),
     host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind host"),
+    daemon: bool = typer.Option(False, "--daemon", "-d", help="后台运行"),
+    stop: bool = typer.Option(False, "--stop", help="停止 Dashboard"),
+    status: bool = typer.Option(False, "--status", help="查看 Dashboard 状态"),
 ):
-    """启动 Web Dashboard"""
-    import uvicorn
+    """启动/停止 Web Dashboard"""
+    from .gateway.daemon import (
+        start_dashboard_daemon,
+        stop_dashboard_daemon,
+        check_dashboard_status,
+    )
+
+    if stop:
+        stop_dashboard_daemon()
+        return
+
+    if status:
+        check_dashboard_status()
+        return
 
     static_dir = Path(__file__).parent / "web" / "static"
     if not static_dir.exists() or not (static_dir / "index.html").exists():
@@ -828,8 +843,7 @@ def dashboard(
         console.print("[dim]  请先运行: make build-web[/dim]")
         raise typer.Exit(1)
 
-    console.print(f"[green]🚀 Dashboard: http://{host}:{port}[/green]")
-    uvicorn.run("smart_router.web.server:app", host=host, port=port)
+    start_dashboard_daemon(host=host, port=port, foreground=not daemon)
 
 
 def main():

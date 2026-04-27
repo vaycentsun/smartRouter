@@ -3,6 +3,8 @@
 import pytest
 import os
 import signal
+import subprocess
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -20,6 +22,15 @@ from smart_router.gateway.daemon import (
     view_logs,
     DEFAULT_PID_DIR,
     DEFAULT_PID_FILE,
+    _get_pid_from_file,
+    _write_pid_to_file,
+    _remove_pid_file,
+    _kill_orphan_process,
+    start_dashboard_daemon,
+    stop_dashboard_daemon,
+    check_dashboard_status,
+    DASHBOARD_PID_FILE,
+    DASHBOARD_PORT,
 )
 
 
@@ -303,7 +314,8 @@ class TestCheckStatus:
 
     def test_not_running(self, capsys):
         """服务未运行"""
-        with patch("smart_router.gateway.daemon._get_pid", return_value=None):
+        with patch("smart_router.gateway.daemon._get_pid", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=False):
             result = check_status()
             captured = capsys.readouterr()
             assert "未运行" in captured.out
@@ -495,3 +507,263 @@ class TestViewLogsEdgeCases:
              patch.object(time, "sleep"):
             # 由于 follow 模式涉及 while True，我们通过 KeyboardInterrupt 退出
             pass  # 已在基本测试中覆盖
+
+
+class TestGenericPidFileHelpers:
+    """通用 PID 文件辅助函数测试"""
+
+    def test_get_pid_from_file_exists(self, tmp_path):
+        """PID 文件存在时读取正确"""
+        pid_file = tmp_path / "test.pid"
+        pid_file.write_text("12345")
+        assert _get_pid_from_file(pid_file) == 12345
+
+    def test_get_pid_from_file_not_exists(self, tmp_path):
+        """PID 文件不存在时返回 None"""
+        pid_file = tmp_path / "test.pid"
+        assert _get_pid_from_file(pid_file) is None
+
+    def test_get_pid_from_file_invalid(self, tmp_path):
+        """PID 文件内容无效时返回 None"""
+        pid_file = tmp_path / "test.pid"
+        pid_file.write_text("invalid")
+        assert _get_pid_from_file(pid_file) is None
+
+    def test_write_and_remove_pid_file(self, tmp_path):
+        """写入并删除 PID 文件"""
+        pid_file = tmp_path / "test.pid"
+        _write_pid_to_file(pid_file, 54321)
+        assert pid_file.read_text() == "54321"
+        _remove_pid_file(pid_file)
+        assert not pid_file.exists()
+
+    def test_remove_pid_file_not_exists(self, tmp_path):
+        """删除不存在的 PID 文件不报错"""
+        pid_file = tmp_path / "test.pid"
+        _remove_pid_file(pid_file)
+
+
+class TestKillOrphanProcess:
+    """孤儿进程清理测试"""
+
+    def test_no_orphan(self):
+        """没有孤儿进程时直接返回 True"""
+        with patch("smart_router.gateway.daemon._is_port_in_use", return_value=False):
+            assert _kill_orphan_process(9999) is True
+
+    def test_kill_orphan_success(self, capsys):
+        """成功清理孤儿进程"""
+        with patch("smart_router.gateway.daemon._is_port_in_use", return_value=False), \
+             patch("smart_router.gateway.daemon.subprocess.run") as mock_run:
+            mock_run.return_value.stdout = "12345\n"
+            mock_run.return_value.returncode = 0
+            with patch("smart_router.gateway.daemon.os.kill") as mock_kill:
+                assert _kill_orphan_process(8080) is True
+                mock_kill.assert_called_once_with(12345, signal.SIGKILL)
+                captured = capsys.readouterr()
+                assert "孤儿进程" in captured.out
+
+    def test_kill_orphan_still_occupied(self):
+        """清理后端口仍被占用返回 False"""
+        with patch("smart_router.gateway.daemon._is_port_in_use", return_value=True), \
+             patch("smart_router.gateway.daemon.subprocess.run") as mock_run:
+            mock_run.return_value.stdout = "12345\n"
+            mock_run.return_value.returncode = 0
+            with patch("smart_router.gateway.daemon.os.kill"):
+                assert _kill_orphan_process(8080) is False
+
+    def test_kill_orphan_lsof_fails(self):
+        """lsof 执行失败时返回当前端口状态"""
+        with patch("smart_router.gateway.daemon._is_port_in_use", return_value=False), \
+             patch("smart_router.gateway.daemon.subprocess.run", side_effect=subprocess.CalledProcessError(1, "lsof")):
+            assert _kill_orphan_process(8080) is True
+
+
+class TestStartDashboardDaemon:
+    """start_dashboard_daemon 测试"""
+
+    @pytest.fixture(autouse=True)
+    def cleanup_dashboard_pid(self):
+        if DASHBOARD_PID_FILE.exists():
+            DASHBOARD_PID_FILE.unlink()
+        yield
+        if DASHBOARD_PID_FILE.exists():
+            DASHBOARD_PID_FILE.unlink()
+
+    def test_already_running(self, capsys):
+        """Dashboard 已在运行时提示"""
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", return_value=True):
+            start_dashboard_daemon()
+            captured = capsys.readouterr()
+            assert "已在运行" in captured.out
+
+    def test_port_in_use_orphan_cleaned(self, capsys):
+        """端口被孤儿进程占用时自动清理并启动"""
+        mock_process = MagicMock()
+        mock_process.pid = 99999
+
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", side_effect=[True, False]), \
+             patch("smart_router.gateway.daemon._kill_orphan_process", return_value=True), \
+             patch("smart_router.gateway.daemon._remove_pid_file"), \
+             patch("uvicorn.run"):
+            start_dashboard_daemon()
+            captured = capsys.readouterr()
+            assert "Dashboard:" in captured.out
+
+    def test_port_in_use_cannot_clean(self):
+        """端口占用无法清理时退出"""
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=True), \
+             patch("smart_router.gateway.daemon._kill_orphan_process", return_value=False):
+            with pytest.raises(SystemExit):
+                start_dashboard_daemon()
+
+    def test_foreground_start_writes_pid(self, tmp_path, capsys):
+        """前台模式启动时写入 PID 文件"""
+        pid_file = tmp_path / "dashboard.pid"
+
+        def mock_uvicorn_run(*args, **kwargs):
+            assert pid_file.exists()
+            assert int(pid_file.read_text()) == os.getpid()
+
+        with patch("smart_router.gateway.daemon.DASHBOARD_PID_FILE", pid_file), \
+             patch("smart_router.gateway.daemon._get_pid_from_file", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=False), \
+             patch("uvicorn.run", side_effect=mock_uvicorn_run):
+            start_dashboard_daemon()
+            captured = capsys.readouterr()
+            assert "Dashboard:" in captured.out
+
+    def test_daemon_start(self, capsys):
+        """后台模式启动 Dashboard"""
+        mock_process = MagicMock()
+        mock_process.pid = 99999
+
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=False), \
+             patch("smart_router.gateway.daemon._remove_pid_file"), \
+             patch("smart_router.gateway.daemon.subprocess.Popen", return_value=mock_process) as mock_popen, \
+             patch("smart_router.gateway.daemon._write_pid_to_file") as mock_write:
+            start_dashboard_daemon(foreground=False)
+            mock_popen.assert_called_once()
+            mock_write.assert_called_once_with(DASHBOARD_PID_FILE, 99999)
+            captured = capsys.readouterr()
+            assert "已启动" in captured.out
+
+    def test_foreground_cleanup_on_exit(self, tmp_path):
+        """前台模式退出时清理 PID 文件"""
+        pid_file = tmp_path / "dashboard.pid"
+
+        with patch("smart_router.gateway.daemon.DASHBOARD_PID_FILE", pid_file), \
+             patch("smart_router.gateway.daemon._get_pid_from_file", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=False), \
+             patch("uvicorn.run", side_effect=KeyboardInterrupt()):
+            try:
+                start_dashboard_daemon()
+            except KeyboardInterrupt:
+                pass
+            assert not pid_file.exists()
+
+
+class TestStopDashboardDaemon:
+    """stop_dashboard_daemon 测试"""
+
+    @pytest.fixture(autouse=True)
+    def cleanup(self):
+        if DASHBOARD_PID_FILE.exists():
+            DASHBOARD_PID_FILE.unlink()
+        yield
+        if DASHBOARD_PID_FILE.exists():
+            DASHBOARD_PID_FILE.unlink()
+
+    def test_not_running(self, capsys):
+        """Dashboard 未运行时提示"""
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=None):
+            stop_dashboard_daemon()
+            captured = capsys.readouterr()
+            assert "未运行" in captured.out
+
+    def test_process_not_exists(self, capsys):
+        """进程不存在时清理 PID 文件"""
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", return_value=False), \
+             patch("smart_router.gateway.daemon._remove_pid_file") as mock_remove:
+            stop_dashboard_daemon()
+            captured = capsys.readouterr()
+            assert "已不存在" in captured.out
+            mock_remove.assert_called_once()
+
+    def test_stop_success(self, capsys):
+        """成功停止 Dashboard"""
+        call_count = [0]
+
+        def mock_is_running(pid):
+            call_count[0] += 1
+            if call_count[0] <= 3:
+                return True
+            return False
+
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", side_effect=mock_is_running), \
+             patch("smart_router.gateway.daemon.os.kill") as mock_kill, \
+             patch("smart_router.gateway.daemon._remove_pid_file"), \
+             patch.object(time, "sleep"):
+            stop_dashboard_daemon()
+            captured = capsys.readouterr()
+            assert "已停止" in captured.out
+            mock_kill.assert_called_with(12345, signal.SIGTERM)
+
+    def test_stop_force_kill(self, capsys):
+        """SIGTERM 失败后强制 SIGKILL"""
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", return_value=True), \
+             patch("smart_router.gateway.daemon.os.kill") as mock_kill, \
+             patch("smart_router.gateway.daemon._remove_pid_file"), \
+             patch.object(time, "sleep"):
+            stop_dashboard_daemon()
+            captured = capsys.readouterr()
+            assert "强制" in captured.out
+            assert mock_kill.call_count == 2
+
+
+class TestCheckDashboardStatus:
+    """check_dashboard_status 测试"""
+
+    def test_not_running(self, capsys):
+        """Dashboard 未运行"""
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=False):
+            result = check_dashboard_status()
+            captured = capsys.readouterr()
+            assert "未运行" in captured.out
+            assert result is False
+
+    def test_running(self, capsys):
+        """Dashboard 运行中"""
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", return_value=True):
+            result = check_dashboard_status()
+            captured = capsys.readouterr()
+            assert "运行中" in captured.out
+            assert result is True
+
+    def test_pid_exists_but_process_not(self, capsys):
+        """PID 文件存在但进程不存在"""
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=12345), \
+             patch("smart_router.gateway.daemon._is_process_running", return_value=False), \
+             patch("smart_router.gateway.daemon._remove_pid_file"):
+            result = check_dashboard_status()
+            captured = capsys.readouterr()
+            assert "已不存在" in captured.out
+            assert result is False
+
+    def test_port_in_use_no_pid_file(self, capsys):
+        """端口被占用但 PID 文件丢失"""
+        with patch("smart_router.gateway.daemon._get_pid_from_file", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=True):
+            result = check_dashboard_status()
+            captured = capsys.readouterr()
+            assert "被占用" in captured.out
+            assert result is True
