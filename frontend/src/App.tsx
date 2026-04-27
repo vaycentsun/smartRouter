@@ -3,6 +3,7 @@ import { useDashboardStore } from './store/useDashboardStore'
 import { Header } from './components/Header'
 import { StatusCard } from './components/StatusCard'
 import { StatsOverview } from './components/StatsOverview'
+import { ProvidersTable } from './components/ProvidersTable'
 import { ModelsTable } from './components/ModelsTable'
 import { DryRunPanel } from './components/DryRunPanel'
 
@@ -46,6 +47,9 @@ function App() {
             <DryRunPanel />
           </div>
         </div>
+
+        {/* Providers Table */}
+        <ProvidersTable />
 
         {/* Models Table */}
         <ModelsTable />

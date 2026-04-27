@@ -5,6 +5,7 @@ import type {
   ProvidersResponse,
   DryRunRequest,
   DryRunResult,
+  ProviderUpdate,
 } from '../types'
 
 const client = axios.create({
@@ -27,4 +28,6 @@ export const api = {
   dryRun: (data: DryRunRequest) =>
     client.post<DryRunResult>('/api/dry-run', data).then((r) => r.data),
   stopService: () => client.post('/api/stop').then((r) => r.data),
+  putProviders: (data: Record<string, ProviderUpdate>) =>
+    client.put<{ success: boolean; errors?: string[] }>('/api/providers', { providers: data }).then((r) => r.data),
 }

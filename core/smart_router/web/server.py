@@ -106,7 +106,7 @@ async def providers():
         cfg = loader.load()
     except Exception:
         return {"providers": []}
-    
+
     result = []
     for name, provider in cfg.providers.items():
         if provider.api_key.startswith("os.environ/"):
@@ -116,7 +116,7 @@ async def providers():
         else:
             has_key = True
             key_type = "direct"
-        
+
         result.append({
             "name": name,
             "api_base": provider.api_base,
@@ -124,8 +124,47 @@ async def providers():
             "key_type": key_type,
             "has_key": has_key,
         })
-    
+
     return {"providers": result}
+
+
+class ProviderUpdate(BaseModel):
+    api_base: Optional[str] = None
+    api_key: Optional[str] = None
+    timeout: Optional[int] = None
+
+
+class ProvidersUpdateRequest(BaseModel):
+    providers: dict[str, ProviderUpdate]
+
+
+@app.put("/api/providers")
+async def update_providers(request: ProvidersUpdateRequest):
+    config_dir = Path.home() / ".smart-router"
+    loader = ConfigLoader(config_dir)
+
+    try:
+        # 读取当前 providers.yaml 以保留其他顶层字段（如果有的话）
+        current = loader._load_yaml("providers.yaml")
+        providers_node = current.get("providers", {})
+
+        # 用请求体中的非 None 字段逐个覆盖对应 provider
+        for name, update in request.providers.items():
+            if name not in providers_node:
+                return {"success": False, "errors": [f"Provider not found: {name}"]}
+
+            existing = providers_node[name]
+            if update.api_base is not None:
+                existing["api_base"] = update.api_base
+            if update.api_key is not None:
+                existing["api_key"] = update.api_key
+            if update.timeout is not None:
+                existing["timeout"] = update.timeout
+
+        loader.save_providers(providers_node)
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "errors": [str(e)]}
 
 
 class DryRunRequest(BaseModel):
