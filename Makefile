@@ -1,7 +1,12 @@
 .PHONY: build build-web test install clean dev-web dev-core
 
+# 前端依赖安装（仅当 package-lock.json 更新时重新执行）
+frontend/node_modules/.package-lock.json: frontend/package-lock.json
+	cd frontend && npm ci
+	@touch frontend/node_modules/.package-lock.json
+
 # 前端开发服务器
-dev-web:
+dev-web: frontend/node_modules/.package-lock.json
 	cd frontend && npm run dev
 
 # Python 开发安装
@@ -9,7 +14,7 @@ dev-core:
 	pip3 install -e ".[dev]"
 
 # 前端构建并嵌入 Python 包
-build-web:
+build-web: frontend/node_modules/.package-lock.json
 	cd frontend && npm run build
 	rm -rf core/smart_router/web/static
 	mkdir -p core/smart_router/web/static
