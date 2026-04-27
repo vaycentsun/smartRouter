@@ -35,6 +35,12 @@ export interface ProvidersResponse {
   providers: ProviderInfo[]
 }
 
+export interface ProviderUpdate {
+  api_base: string
+  api_key?: string
+  timeout: number
+}
+
 export interface DryRunRequest {
   prompt: string
   strategy: string

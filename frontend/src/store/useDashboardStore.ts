@@ -5,6 +5,7 @@ import type {
   ProviderInfo,
   DryRunResult,
   Strategy,
+  ProviderUpdate,
 } from '../types'
 import { api } from '../api/client'
 
@@ -17,7 +18,9 @@ interface DashboardState {
 
   // UI
   isLoading: boolean
+  isSavingProviders: boolean
   error: string | null
+  toast: { message: string; type: 'success' | 'error' } | null
   modelsFilter: string
   modelsSort: { key: string; asc: boolean }
 
@@ -25,9 +28,11 @@ interface DashboardState {
   fetchAll: () => Promise<void>
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
   stopService: () => Promise<void>
+  saveProviders: (providers: Record<string, ProviderUpdate>) => Promise<void>
   setModelsFilter: (filter: string) => void
   setModelsSort: (key: string) => void
   clearError: () => void
+  clearToast: () => void
 }
 
 export const useDashboardStore = create<DashboardState>((set, get) => ({
@@ -36,7 +41,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   providers: [],
   dryRunResult: null,
   isLoading: false,
+  isSavingProviders: false,
   error: null,
+  toast: null,
   modelsFilter: '',
   modelsSort: { key: 'name', asc: true },
 
@@ -80,6 +87,24 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
   },
 
+  saveProviders: async (providers: Record<string, ProviderUpdate>) => {
+    set({ isSavingProviders: true, error: null, toast: null })
+    try {
+      const result = await api.putProviders(providers)
+      if (result.success) {
+        set({ toast: { message: 'Provider 配置已保存', type: 'success' } })
+        await get().fetchAll()
+      } else {
+        set({ error: result.errors?.join('; ') || '保存失败', toast: { message: '保存失败', type: 'error' } })
+      }
+    } catch (err) {
+      const msg = (err as Error).message
+      set({ error: msg, toast: { message: msg, type: 'error' } })
+    } finally {
+      set({ isSavingProviders: false })
+    }
+  },
+
   setModelsFilter: (filter: string) => set({ modelsFilter: filter }),
 
   setModelsSort: (key: string) => {
@@ -92,4 +117,5 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+  clearToast: () => set({ toast: null }),
 }))

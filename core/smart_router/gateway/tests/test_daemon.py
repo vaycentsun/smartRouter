@@ -171,10 +171,11 @@ class TestStartDaemon:
         mock_process.pid = 99999
 
         with patch("smart_router.gateway.daemon._get_pid", return_value=None), \
-             patch("smart_router.gateway.daemon._is_port_in_use", return_value=True):
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=True), \
+             patch("smart_router.gateway.daemon._kill_orphan_process", return_value=False):
             start_daemon()
             captured = capsys.readouterr()
-            assert "端口 4000 已被占用" in captured.out
+            assert "端口 4000 仍被占用" in captured.out
 
     def test_start_success(self, capsys):
         """成功启动服务"""
