@@ -162,7 +162,7 @@ backup_existing_configs
 
 download_config() {
     local filename=$1
-    local url="https://raw.githubusercontent.com/${REPO}/main/src/smart_router/templates/${filename}"
+    local url="https://raw.githubusercontent.com/${REPO}/main/core/smart_router/templates/${filename}"
     local output="${CONFIG_DIR}/${filename}"
 
     if curl -fsSL "$url" -o "$output" 2>/dev/null; then
