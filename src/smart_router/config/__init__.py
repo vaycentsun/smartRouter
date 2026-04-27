@@ -12,6 +12,7 @@ from .schema import (
     Config,
 )
 from .loader import ConfigLoader, ConfigError, load_config
+from ..selector.v3_selector import NoModelAvailableError, UnknownStrategyError
 
 # 向后兼容别名
 ConfigV3 = Config
@@ -32,6 +33,8 @@ __all__ = [
     "ConfigLoader",
     "ConfigError",
     "load_config",
+    "NoModelAvailableError",
+    "UnknownStrategyError",
     # 向后兼容别名
     "ConfigV3",
     "ConfigV3Loader",
