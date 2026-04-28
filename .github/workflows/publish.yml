@@ -69,7 +69,7 @@ jobs:
       - name: Dashboard Smoke Test
         run: |
           pip install dist/*.whl
-          smart-router dashboard &
+          smart-router dashboard --foreground &
           sleep 3
           curl -fsSL http://127.0.0.1:8080 || (echo "❌ Dashboard not accessible" && exit 1)
           echo "✓ Dashboard accessible"
