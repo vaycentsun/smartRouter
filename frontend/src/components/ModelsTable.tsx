@@ -4,13 +4,13 @@ import type { ModelInfo } from '../types'
 const SORTABLE_KEYS = ['name', 'provider', 'available', 'quality', 'cost', 'context']
 
 function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
-  if (!active) return <span className="text-slate-600 ml-1 text-xs">↕</span>
-  return <span className="text-cyan-400 ml-1 text-xs">{asc ? '↑' : '↓'}</span>
+  if (!active) return <span className="text-[rgba(0,0,0,0.12)] ml-1 text-xs">↕</span>
+  return <span className="text-[#007AFF] ml-1 text-xs">{asc ? '↑' : '↓'}</span>
 }
 
 function TaskBadge({ task }: { task: string }) {
   return (
-    <span className="inline-block px-2 py-0.5 bg-cyan-400/5 text-cyan-300/80 text-xs rounded border border-cyan-400/10 mr-1">
+    <span className="inline-block px-2 py-0.5 bg-[rgba(0,122,255,0.06)] text-[#007AFF]/80 text-xs rounded border border-[rgba(0,122,255,0.12)] mr-1">
       {task}
     </span>
   )
@@ -23,7 +23,7 @@ function StarRating({ value, colorClass }: { value: number; colorClass: string }
       {Array.from({ length: 5 }, (_, i) => (
         <span
           key={i}
-          className={`text-xs ${i < filled ? colorClass : 'text-slate-700'}`}
+          className={`text-xs ${i < filled ? colorClass : 'text-[rgba(0,0,0,0.08)]'}`}
         >
           ★
         </span>
@@ -69,29 +69,29 @@ export function ModelsTable() {
   }
 
   return (
-    <div className="glass-card rounded-xl">
-      <div className="p-4 border-b border-cyan-400/10 flex items-center justify-between">
+    <div className="glass-card rounded-2xl">
+      <div className="p-4 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-1 h-5 bg-cyan-400 rounded-full" />
-          <h2 className="text-base font-semibold text-slate-100 tracking-wide">模型列表</h2>
+          <div className="w-1 h-5 bg-[#007AFF] rounded-full" />
+          <h2 className="text-base font-semibold text-[#1d1d1f] tracking-wide">模型列表</h2>
         </div>
         <input
           type="text"
           placeholder="搜索模型或 Provider..."
           value={modelsFilter}
           onChange={(e) => setModelsFilter(e.target.value)}
-          className="px-3 py-1.5 rounded-lg text-sm text-slate-200 placeholder-slate-600 input-glow w-64"
+          className="px-3 py-1.5 rounded-xl text-sm input-glow w-64"
         />
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="bg-slate-800/40 text-slate-400">
+          <thead className="bg-[rgba(0,0,0,0.02)] text-[#86868b]">
             <tr>
               {SORTABLE_KEYS.map((key) => (
                 <th
                   key={key}
                   onClick={() => setModelsSort(key)}
-                  className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-cyan-300 select-none transition-colors"
+                  className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-[#007AFF] select-none transition-colors"
                 >
                   {keyLabels[key]}
                   <SortIcon active={modelsSort.key === key} asc={modelsSort.asc} />
@@ -100,33 +100,33 @@ export function ModelsTable() {
               <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">支持任务</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700/20">
+          <tbody className="divide-y divide-[rgba(0,0,0,0.04)]">
             {sorted.map((model) => (
               <tr key={model.name} className="table-row-hover">
-                <td className="px-4 py-3 font-medium text-slate-200">
+                <td className="px-4 py-3 font-medium text-[#1d1d1f]">
                   {model.name}
                 </td>
-                <td className="px-4 py-3 text-slate-400">{model.provider}</td>
+                <td className="px-4 py-3 text-[#86868b]">{model.provider}</td>
                 <td className="px-4 py-3">
                   {model.available ? (
-                    <span className="inline-flex items-center gap-1.5 text-emerald-400 text-sm">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-glow" />
+                    <span className="inline-flex items-center gap-1.5 text-[#34C759] text-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#34C759] pulse-glow" />
                       在线
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 text-red-400 text-sm">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 pulse-glow-red" />
+                    <span className="inline-flex items-center gap-1.5 text-[#FF3B30] text-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] pulse-glow-red" />
                       离线
                     </span>
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <StarRating value={model.quality} colorClass="text-amber-400" />
+                  <StarRating value={model.quality} colorClass="text-[#FF9500]" />
                 </td>
                 <td className="px-4 py-3">
-                  <StarRating value={model.cost} colorClass="text-emerald-400" />
+                  <StarRating value={model.cost} colorClass="text-[#FF9500]" />
                 </td>
-                <td className="px-4 py-3 text-slate-400 font-mono text-xs">
+                <td className="px-4 py-3 text-[#86868b] font-mono text-xs">
                   {model.context >= 1000
                     ? `${Math.floor(model.context / 1000)}k`
                     : model.context}
@@ -137,7 +137,7 @@ export function ModelsTable() {
                       <TaskBadge key={task} task={task} />
                     ))}
                     {model.supported_tasks.length > 3 && (
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-[#a1a1a6]">
                         +{model.supported_tasks.length - 3}
                       </span>
                     )}
@@ -149,7 +149,7 @@ export function ModelsTable() {
               <tr>
                 <td
                   colSpan={7}
-                  className="px-4 py-8 text-center text-slate-500"
+                  className="px-4 py-8 text-center text-[#a1a1a6]"
                 >
                   {modelsFilter
                     ? '没有匹配的模型'

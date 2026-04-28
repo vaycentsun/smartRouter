@@ -13,7 +13,7 @@ function StatusDot({ hasKey }: { hasKey: boolean }) {
   return (
     <span
       className={`inline-block w-2.5 h-2.5 rounded-full ${
-        hasKey ? 'bg-emerald-400 pulse-glow' : 'bg-red-400 pulse-glow-red'
+        hasKey ? 'bg-[#34C759] pulse-glow' : 'bg-[#FF3B30] pulse-glow-red'
       }`}
       title={hasKey ? 'Key 已配置' : 'Key 缺失'}
     />
@@ -91,30 +91,30 @@ export function ProvidersTable() {
 
   if (providers.length === 0) {
     return (
-      <div className="glass-card rounded-xl p-6">
+      <div className="glass-card rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-1 h-5 bg-violet-400 rounded-full" />
-          <h2 className="text-base font-semibold text-slate-100 tracking-wide">Provider 配置</h2>
+          <div className="w-1 h-5 bg-[#AF52DE] rounded-full" />
+          <h2 className="text-base font-semibold text-[#1d1d1f] tracking-wide">Provider 配置</h2>
         </div>
-        <p className="text-slate-500 text-sm">暂无 Provider 数据</p>
+        <p className="text-[#a1a1a6] text-sm">暂无 Provider 数据</p>
       </div>
     )
   }
 
   return (
-    <div className="glass-card rounded-xl">
-      <div className="p-4 border-b border-cyan-400/10 flex items-center justify-between">
+    <div className="glass-card rounded-2xl">
+      <div className="p-4 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-1 h-5 bg-violet-400 rounded-full" />
-          <h2 className="text-base font-semibold text-slate-100 tracking-wide">Provider 配置</h2>
+          <div className="w-1 h-5 bg-[#AF52DE] rounded-full" />
+          <h2 className="text-base font-semibold text-[#1d1d1f] tracking-wide">Provider 配置</h2>
         </div>
         <div className="flex items-center gap-3">
           {toast && (
             <span
               className={`text-xs px-3 py-1 rounded-full font-mono ${
                 toast.type === 'success'
-                  ? 'bg-emerald-400/10 text-emerald-300 border border-emerald-400/20'
-                  : 'bg-red-400/10 text-red-300 border border-red-400/20'
+                  ? 'bg-[rgba(52,199,89,0.08)] text-[#34C759] border border-[rgba(52,199,89,0.15)]'
+                  : 'bg-[rgba(255,59,48,0.08)] text-[#FF3B30] border border-[rgba(255,59,48,0.15)]'
               }`}
             >
               {toast.message}
@@ -123,10 +123,10 @@ export function ProvidersTable() {
           <button
             onClick={handleSave}
             disabled={!hasChanges || isSavingProviders}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               hasChanges && !isSavingProviders
-                ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-500/20 hover:border-cyan-400/50 hover:shadow-lg hover:shadow-cyan-400/10'
-                : 'bg-slate-700/30 text-slate-600 border border-slate-600/20 cursor-not-allowed'
+                ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] border border-[rgba(0,122,255,0.15)] hover:bg-[rgba(0,122,255,0.12)] hover:border-[rgba(0,122,255,0.25)]'
+                : 'bg-[rgba(0,0,0,0.03)] text-[#a1a1a6] border border-[rgba(0,0,0,0.06)] cursor-not-allowed'
             }`}
           >
             {isSavingProviders ? '保存中...' : '保存所有修改'}
@@ -136,7 +136,7 @@ export function ProvidersTable() {
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="bg-slate-800/40 text-slate-400">
+          <thead className="bg-[rgba(0,0,0,0.02)] text-[#86868b]">
             <tr>
               <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider w-10">状态</th>
               <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">名称</th>
@@ -145,25 +145,25 @@ export function ProvidersTable() {
               <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider w-24">Timeout</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700/20">
+          <tbody className="divide-y divide-[rgba(0,0,0,0.04)]">
             {providers.map((provider) => {
               const edit = edits[provider.name]
               if (!edit) return null
               return (
                 <tr
                   key={provider.name}
-                  className={`table-row-hover ${edit.dirty ? 'bg-cyan-400/5' : ''}`}
+                  className={`table-row-hover ${edit.dirty ? 'bg-[rgba(0,122,255,0.03)]' : ''}`}
                 >
                   <td className="px-4 py-3">
                     <StatusDot hasKey={provider.has_key} />
                   </td>
-                  <td className="px-4 py-3 font-medium text-slate-200">{provider.name}</td>
+                  <td className="px-4 py-3 font-medium text-[#1d1d1f]">{provider.name}</td>
                   <td className="px-4 py-3">
                     <input
                       type="text"
                       value={edit.api_base}
                       onChange={(e) => handleChange(provider.name, 'api_base', e.target.value)}
-                      className="w-full px-2 py-1 rounded text-sm text-slate-200 input-glow"
+                      className="w-full px-2 py-1 rounded-lg text-sm input-glow"
                     />
                   </td>
                   <td className="px-4 py-3">
@@ -172,12 +172,12 @@ export function ProvidersTable() {
                         type={edit.showKey ? 'text' : 'password'}
                         value={edit.api_key}
                         onChange={(e) => handleChange(provider.name, 'api_key', e.target.value)}
-                        className="flex-1 min-w-0 px-2 py-1 rounded text-sm text-slate-200 input-glow"
+                        className="flex-1 min-w-0 px-2 py-1 rounded-lg text-sm input-glow"
                       />
                       <button
                         type="button"
                         onClick={() => handleChange(provider.name, 'showKey', !edit.showKey)}
-                        className="text-slate-500 hover:text-cyan-400 text-xs px-1 transition-colors"
+                        className="text-[#86868b] hover:text-[#007AFF] text-xs px-1 transition-colors"
                         title={edit.showKey ? '隐藏' : '显示'}
                       >
                         {edit.showKey ? '🙈' : '👁'}
@@ -189,7 +189,7 @@ export function ProvidersTable() {
                       type="number"
                       value={edit.timeout}
                       onChange={(e) => handleChange(provider.name, 'timeout', parseInt(e.target.value) || 30)}
-                      className="w-20 px-2 py-1 rounded text-sm text-slate-200 input-glow"
+                      className="w-20 px-2 py-1 rounded-lg text-sm input-glow"
                     />
                   </td>
                 </tr>
