@@ -818,11 +818,11 @@ def coffee(
 def dashboard(
     port: int = typer.Option(8080, "--port", "-p", help="Dashboard port"),
     host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind host"),
-    daemon: bool = typer.Option(False, "--daemon", "-d", help="后台运行"),
+    foreground: bool = typer.Option(False, "--foreground", "-f", help="前台运行（调试用）"),
     stop: bool = typer.Option(False, "--stop", help="停止 Dashboard"),
     status: bool = typer.Option(False, "--status", help="查看 Dashboard 状态"),
 ):
-    """启动/停止 Web Dashboard"""
+    """启动/停止 Web Dashboard（默认后台运行）"""
     from .gateway.daemon import (
         start_dashboard_daemon,
         stop_dashboard_daemon,
@@ -843,7 +843,7 @@ def dashboard(
         console.print("[dim]  请先运行: make build-web[/dim]")
         raise typer.Exit(1)
 
-    start_dashboard_daemon(host=host, port=port, foreground=not daemon)
+    start_dashboard_daemon(host=host, port=port, foreground=foreground)
 
 
 def main():
