@@ -237,6 +237,8 @@ class Config(BaseModel):
         if provider_name not in self.providers:
             return False
         provider = self.providers[provider_name]
+        if not provider.api_key:
+            return False
         if provider.api_key.startswith("os.environ/"):
             env_var = provider.api_key.replace("os.environ/", "")
             return os.environ.get(env_var) is not None

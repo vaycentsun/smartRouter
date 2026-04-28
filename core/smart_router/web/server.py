@@ -98,6 +98,13 @@ async def models():
     }
 
 
+def mask_key(key: str) -> str:
+    """对 API Key 进行脱敏：前4后4，中间用 ... 代替"""
+    if len(key) <= 8:
+        return "****"
+    return key[:4] + "..." + key[-4:]
+
+
 @app.get("/api/providers")
 async def providers():
     config_dir = Path.home() / ".smart-router"
@@ -113,9 +120,15 @@ async def providers():
             env_var = provider.api_key.replace("os.environ/", "")
             has_key = os.environ.get(env_var) is not None
             key_type = f"env:{env_var}"
-        else:
+            masked_key = ""
+        elif provider.api_key:
             has_key = True
             key_type = "direct"
+            masked_key = mask_key(provider.api_key)
+        else:
+            has_key = False
+            key_type = "direct"
+            masked_key = ""
 
         result.append({
             "name": name,
@@ -123,6 +136,7 @@ async def providers():
             "timeout": provider.timeout,
             "key_type": key_type,
             "has_key": has_key,
+            "masked_key": masked_key,
         })
 
     return {"providers": result}

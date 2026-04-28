@@ -29,6 +29,7 @@ export interface ProviderInfo {
   timeout: number
   key_type: string
   has_key: boolean
+  masked_key?: string
 }
 
 export interface ProvidersResponse {

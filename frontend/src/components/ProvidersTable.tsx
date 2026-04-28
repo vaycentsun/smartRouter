@@ -7,6 +7,7 @@ interface EditableProvider {
   timeout: number
   showKey: boolean
   dirty: boolean
+  apiKeyDirty: boolean
 }
 
 function StatusDot({ hasKey }: { hasKey: boolean }) {
@@ -36,6 +37,7 @@ export function ProvidersTable() {
         timeout: p.timeout,
         showKey: false,
         dirty: false,
+        apiKeyDirty: false,
       }
     })
     setEdits(initial)
@@ -60,6 +62,7 @@ export function ProvidersTable() {
         ...prev[name],
         [field]: value,
         dirty: true,
+        ...(field === 'api_key' ? { apiKeyDirty: true } : {}),
       },
     }))
   }
@@ -72,7 +75,8 @@ export function ProvidersTable() {
           api_base: edit.api_base,
           timeout: edit.timeout,
         }
-        if (edit.api_key.trim()) {
+        // 只有 api_key 字段被用户修改过，才提交 api_key（支持清空为空字符串）
+        if (edit.apiKeyDirty) {
           entry.api_key = edit.api_key
         }
         payload[name] = entry
@@ -83,7 +87,7 @@ export function ProvidersTable() {
     setEdits((prev) => {
       const next: Record<string, EditableProvider> = {}
       Object.entries(prev).forEach(([name, edit]) => {
-        next[name] = { ...edit, dirty: false }
+        next[name] = { ...edit, dirty: false, apiKeyDirty: false }
       })
       return next
     })
@@ -149,6 +153,12 @@ export function ProvidersTable() {
             {providers.map((provider) => {
               const edit = edits[provider.name]
               if (!edit) return null
+
+              const isEnvKey = provider.key_type.startsWith('env:')
+              const keyPlaceholder = isEnvKey
+                ? ''
+                : provider.masked_key || '未配置 API Key'
+
               return (
                 <tr
                   key={provider.name}
@@ -171,8 +181,9 @@ export function ProvidersTable() {
                       <input
                         type={edit.showKey ? 'text' : 'password'}
                         value={edit.api_key}
+                        placeholder={keyPlaceholder}
                         onChange={(e) => handleChange(provider.name, 'api_key', e.target.value)}
-                        className="flex-1 min-w-0 px-2 py-1 rounded text-sm text-slate-200 input-glow"
+                        className="flex-1 min-w-0 px-2 py-1 rounded text-sm text-slate-200 input-glow placeholder-slate-600"
                       />
                       <button
                         type="button"
