@@ -429,7 +429,9 @@ def start_dashboard_daemon(
 
         try:
             console.print(f"[green]🚀 Dashboard: http://{host}:{port}[/green]")
-            uvicorn.run("smart_router.web.server:app", host=host, port=port)
+            # 直接传入 app 对象，避免 uvicorn 通过模块字符串查找时命中旧版本 site-packages
+            from smart_router.web.server import app as dashboard_app
+            uvicorn.run(dashboard_app, host=host, port=port)
         finally:
             _cleanup()
     else:
@@ -443,12 +445,21 @@ def start_dashboard_daemon(
         ]
 
         try:
+            # 确保子进程能定位到当前源码目录中的 smart_router 包
+            # （解决 pip 安装的旧版本 site-packages 中缺少 web/ 子目录的问题）
+            core_dir = str(Path(__file__).parent.parent.parent)
+            env = os.environ.copy()
+            _current_pp = env.get("PYTHONPATH", "")
+            if core_dir not in _current_pp.split(os.pathsep):
+                env["PYTHONPATH"] = (_current_pp + os.pathsep + core_dir) if _current_pp else core_dir
+
             with open(DASHBOARD_LOG_FILE, "w") as log:
                 process = subprocess.Popen(
                     cmd,
                     stdout=log,
                     stderr=subprocess.STDOUT,
                     start_new_session=True,
+                    env=env,
                 )
 
             _write_pid_to_file(DASHBOARD_PID_FILE, process.pid)
