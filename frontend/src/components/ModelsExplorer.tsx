@@ -38,6 +38,11 @@ export function ModelsExplorer() {
     setEditModalOpen(false)
   }
 
+  const handleSaveKey = async (apiKey: string) => {
+    if (!currentProvider) return
+    await saveProviders({ [currentProvider.name]: { api_key: apiKey } })
+  }
+
   // Toast auto dismiss
   useEffect(() => {
     if (toast) {
@@ -71,6 +76,8 @@ export function ModelsExplorer() {
             provider={currentProvider}
             models={models}
             onEdit={() => setEditModalOpen(true)}
+            onSaveKey={handleSaveKey}
+            isSaving={isSavingProviders}
           />
         </div>
       </div>
