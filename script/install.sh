@@ -37,11 +37,13 @@ INSTALL_DIR="$HOME/.smart-router"
 VENV_DIR="$INSTALL_DIR/venv"
 BIN_DIR="$INSTALL_DIR/bin"
 
-# 4. 如果 ~/.smart-router 存在旧配置，备份
+# 4. 如果 ~/.smart-router 存在旧安装，备份并保留已有配置
 if [ -d "$INSTALL_DIR" ]; then
-    echo "  🗑️  备份旧安装目录..."
-    rm -rf "$INSTALL_DIR.backup" 2>/dev/null || true
-    mv "$INSTALL_DIR" "$INSTALL_DIR.backup.$(date +%Y%m%d)"
+    echo "  🗑️  备份旧安装目录（保留已有配置）..."
+    BACKUP_DIR="$INSTALL_DIR.backup.$(date +%Y%m%d)"
+    cp -r "$INSTALL_DIR" "$BACKUP_DIR"
+    # 只删除 venv 和 bin，保留 yaml 配置及其他用户数据
+    rm -rf "$INSTALL_DIR/venv" "$INSTALL_DIR/bin"
 fi
 
 # ==================== 安装新版本 ====================
@@ -84,9 +86,9 @@ from smart_router.config.loader import ConfigLoader
 print('✓ 所有模块导入成功')
 "
 
-# 生成默认配置
-echo "📝 生成默认配置文件..."
-"$VENV_DIR/bin/smart-router" init -f --output "$INSTALL_DIR"
+# 生成默认配置（安全模式：不覆盖已有配置）
+echo "📝 检查并生成默认配置文件..."
+"$VENV_DIR/bin/smart-router" init --safe --output "$INSTALL_DIR"
 
 # ==================== 创建可移植启动脚本 ====================
 

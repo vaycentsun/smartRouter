@@ -41,6 +41,60 @@ class TestInitCommandEdgeCases:
             assert (Path(tmpdir) / "models.yaml").exists()
             assert (Path(tmpdir) / "routing.yaml").exists()
 
+    def test_init_safe_all_missing(self):
+        """init --safe 在全新目录下正常生成三文件"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe"])
+            
+            assert result.exit_code == 0
+            assert (Path(tmpdir) / "providers.yaml").exists()
+            assert (Path(tmpdir) / "models.yaml").exists()
+            assert (Path(tmpdir) / "routing.yaml").exists()
+            assert "配置文件已生成" in result.stdout
+
+    def test_init_safe_creates_missing(self):
+        """init --safe 只生成缺失的文件，不覆盖已有"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # 预先创建 providers.yaml
+            (Path(tmpdir) / "providers.yaml").write_text("existing-provider")
+            
+            result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe"])
+            
+            assert result.exit_code == 0
+            # providers.yaml 应保持不变
+            assert (Path(tmpdir) / "providers.yaml").read_text() == "existing-provider"
+            # 缺失的应被生成
+            assert (Path(tmpdir) / "models.yaml").exists()
+            assert (Path(tmpdir) / "routing.yaml").exists()
+            assert "配置文件已生成" in result.stdout
+
+    def test_init_safe_skips_existing(self):
+        """init --safe 在三文件全存在时直接跳过"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "providers.yaml").write_text("dummy")
+            (Path(tmpdir) / "models.yaml").write_text("dummy")
+            (Path(tmpdir) / "routing.yaml").write_text("dummy")
+            
+            result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe"])
+            
+            assert result.exit_code == 0
+            assert "跳过生成" in result.stdout
+            # 文件内容应不变
+            assert (Path(tmpdir) / "providers.yaml").read_text() == "dummy"
+
+    def test_init_safe_priority_over_force(self):
+        """--safe 优先于 --force，不覆盖已有文件"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "providers.yaml").write_text("existing")
+            (Path(tmpdir) / "models.yaml").write_text("existing")
+            (Path(tmpdir) / "routing.yaml").write_text("existing")
+            
+            result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe", "--force"])
+            
+            assert result.exit_code == 0
+            assert "跳过生成" in result.stdout
+            assert (Path(tmpdir) / "providers.yaml").read_text() == "existing"
+
 
 class TestDoctorCommandEdgeCases:
     """doctor 命令边缘情况测试"""

@@ -141,29 +141,17 @@ mkdir -p "${CONFIG_DIR}"
 echo ""
 echo "⬇️  下载配置文件..."
 
-backup_existing_configs() {
-    local needs_backup=false
-    for file in providers.yaml models.yaml routing.yaml; do
-        if [ -f "${CONFIG_DIR}/${file}" ]; then
-            needs_backup=true
-            break
-        fi
-    done
-
-    if [ "$needs_backup" = true ]; then
-        local backup_dir="${CONFIG_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
-        mkdir -p "$backup_dir"
-        cp "${CONFIG_DIR}"/*.yaml "$backup_dir/" 2>/dev/null || true
-        echo "  📦 已备份旧配置到: ${backup_dir}"
-    fi
-}
-
-backup_existing_configs
-
 download_config() {
     local filename=$1
-    local url="https://raw.githubusercontent.com/${REPO}/main/core/smart_router/templates/${filename}"
     local output="${CONFIG_DIR}/${filename}"
+
+    # 已有文件：跳过下载，避免覆盖用户配置
+    if [ -f "$output" ]; then
+        echo "  ⏭️  已存在，跳过: ${filename}"
+        return 0
+    fi
+
+    local url="https://raw.githubusercontent.com/${REPO}/main/core/smart_router/templates/${filename}"
 
     if curl -fsSL "$url" -o "$output" 2>/dev/null; then
         echo "  ✓ 下载成功: ${filename}"
@@ -178,7 +166,7 @@ download_config "providers.yaml"
 download_config "models.yaml"
 download_config "routing.yaml"
 
-# 如果 GitHub 下载失败，回退到 smart-router init 生成默认配置
+# 如果 GitHub 下载不完整，回退到 smart-router init --safe 补全缺失配置
 github_failed=false
 for file in providers.yaml models.yaml routing.yaml; do
     if [ ! -f "${CONFIG_DIR}/${file}" ]; then
@@ -189,8 +177,8 @@ done
 
 if [ "$github_failed" = true ] && command -v smart-router &> /dev/null; then
     echo ""
-    echo "⚠️  GitHub 下载不完整，尝试使用 smart-router init 生成默认配置..."
-    smart-router init -f --output "${CONFIG_DIR}"
+    echo "⚠️  GitHub 下载不完整，尝试使用 smart-router init --safe 生成缺失配置..."
+    smart-router init --safe --output "${CONFIG_DIR}"
 fi
 
 # ==================== 验证安装 ====================
