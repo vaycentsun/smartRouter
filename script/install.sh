@@ -37,12 +37,15 @@ INSTALL_DIR="$HOME/.smart-router"
 VENV_DIR="$INSTALL_DIR/venv"
 BIN_DIR="$INSTALL_DIR/bin"
 
-# 4. 如果 ~/.smart-router 存在旧安装，备份并保留已有配置
+# 4. 如果 ~/.smart-router 存在旧安装，备份配置文件并清理旧环境
 if [ -d "$INSTALL_DIR" ]; then
-    echo "  🗑️  备份旧安装目录（保留已有配置）..."
+    echo "  🗑️  备份配置文件..."
     BACKUP_DIR="$INSTALL_DIR.backup.$(date +%Y%m%d)"
-    cp -r "$INSTALL_DIR" "$BACKUP_DIR"
-    # 只删除 venv 和 bin，保留 yaml 配置及其他用户数据
+    mkdir -p "$BACKUP_DIR"
+    # 只复制用户配置和数据，跳过体积巨大的 venv
+    cp -r "$INSTALL_DIR"/*.yaml "$BACKUP_DIR/" 2>/dev/null || true
+    cp -r "$INSTALL_DIR"/*.json "$BACKUP_DIR/" 2>/dev/null || true
+    # 直接删除旧环境，避免先复制整个目录再删除的低效操作
     rm -rf "$INSTALL_DIR/venv" "$INSTALL_DIR/bin"
 fi
 
@@ -73,8 +76,8 @@ cp "$PROJECT_DIR/LICENSE" "$TEMP_DIR/" 2>/dev/null || true
 # 使用虚拟环境的 pip 安装（非 editable 模式）
 echo "📦 安装 Smart Router 到虚拟环境..."
 cd "$TEMP_DIR"
-"$VENV_DIR/bin/pip" install --upgrade pip -q
-"$VENV_DIR/bin/pip" install -q ".[dev]"
+"$VENV_DIR/bin/pip" install -q pip
+"$VENV_DIR/bin/pip" install -q "."
 
 # 验证安装
 echo "✅ 验证安装..."
