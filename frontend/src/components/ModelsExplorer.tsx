@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useDashboardStore } from '../store/useDashboardStore'
+import type { ProviderUpdate } from '../types'
 import { ProviderSidebar } from './ProviderSidebar'
 import { ProviderModelsPanel } from './ProviderModelsPanel'
 import { ProviderEditModal } from './ProviderEditModal'
@@ -33,7 +34,7 @@ export function ModelsExplorer() {
 
   const currentProvider = providers.find((p) => p.name === selectedProvider) || null
 
-  const handleSave = async (name: string, update: { api_base: string; api_key?: string; timeout: number }) => {
+  const handleSave = async (name: string, update: ProviderUpdate) => {
     await saveProviders({ [name]: update })
     setEditModalOpen(false)
   }
