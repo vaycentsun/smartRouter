@@ -69,11 +69,11 @@ class TestSmartRouterSelectModel:
     def test_select_model_strategy_prefix_parsing(self):
         """测试 strategy- 前缀解析"""
         # strategy 前缀在 select_model 函数中解析，这里测试解析逻辑
-        model_hint = "strategy-quality"
+        model_hint = "strategy-cost"
         
         if model_hint.startswith("strategy-"):
             strategy = model_hint.replace("strategy-", "")
-            assert strategy == "quality"
+            assert strategy == "cost"
 
 
 class TestStartServer:

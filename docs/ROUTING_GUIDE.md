@@ -74,17 +74,15 @@ curl http://127.0.0.1:4000/v1/chat/completions \
 
 ```yaml
 smart_router:
-  default_strategy: quality  # 可选: auto, speed, cost, quality
+  default_strategy: auto  # 可选: auto, cost
 ```
 
 **策略说明**：
 
 | 策略 | 行为 | 适用场景 |
 |------|------|----------|
-| `auto` | 使用 medium 难度列表的第一个模型 | 平衡质量与速度 |
-| `speed` | 选择最快的模型（列表第一个） | 追求响应速度 |
-| `cost` | 选择最便宜的模型（列表第一个） | 节省成本 |
-| `quality` | 选择最强的模型（列表最后一个） | 追求最佳质量 |
+| `auto` | 基于任务权重自动计算最佳模型 | 平衡质量与成本 |
+| `cost` | 选择最便宜的模型（带质量门槛过滤） | 节省成本 |
 
 ---
 
@@ -121,9 +119,8 @@ smart_router:
 ```
 
 **规则**：
-- `auto` 策略 → 使用 `medium` 列表的第一个模型
-- `speed/cost` 策略 → 使用对应列表的第一个模型
-- `quality` 策略 → 使用对应列表的最后一个模型
+- `auto` 策略 → 基于 capability_weights 加权计算得分，选择得分最高的模型
+- `cost` 策略 → 选择 cost 最高（最便宜）的模型，过滤掉 quality 低于门槛的模型
 
 ---
 
@@ -220,8 +217,7 @@ smart-router logs -f
 
 ### 4. 测试不同策略
 ```bash
-smart-router dry-run --strategy quality "测试文本"
-smart-router dry-run --strategy speed "测试文本"
+smart-router dry-run --strategy cost "测试文本"
 ```
 
 ---
@@ -231,7 +227,7 @@ smart-router dry-run --strategy speed "测试文本"
 查看完整的 `routing.yaml` 了解当前配置：
 - 11 个模型配置（OpenAI、Claude、Kimi、MiniMax、DeepSeek、Qwen、GLM）
 - 5 个任务类型（chat、writing、code_review、reasoning、brainstorming）
-- 4 种策略（auto、speed、cost、quality）
+- 2 种策略（auto、cost）
 - 自定义分类规则（中文关键词优化）
 
 ---
@@ -240,6 +236,5 @@ smart-router dry-run --strategy speed "测试文本"
 
 1. **日常使用**: 依赖自动识别，无需修改配置
 2. **精确控制**: 使用 `[stage:xxx]` 标记
-3. **质量优先**: 设置 `default_strategy: quality`
-4. **速度优先**: 设置 `default_strategy: speed`
-5. **自定义场景**: 添加 `classification_rules` 正则规则
+3. **节省成本**: 设置 `default_strategy: cost`
+4. **自定义场景**: 添加 `classification_rules` 正则规则

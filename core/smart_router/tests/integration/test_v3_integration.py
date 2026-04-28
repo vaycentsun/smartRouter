@@ -93,8 +93,8 @@ difficulties:
 strategies:
   auto:
     description: "Auto"
-  quality:
-    description: "Quality"
+  cost:
+    description: "Cost"
 
 fallback:
   mode: auto
@@ -125,8 +125,11 @@ fallback:
         assert result.model_name == "gpt-4o"  # 唯一支持 chat 的
         
         # code_review 任务选择
-        result = selector.select("code_review", "hard", "quality")
-        assert result.model_name == "claude-3-opus"  # quality=10 > 9
+        result = selector.select("code_review", "hard", "auto")
+        # auto 按 capability_weights (quality 0.7 + cost 0.1) 计算:
+        # gpt-4o: 9*0.7 + 3*0.1 = 6.6
+        # claude-3-opus: 10*0.7 + 2*0.1 = 7.2
+        assert result.model_name == "claude-3-opus"
         
         # 3. 测试 LiteLLM 参数生成
         params = config.get_litellm_params("gpt-4o")
@@ -155,12 +158,12 @@ fallback:
         scenarios = [
             # (task, difficulty, strategy, expected)
             ("chat", "easy", "auto", "gpt-4o"),
-            ("chat", "hard", "quality", "gpt-4o"),
+            ("chat", "hard", "auto", "gpt-4o"),
             # auto 按 capability_weights (quality 0.7 + cost 0.1) 计算:
             # gpt-4o: 9*0.7 + 3*0.1 = 6.6
             # claude-3-opus: 10*0.7 + 2*0.1 = 7.2
             ("code_review", "medium", "auto", "claude-3-opus"),
-            ("code_review", "hard", "quality", "claude-3-opus"),
+            ("code_review", "hard", "auto", "claude-3-opus"),
         ]
         
         for task, difficulty, strategy, expected in scenarios:

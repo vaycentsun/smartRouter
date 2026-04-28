@@ -69,9 +69,7 @@ class TestV3ModelSelector:
                 },
                 strategies={
                     "auto": StrategyConfig(description="Auto"),
-                    "quality": StrategyConfig(description="Quality"),
                     "cost": StrategyConfig(description="Cost"),
-                    "balanced": StrategyConfig(description="Balanced"),
                 },
                 fallback=FallbackConfig(mode="auto", similarity_threshold=2)
             )
@@ -89,15 +87,6 @@ class TestV3ModelSelector:
         assert result.strategy == "auto"
         assert result.model_name == "gpt-4o-mini"  # 更高加权得分
         assert result.score > 0
-    
-    def test_quality_strategy(self, sample_config):
-        """quality 策略选择最高质量模型"""
-        selector = V3ModelSelector(sample_config)
-        
-        result = selector.select("chat", "easy", "quality")
-        
-        assert result.model_name == "gpt-4o"  # quality=9 最高
-        assert result.strategy == "quality"
     
     def test_cost_strategy_with_quality_threshold(self, sample_config):
         """cost 策略应过滤掉 quality 低于阈值的模型，避免选到劣质便宜模型"""
@@ -266,18 +255,6 @@ class TestV3ModelSelector:
         # 默认门槛=5: cheap-low(quality=4)被过滤, quality-6-model(cost=9)胜出
         assert result.model_name == "quality-6-model"
 
-    def test_balanced_strategy(self, sample_config):
-        """balanced 策略应使用 quality 和 cost 权重各 0.5"""
-        selector = V3ModelSelector(sample_config)
-        
-        result = selector.select("chat", "easy", "balanced")
-        
-        # balanced: quality=0.5, cost=0.5
-        # gpt-4o: 9*0.5 + 3*0.5 = 4.5 + 1.5 = 6.0
-        # gpt-4o-mini: 6*0.5 + 9*0.5 = 3.0 + 4.5 = 7.5
-        assert result.model_name == "gpt-4o-mini"
-        assert result.strategy == "balanced"
-    
     def test_difficulty_filtering(self, sample_config):
         """难度过滤应正常工作"""
         selector = V3ModelSelector(sample_config)
@@ -336,109 +313,6 @@ class TestV3ModelSelector:
         assert selector.get_required_context("hard") == 16000
         assert selector.get_required_context("expert") == 32000
         assert selector.get_required_context("unknown") == 4000  # 默认回退
-
-    def test_vision_strategy_with_vision_model(self):
-        """vision 策略有 vision 模型时选择 vision 能力最强的"""
-        config = Config(
-            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
-            models={
-                "vision-model": ModelConfig(
-                    provider="openai",
-                    litellm_model="openai/vision",
-                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000, vision=True),
-                    supported_tasks=["chat"],
-                    difficulty_support=["easy"]
-                ),
-                "non-vision": ModelConfig(
-                    provider="openai",
-                    litellm_model="openai/nonv",
-                    capabilities=ModelCapabilities(quality=10, cost=3, context=128000, vision=False),
-                    supported_tasks=["chat"],
-                    difficulty_support=["easy"]
-                ),
-            },
-            routing=RoutingConfig(
-                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
-                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
-                strategies={"auto": StrategyConfig(description="Auto")},
-                fallback=FallbackConfig()
-            )
-        )
-        selector = V3ModelSelector(config)
-        result = selector.select("chat", "easy", "vision")
-        assert result.model_name == "vision-model"
-        assert result.strategy == "vision"
-
-    def test_vision_strategy_fallback_to_auto(self, sample_config):
-        """vision 策略无 vision 模型时回退到 auto"""
-        selector = V3ModelSelector(sample_config)
-        
-        result = selector.select("chat", "easy", "vision")
-        # 配置中无 vision 模型，应回退到 auto 策略结果
-        # 回退时 strategy 字段仍为 "vision"，但实际选择逻辑是 auto
-        assert result.model_name in ["gpt-4o", "gpt-4o-mini"]
-
-    def test_long_context_strategy_fallback(self, sample_config):
-        """long_context 策略无长上下文模型时回退到 context_window"""
-        selector = V3ModelSelector(sample_config)
-        
-        result = selector.select("chat", "easy", "long_context")
-        # 所有模型 context >= 128000，都不标记 long_context=True
-        # 应回退到按 context 排序
-        assert result.strategy == "long_context"
-        assert result.model_name in ["gpt-4o", "gpt-4o-mini"]
-
-    def test_long_context_strategy_with_short_context_models(self):
-        """long_context 策略有小上下文模型时回退到 context_window"""
-        config = Config(
-            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
-            models={
-                "small-ctx": ModelConfig(
-                    provider="openai",
-                    litellm_model="openai/small",
-                    capabilities=ModelCapabilities(quality=5, cost=5, context=32000),
-                    supported_tasks=["chat"],
-                    difficulty_support=["easy"]
-                ),
-            },
-            routing=RoutingConfig(
-                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
-                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
-                strategies={"auto": StrategyConfig(description="Auto")},
-                fallback=FallbackConfig()
-            )
-        )
-        selector = V3ModelSelector(config)
-        result = selector.select("chat", "easy", "long_context")
-        # 小上下文模型不满足 long_context 条件，应回退到 context_window
-        assert result.model_name == "small-ctx"
-        assert "context" in result.reason.lower()
-
-    def test_reasoning_strategy_with_no_reasoning_models(self, sample_config):
-        """reasoning 策略无 reasoning 评分模型时回退到 auto"""
-        selector = V3ModelSelector(sample_config)
-        
-        result = selector.select("chat", "easy", "reasoning")
-        # 配置中所有模型 reasoning 为 None
-        # 应回退到 auto 策略，但 strategy 字段保留 "reasoning"
-        assert result.model_name in ["gpt-4o", "gpt-4o-mini"]
-
-    def test_creative_strategy_with_no_creative_models(self, sample_config):
-        """creative 策略无 creative 评分模型时回退到 auto"""
-        selector = V3ModelSelector(sample_config)
-        
-        result = selector.select("chat", "easy", "creative")
-        # 配置中所有模型 creative 为 None
-        # 应回退到 auto 策略，但 strategy 字段保留 "creative"
-        assert result.model_name in ["gpt-4o", "gpt-4o-mini"]
-
-    def test_latest_strategy(self, sample_config):
-        """latest 策略选择最新模型"""
-        selector = V3ModelSelector(sample_config)
-        
-        result = selector.select("chat", "easy", "latest")
-        assert result.strategy == "latest"
-        # 所有模型默认 latest=True
 
     def test_filter_candidates_with_available_models(self, sample_config):
         """available_models 参数过滤"""

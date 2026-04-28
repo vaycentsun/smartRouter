@@ -205,12 +205,8 @@ difficulties:
 strategies:
   auto:
     description: "Auto"
-  quality:
-    description: "Quality"
   cost:
     description: "Cost"
-  balanced:
-    description: "Balanced"
 
 fallback:
   mode: auto

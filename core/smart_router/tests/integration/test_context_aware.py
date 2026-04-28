@@ -160,11 +160,12 @@ class TestModelSelectorContextAware:
         with pytest.raises(Exception):
             selector.select("chat", "easy", "auto", required_context=500000)
 
-    def test_select_with_context_and_quality_strategy(self, selector):
-        """测试质量策略结合上下文过滤"""
-        result = selector.select("chat", "easy", "quality", required_context=50000)
-        # gpt-3.5-turbo 被过滤，在剩余中 quality 最高的是 gpt-4o (9)
-        assert result.model_name == "gpt-4o"
+    def test_select_with_context_and_auto_strategy(self, selector):
+        """测试 auto 策略结合上下文过滤"""
+        result = selector.select("chat", "easy", "auto", required_context=50000)
+        # gpt-3.5-turbo 被过滤，auto 策略按 quality*0.5 + cost*0.5 计算
+        # gpt-4o-mini (6*0.5+9*0.5=7.5) 与 claude-haiku (7*0.5+8*0.5=7.5) 同分，按定义顺序 gpt-4o-mini 在前
+        assert result.model_name == "gpt-4o-mini"
 
     def test_select_with_context_and_cost_strategy(self, selector):
         """测试成本策略结合上下文过滤"""

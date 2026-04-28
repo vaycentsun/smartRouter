@@ -20,9 +20,7 @@ class SmartRouter(Router):
     
     使用 V3ModelSelector 进行模型选择，支持：
     - auto: 基于任务权重自动选择
-    - quality: 质量优先
     - cost: 成本优先（带质量门槛）
-    - balanced: 平衡模式
     """
     
     def __init__(self, config: Config, *args, **kwargs):
@@ -104,9 +102,9 @@ class SmartRouter(Router):
         结合 messages 中的 markers，完成分类和模型选择。
         
         Args:
-            model_hint: 原始请求中的模型名（如 "auto", "stage:code_review", "strategy-quality"）
+            model_hint: 原始请求中的模型名（如 "auto", "stage:code_review", "strategy-cost"）
             messages: OpenAI 格式的消息列表
-            strategy: 路由策略（auto/quality/cost）
+            strategy: 路由策略（auto/cost）
         
         Returns:
             SelectionResult: 包含选中的模型名及决策原因

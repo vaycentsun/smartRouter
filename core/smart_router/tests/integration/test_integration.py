@@ -60,7 +60,7 @@ def test_config():
             },
             strategies={
                 "auto": StrategyConfig(description="Auto"),
-                "quality": StrategyConfig(description="Quality")
+                "cost": StrategyConfig(description="Cost")
             },
             fallback=FallbackConfig(similarity_threshold=2)
         )

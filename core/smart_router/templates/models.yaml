@@ -350,18 +350,7 @@ models:
   # ==================== 策略路由专用 ====================
   # 用于指定路由策略的虚拟模型
   # 使用方式:
-  #   strategy-quality -> 选择 quality 最高的模型（质量优先）
-  #   strategy-cost    -> 选择 cost 最高的模型（成本优先，越高越便宜）
-  strategy-quality:
-    provider: aliyun
-    litellm_model: openai/qwen3.6-plus
-    capabilities:
-      quality: 9
-      cost: 10
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard, expert]
-    
+  #   strategy-cost -> 选择 cost 最高的模型（成本优先，越高越便宜）
   strategy-cost:
     provider: aliyun
     litellm_model: openai/qwen3.6-plus
