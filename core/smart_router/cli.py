@@ -405,7 +405,7 @@ def dry_run(
     prompt: str = typer.Argument(..., help="测试路由的提示文本"),
     config: Optional[Path] = typer.Option(None, "--config", "-c", help="配置文件目录路径"),
     show_all: bool = typer.Option(False, "--all", "-a", help="显示所有候选模型"),
-    strategy: str = typer.Option("auto", "--strategy", "-s", help="路由策略: auto(自动), quality(质量优先), cost(成本优先)")
+    strategy: str = typer.Option("auto", "--strategy", "-s", help="路由策略: auto(自动加权), cost(成本优先)")
 ):
     """测试路由决策（不实际调用模型）"""
     # V3 配置：config 是配置目录

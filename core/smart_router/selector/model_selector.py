@@ -158,12 +158,7 @@ class ModelSelector:
             )
         
         # 根据策略排序
-        if strategy == "quality":
-            # 质量优先：quality 越高越好
-            candidates.sort(key=lambda x: x["quality"], reverse=True)
-            selected = candidates[0]
-            reason = f"质量优先策略: quality={selected['quality']}"
-        elif strategy == "cost":
+        if strategy == "cost":
             # 成本优先：cost 越高越便宜
             candidates.sort(key=lambda x: x["cost"], reverse=True)
             selected = candidates[0]

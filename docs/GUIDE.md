@@ -226,7 +226,7 @@ smr validate                # 验证配置文件
 
 ```bash
 smr dry-run "帮我审查代码"          # 测试路由决策
-smr dry-run "写文章" -s quality     # 指定 quality 策略
+smr dry-run "写文章" -s cost      # 指定 cost 策略
 ```
 
 ### 诊断工具
@@ -501,9 +501,9 @@ smart-router dry-run "写一篇文章" --strategy quality
 ```yaml
 stage_routing:
   code_review:
-    easy: ["gpt-4o-mini"]           # speed/cost 策略选择
+    easy: ["gpt-4o-mini"]           # cost 策略选择
     medium: ["claude-3-sonnet"]     # auto 策略选择
-    hard: ["claude-3-opus"]         # quality 策略选择
+    hard: ["claude-3-opus"]         # auto 策略选择（质量权重更高）
 ```
 
 ---
@@ -800,7 +800,7 @@ smart-router dry-run "批量任务" --strategy cost
 ### 4. 质量保障
 
 ```yaml
-# 重要任务使用 quality 策略
+# 重要任务使用 auto 策略（提高 quality 权重）
 # 或显式指定强模型
 
 messages = [

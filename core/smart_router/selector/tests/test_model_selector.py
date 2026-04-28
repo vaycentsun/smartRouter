@@ -168,12 +168,6 @@ class TestModelSelectorSelect:
         assert result.model_name == "model-a"
         assert "priority" in result.reason
 
-    def test_select_quality_strategy(self, selector):
-        """quality 策略选择最高 quality"""
-        result = selector.select("chat", "easy", strategy="quality")
-        assert result.model_name == "model-a"
-        assert "质量优先" in result.reason
-
     def test_select_cost_strategy(self, selector):
         """cost 策略选择最高 cost（最便宜）"""
         result = selector.select("chat", "easy", strategy="cost")

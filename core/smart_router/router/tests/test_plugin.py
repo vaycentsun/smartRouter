@@ -96,14 +96,6 @@ class TestSmartRouterSelectModel:
 
         assert result.task_type == "coding"
 
-    def test_select_model_with_strategy_prefix(self, smart_router, sample_config):
-        """model_hint 为 strategy-xxx 时应使用对应策略"""
-        messages = [{"role": "user", "content": "Hello"}]
-        # strategy-quality 应选中 quality 最高的 gpt-4o
-        result = smart_router.select_model("strategy-quality", messages)
-
-        assert result.model_name == "gpt-4o"  # quality=9 > quality=6
-
     def test_select_model_with_cost_strategy(self, smart_router, sample_config):
         """strategy-cost 应选中 cost 最高（最便宜）的模型"""
         messages = [{"role": "user", "content": "Hello"}]

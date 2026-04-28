@@ -85,7 +85,7 @@ class DifficultyConfig(BaseModel):
 class StrategyConfig(BaseModel):
     """路由策略配置"""
     description: str
-    # auto/quality/cost 策略的具体逻辑由代码实现
+    # auto/cost 策略的具体逻辑由代码实现
 
 
 class FallbackConfig(BaseModel):
