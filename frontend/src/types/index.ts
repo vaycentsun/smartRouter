@@ -60,3 +60,13 @@ export interface DryRunResult {
 }
 
 export type Strategy = 'auto' | 'quality' | 'cost' | 'speed' | 'balanced'
+
+export interface ModelOverrideInfo {
+  overrides: Record<string, string[]>
+}
+
+export interface ModelOverrideState {
+  provider: string | null
+  model: string | null
+  enabled: boolean
+}

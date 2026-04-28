@@ -38,43 +38,79 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                     data = json.loads(body)
                     original_model = data.get("model", "")
                     
-                    # 检查是否需要智能路由
-                    should_route = (
-                        original_model in ("auto", "smart-router", "default") or
-                        original_model.startswith("stage:") or
-                        original_model.startswith("strategy-")
-                    )
+                    # 检查是否有模型覆盖请求头
+                    override_provider = request.headers.get("X-Smart-Router-Override-Provider")
+                    override_model = request.headers.get("X-Smart-Router-Override-Model")
                     
-                    if should_route:
-                        messages = data.get("messages", [])
+                    if override_provider and override_model:
+                        # 验证覆盖的模型是否有效
+                        config = self.router.sr_config
+                        model_name = override_model
                         
-                        try:
-                            result = self.router.select_model(
-                                model_hint=original_model,
-                                messages=messages
-                            )
-                            selected = result.model_name
+                        if model_name in config.models:
+                            model_config = config.models[model_name]
+                            if model_config.provider == override_provider and config.is_model_available(model_name):
+                                # 有效覆盖：直接设置模型，跳过路由逻辑
+                                data["model"] = model_name
+                                
+                                # 保存到 request.state 供后续使用
+                                request.state.smart_router_override = True
+                                request.state.smart_router_override_provider = override_provider
+                                request.state.smart_router_override_model = model_name
+                                request.state.smart_router_original = original_model
+                                
+                                console.print(f"[cyan]模型覆盖: {original_model} -> {model_name} (provider: {override_provider})[/cyan]")
+                                
+                                # 重新构建请求体
+                                modified_body = json.dumps(data).encode("utf-8")
+                                
+                                # 创建新的请求，使用修改后的 body
+                                async def receive():
+                                    return {"type": "http.request", "body": modified_body, "more_body": False}
+                                
+                                request = Request(request.scope, receive, request._send)
+                            else:
+                                console.print(f"[yellow]模型覆盖无效: {override_provider}/{model_name} (不可用或 provider 不匹配)[/yellow]")
+                        else:
+                            console.print(f"[yellow]模型覆盖无效: 未知模型 {model_name}[/yellow]")
+                    else:
+                        # 没有覆盖请求头，走原有智能路由逻辑
+                        should_route = (
+                            original_model in ("auto", "smart-router", "default") or
+                            original_model.startswith("stage:") or
+                            original_model.startswith("strategy-")
+                        )
+                        
+                        if should_route:
+                            messages = data.get("messages", [])
                             
-                            console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
-                            
-                            # 修改请求体
-                            data["model"] = selected
-                            
-                            # 保存到 request.state 供后续使用
-                            request.state.smart_router_selected = selected
-                            request.state.smart_router_original = original_model
-                            request.state.smart_router_task = result.task_type
-                            
-                            # 重新构建请求体
-                            modified_body = json.dumps(data).encode("utf-8")
-                            
-                            # 创建新的请求，使用修改后的 body
-                            async def receive():
-                                return {"type": "http.request", "body": modified_body, "more_body": False}
-                            
-                            request = Request(request.scope, receive, request._send)
-                        except Exception as e:
-                            console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
+                            try:
+                                result = self.router.select_model(
+                                    model_hint=original_model,
+                                    messages=messages
+                                )
+                                selected = result.model_name
+                                
+                                console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
+                                
+                                # 修改请求体
+                                data["model"] = selected
+                                
+                                # 保存到 request.state 供后续使用
+                                request.state.smart_router_selected = selected
+                                request.state.smart_router_original = original_model
+                                request.state.smart_router_task = result.task_type
+                                
+                                # 重新构建请求体
+                                modified_body = json.dumps(data).encode("utf-8")
+                                
+                                # 创建新的请求，使用修改后的 body
+                                async def receive():
+                                    return {"type": "http.request", "body": modified_body, "more_body": False}
+                                
+                                request = Request(request.scope, receive, request._send)
+                            except Exception as e:
+                                console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
             except Exception as e:
                 console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                 import traceback
@@ -87,6 +123,11 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             response.headers["X-Smart-Router-Model"] = request.state.smart_router_selected
             response.headers["X-Smart-Router-Original"] = request.state.smart_router_original
             response.headers["X-Smart-Router-Task"] = request.state.smart_router_task
+        
+        if hasattr(request.state, 'smart_router_override'):
+            response.headers["X-Smart-Router-Override-Active"] = "true"
+            response.headers["X-Smart-Router-Override-Provider"] = request.state.smart_router_override_provider
+            response.headers["X-Smart-Router-Override-Model"] = request.state.smart_router_override_model
         
         return response
 
@@ -204,6 +245,18 @@ def start_server(config_path: Optional[Path] = None):
         if not getattr(app.state, '_smart_router_middleware_added', False):
             app.add_middleware(SmartRouterMiddleware, router=router)
             app.state._smart_router_middleware_added = True
+        
+        # 注册 Dashboard API：获取可用的模型覆盖选项
+        @app.get("/api/model-overrides")
+        async def get_model_overrides():
+            config = app.state.smart_router.sr_config
+            overrides: dict[str, list[str]] = {}
+            for name, model in config.models.items():
+                if config.is_model_available(name):
+                    if model.provider not in overrides:
+                        overrides[model.provider] = []
+                    overrides[model.provider].append(name)
+            return {"overrides": overrides}
         
         # 启动配置热重载监听
         watcher = ConfigWatcher(

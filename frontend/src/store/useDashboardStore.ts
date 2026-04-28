@@ -6,6 +6,7 @@ import type {
   DryRunResult,
   Strategy,
   ProviderUpdate,
+  ModelOverrideState,
 } from '../types'
 import { api } from '../api/client'
 
@@ -15,6 +16,7 @@ interface DashboardState {
   models: ModelInfo[]
   providers: ProviderInfo[]
   dryRunResult: DryRunResult | null
+  modelOverrides: Record<string, string[]>
 
   // UI
   isLoading: boolean
@@ -23,6 +25,9 @@ interface DashboardState {
   toast: { message: string; type: 'success' | 'error' } | null
   modelsFilter: string
   modelsSort: { key: string; asc: boolean }
+
+  // Model Override
+  modelOverride: ModelOverrideState
 
   // Actions
   fetchAll: () => Promise<void>
@@ -33,6 +38,37 @@ interface DashboardState {
   setModelsSort: (key: string) => void
   clearError: () => void
   clearToast: () => void
+  setModelOverride: (provider: string | null, model: string | null) => void
+  clearModelOverride: () => void
+}
+
+const STORAGE_KEY = 'smart-router-model-override'
+
+function loadOverrideFromStorage(): ModelOverrideState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') {
+        return {
+          provider: parsed.provider || null,
+          model: parsed.model || null,
+          enabled: !!parsed.enabled,
+        }
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return { provider: null, model: null, enabled: false }
+}
+
+function saveOverrideToStorage(state: ModelOverrideState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // ignore storage errors
+  }
 }
 
 export const useDashboardStore = create<DashboardState>((set, get) => ({
@@ -40,25 +76,29 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   models: [],
   providers: [],
   dryRunResult: null,
+  modelOverrides: {},
   isLoading: false,
   isSavingProviders: false,
   error: null,
   toast: null,
   modelsFilter: '',
   modelsSort: { key: 'name', asc: true },
+  modelOverride: loadOverrideFromStorage(),
 
   fetchAll: async () => {
     set({ isLoading: true, error: null })
     try {
-      const [status, modelsRes, providersRes] = await Promise.all([
+      const [status, modelsRes, providersRes, overridesRes] = await Promise.all([
         api.getStatus(),
         api.getModels(),
         api.getProviders(),
+        api.getModelOverrides(),
       ])
       set({
         status,
         models: modelsRes.models,
         providers: providersRes.providers,
+        modelOverrides: overridesRes.overrides,
         isLoading: false,
       })
     } catch (err) {
@@ -118,4 +158,16 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   clearError: () => set({ error: null }),
   clearToast: () => set({ toast: null }),
+
+  setModelOverride: (provider: string | null, model: string | null) => {
+    const state = { provider, model, enabled: !!(provider && model) }
+    saveOverrideToStorage(state)
+    set({ modelOverride: state })
+  },
+
+  clearModelOverride: () => {
+    const state = { provider: null, model: null, enabled: false }
+    saveOverrideToStorage(state)
+    set({ modelOverride: state })
+  },
 }))

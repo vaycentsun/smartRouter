@@ -105,4 +105,16 @@ describe('api client', () => {
       expect(result).toEqual(data)
     })
   })
+
+  describe('getModelOverrides', () => {
+    it('returns model overrides from /api/model-overrides', async () => {
+      const data = { overrides: { openai: ['gpt-4o', 'gpt-4o-mini'], anthropic: ['claude-3'] } }
+      mockGet.mockResolvedValue({ data })
+
+      const result = await api.getModelOverrides()
+
+      expect(mockGet).toHaveBeenCalledWith('/api/model-overrides')
+      expect(result).toEqual(data)
+    })
+  })
 })
