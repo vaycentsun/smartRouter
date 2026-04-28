@@ -37,9 +37,9 @@ export interface ProvidersResponse {
 }
 
 export interface ProviderUpdate {
-  api_base: string
+  api_base?: string
   api_key?: string
-  timeout: number
+  timeout?: number
 }
 
 export interface DryRunRequest {
