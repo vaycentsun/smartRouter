@@ -1,14 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useDashboardStore } from './store/useDashboardStore'
 import { Header } from './components/Header'
-import { StatusCard } from './components/StatusCard'
-import { StatsOverview } from './components/StatsOverview'
-import { ProvidersTable } from './components/ProvidersTable'
-import { ModelsTable } from './components/ModelsTable'
-import { DryRunPanel } from './components/DryRunPanel'
+import { DashboardPage } from './components/DashboardPage'
+import { ModelsExplorer } from './components/ModelsExplorer'
 
 function App() {
   const { fetchAll, error, clearError } = useDashboardStore()
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'models'>('dashboard')
 
   // Auto refresh every 5 seconds
   useEffect(() => {
@@ -38,24 +36,38 @@ function App() {
           </div>
         )}
 
-        {/* Stats Overview */}
-        <StatsOverview />
-
-        {/* Status + DryRun Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <StatusCard />
-          </div>
-          <div className="lg:col-span-2">
-            <DryRunPanel />
-          </div>
+        {/* Tab Navigation */}
+        <div className="glass-card rounded-2xl p-1.5 inline-flex gap-1">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+              activeTab === 'dashboard'
+                ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] shadow-sm'
+                : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+            仪表盘
+          </button>
+          <button
+            onClick={() => setActiveTab('models')}
+            className={`px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+              activeTab === 'models'
+                ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] shadow-sm'
+                : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+            模型清单
+          </button>
         </div>
 
-        {/* Providers Table */}
-        <ProvidersTable />
-
-        {/* Models Table */}
-        <ModelsTable />
+        {/* Page Content */}
+        {activeTab === 'dashboard' ? <DashboardPage /> : <ModelsExplorer />}
       </main>
 
       {/* Footer */}
