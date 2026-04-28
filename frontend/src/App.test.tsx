@@ -27,6 +27,16 @@ describe('App', () => {
     mockStoreState.setModelsFilter = vi.fn()
     mockStoreState.setModelsSort = vi.fn()
     mockStoreState.clearToast = vi.fn()
+    mockStoreState.modelOverrides = {}
+    mockStoreState.modelOverride = { provider: null, model: null, enabled: false }
+    mockStoreState.setModelOverride = vi.fn()
+    mockStoreState.clearModelOverride = vi.fn()
+    mockStoreState.logs = { lines: [], offset: 0, total_size: 0, source: 'service' }
+    mockStoreState.isLoadingLogs = false
+    mockStoreState.logError = null
+    mockStoreState.fetchLogs = vi.fn().mockResolvedValue(undefined)
+    mockStoreState.setLogSource = vi.fn()
+    mockStoreState.clearLogError = vi.fn()
   })
 
   it('calls fetchAll on mount', () => {

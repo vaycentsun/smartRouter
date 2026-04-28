@@ -116,6 +116,54 @@ class DryRunRequest(BaseModel):
     strategy: str = "auto"
 
 
+class LogsResponse(BaseModel):
+    lines: list[str]
+    offset: int
+    total_size: int
+
+
+LOG_FILE_MAP = {
+    "service": DEFAULT_PID_DIR / "smart-router.log",
+    "dashboard": DEFAULT_PID_DIR / "dashboard.log",
+}
+
+
+def read_log_lines(source: str, offset: int, limit: int = 500) -> LogsResponse:
+    """读取日志文件指定偏移之后的新行
+
+    Args:
+        source: 日志源，"service" 或 "dashboard"
+        offset: 已读取的字节数
+        limit: 最大返回行数
+
+    Returns:
+        LogsResponse: 包含新行列表、新的 offset 和文件总大小
+    """
+    if source not in LOG_FILE_MAP:
+        raise ValueError(f"Invalid log source: {source}")
+
+    log_path = LOG_FILE_MAP[source]
+
+    if not log_path.exists():
+        return LogsResponse(lines=[], offset=0, total_size=0)
+
+    content = log_path.read_bytes()
+    total_size = len(content)
+
+    # 文件被清空或轮转：offset 超出范围，从头开始
+    if offset > total_size:
+        offset = 0
+
+    new_content = content[offset:]
+    text = new_content.decode("utf-8", errors="replace")
+    lines = text.splitlines()
+
+    if len(lines) > limit:
+        lines = lines[-limit:]
+
+    return LogsResponse(lines=lines, offset=total_size, total_size=total_size)
+
+
 # ==================== API 处理函数 ====================
 
 async def health():
@@ -340,6 +388,21 @@ async def stop():
     return {"success": True, "message": "Smart Router stopped"}
 
 
+async def get_logs(source: str = "service", offset: int = 0, limit: int = 500):
+    try:
+        result = read_log_lines(source, offset, limit)
+        return {
+            "lines": result.lines,
+            "offset": result.offset,
+            "total_size": result.total_size,
+        }
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取日志失败: {e}")
+
+
 # ==================== App 构建 ====================
 
 def build_dashboard_app(static_dir: Optional[Path] = None):
@@ -358,6 +421,7 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.get("/api/model-overrides")(model_overrides)
     app.post("/api/dry-run")(dry_run)
     app.post("/api/stop")(stop)
+    app.get("/api/logs")(get_logs)
 
     if static_dir and static_dir.exists():
         # 将 Mount 追加到 routes 末尾，确保 API 路由优先匹配

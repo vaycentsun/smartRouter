@@ -9,9 +9,11 @@ vi.mock('../api/client', async (importOriginal) => {
       getStatus: vi.fn(),
       getModels: vi.fn(),
       getProviders: vi.fn(),
+      getModelOverrides: vi.fn(),
       dryRun: vi.fn(),
       stopService: vi.fn(),
       putProviders: vi.fn(),
+      getLogs: vi.fn(),
     },
   }
 })
@@ -58,6 +60,7 @@ describe('useDashboardStore', () => {
       ;(api.getStatus as Mock).mockResolvedValue(status)
       ;(api.getModels as Mock).mockResolvedValue(modelsRes)
       ;(api.getProviders as Mock).mockResolvedValue(providersRes)
+      ;(api.getModelOverrides as Mock).mockResolvedValue({ overrides: {} })
 
       await useDashboardStore.getState().fetchAll()
 
@@ -110,6 +113,7 @@ describe('useDashboardStore', () => {
       ;(api.getStatus as Mock).mockResolvedValue({ running: false, pid: null, uptime_seconds: null, service_url: null, version: '1.0.0' })
       ;(api.getModels as Mock).mockResolvedValue({ models: [], total: 0, available: 0, unavailable: 0 })
       ;(api.getProviders as Mock).mockResolvedValue({ providers: [] })
+      ;(api.getModelOverrides as Mock).mockResolvedValue({ overrides: {} })
 
       await useDashboardStore.getState().stopService()
 
@@ -136,6 +140,7 @@ describe('useDashboardStore', () => {
       ;(api.getStatus as Mock).mockResolvedValue({ running: true, pid: 123, uptime_seconds: 60, service_url: 'http://localhost:4000', version: '1.0.0' })
       ;(api.getModels as Mock).mockResolvedValue({ models: [], total: 0, available: 0, unavailable: 0 })
       ;(api.getProviders as Mock).mockResolvedValue({ providers: [] })
+      ;(api.getModelOverrides as Mock).mockResolvedValue({ overrides: {} })
 
       await useDashboardStore.getState().saveProviders({ openai: { api_base: 'https://api.openai.com', timeout: 30 } })
 

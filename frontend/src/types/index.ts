@@ -70,3 +70,18 @@ export interface ModelOverrideState {
   model: string | null
   enabled: boolean
 }
+
+export interface LogsResponse {
+  lines: string[]
+  offset: number
+  total_size: number
+}
+
+export type LogSource = 'service' | 'dashboard'
+
+export interface LogState {
+  lines: string[]
+  offset: number
+  total_size: number
+  source: LogSource
+}

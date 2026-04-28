@@ -4,10 +4,11 @@ import { Header } from './components/Header'
 import { ModelOverrideBar } from './components/ModelOverrideBar'
 import { DashboardPage } from './components/DashboardPage'
 import { ModelsExplorer } from './components/ModelsExplorer'
+import { LogsPanel } from './components/LogsPanel'
 
 function App() {
   const { fetchAll, error, clearError } = useDashboardStore()
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'models'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'models' | 'logs'>('dashboard')
 
   // Auto refresh every 5 seconds
   useEffect(() => {
@@ -66,10 +67,23 @@ function App() {
             </svg>
             模型清单
           </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+              activeTab === 'logs'
+                ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] shadow-sm'
+                : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            日志
+          </button>
         </div>
 
         {/* Page Content */}
-        {activeTab === 'dashboard' ? <DashboardPage /> : <ModelsExplorer />}
+        {activeTab === 'dashboard' ? <DashboardPage /> : activeTab === 'models' ? <ModelsExplorer /> : <LogsPanel />}
       </main>
 
       {/* Footer */}

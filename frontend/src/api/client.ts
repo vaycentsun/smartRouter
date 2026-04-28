@@ -7,6 +7,8 @@ import type {
   DryRunResult,
   ProviderUpdate,
   ModelOverrideInfo,
+  LogsResponse,
+  LogSource,
 } from '../types'
 
 const client = axios.create({
@@ -32,4 +34,6 @@ export const api = {
   stopService: () => client.post('/api/stop').then((r) => r.data),
   putProviders: (data: Record<string, ProviderUpdate>) =>
     client.put<{ success: boolean; errors?: string[] }>('/api/providers', { providers: data }).then((r) => r.data),
+  getLogs: (source: LogSource, offset: number, limit?: number) =>
+    client.get<LogsResponse>('/api/logs', { params: { source, offset, limit } }).then((r) => r.data),
 }

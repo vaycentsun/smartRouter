@@ -7,6 +7,8 @@ import type {
   Strategy,
   ProviderUpdate,
   ModelOverrideState,
+  LogState,
+  LogSource,
 } from '../types'
 import { api } from '../api/client'
 
@@ -29,6 +31,11 @@ interface DashboardState {
   // Model Override
   modelOverride: ModelOverrideState
 
+  // Logs
+  logs: LogState
+  isLoadingLogs: boolean
+  logError: string | null
+
   // Actions
   fetchAll: () => Promise<void>
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
@@ -40,6 +47,9 @@ interface DashboardState {
   clearToast: () => void
   setModelOverride: (provider: string | null, model: string | null) => void
   clearModelOverride: () => void
+  fetchLogs: (source?: LogSource) => Promise<void>
+  setLogSource: (source: LogSource) => void
+  clearLogError: () => void
 }
 
 const STORAGE_KEY = 'smart-router-model-override'
@@ -84,6 +94,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   modelsFilter: '',
   modelsSort: { key: 'name', asc: true },
   modelOverride: loadOverrideFromStorage(),
+  logs: { lines: [], offset: 0, total_size: 0, source: 'service' as LogSource },
+  isLoadingLogs: false,
+  logError: null,
 
   fetchAll: async () => {
     set({ isLoading: true, error: null })
@@ -170,4 +183,35 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     saveOverrideToStorage(state)
     set({ modelOverride: state })
   },
+
+  fetchLogs: async (source?: LogSource) => {
+    const currentSource = source || get().logs.source
+    const currentOffset = source ? 0 : get().logs.offset
+
+    set({ isLoadingLogs: true, logError: null })
+    try {
+      const result = await api.getLogs(currentSource, currentOffset, 500)
+      const existingLines = source ? [] : get().logs.lines
+      set({
+        logs: {
+          lines: [...existingLines, ...result.lines],
+          offset: result.offset,
+          total_size: result.total_size,
+          source: currentSource,
+        },
+        isLoadingLogs: false,
+      })
+    } catch (err) {
+      set({ logError: (err as Error).message, isLoadingLogs: false })
+    }
+  },
+
+  setLogSource: (source: LogSource) => {
+    set({
+      logs: { lines: [], offset: 0, total_size: 0, source },
+      logError: null,
+    })
+  },
+
+  clearLogError: () => set({ logError: null }),
 }))
