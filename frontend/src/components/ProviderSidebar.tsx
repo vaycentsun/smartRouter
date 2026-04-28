@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import type { ProviderInfo } from '../types'
 
 interface ProviderSidebarProps {
@@ -19,6 +20,15 @@ function StatusDot({ hasKey }: { hasKey: boolean }) {
 }
 
 export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSelect }: ProviderSidebarProps) {
+  const sortedProviders = useMemo(() => {
+    return [...providers].sort((a, b) => {
+      if (a.has_key !== b.has_key) {
+        return a.has_key ? -1 : 1
+      }
+      return a.name.localeCompare(b.name)
+    })
+  }, [providers])
+
   if (providers.length === 0) {
     return (
       <div className="glass-card rounded-2xl p-6">
@@ -29,7 +39,7 @@ export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSe
 
   return (
     <div className="space-y-3">
-      {providers.map((provider) => {
+      {sortedProviders.map((provider) => {
         const isSelected = selectedProvider === provider.name
         const count = modelsCount[provider.name] || 0
         return (
