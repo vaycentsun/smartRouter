@@ -140,7 +140,7 @@ export function ProvidersTable() {
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="bg-slate-800/40 text-slate-400">
+          <thead className="bg-[rgba(0,0,0,0.02)] text-[#86868b]">
             <tr>
               <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider w-10">状态</th>
               <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">名称</th>
