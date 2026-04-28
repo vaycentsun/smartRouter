@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- 测试目录迁移到各模块内部（模块化测试结构）
+- config/__init__.py 统一导出所有类（含向后兼容别名）
+- 在 CI (publish.yml) 添加测试步骤
+- 标记 plugin_v3_adapter.py 和 model_selector.py 为弃用
+
+### Removed
+- 删除 v3_schema.py/v3_loader.py 别名文件
+
+### Fixed
+- 重命名 test_api.py 为 api_manual.py 避免 pytest 误收集
+
 ## [1.1.0] - 2026-04-23
 
 ### Changed

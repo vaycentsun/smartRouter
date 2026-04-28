@@ -37,11 +37,16 @@ INSTALL_DIR="$HOME/.smart-router"
 VENV_DIR="$INSTALL_DIR/venv"
 BIN_DIR="$INSTALL_DIR/bin"
 
-# 4. 如果 ~/.smart-router 存在旧配置，备份
+# 4. 如果 ~/.smart-router 存在旧安装，备份配置文件并清理旧环境
 if [ -d "$INSTALL_DIR" ]; then
-    echo "  🗑️  备份旧安装目录..."
-    rm -rf "$INSTALL_DIR.backup" 2>/dev/null || true
-    mv "$INSTALL_DIR" "$INSTALL_DIR.backup.$(date +%Y%m%d)"
+    echo "  🗑️  备份配置文件..."
+    BACKUP_DIR="$INSTALL_DIR.backup.$(date +%Y%m%d)"
+    mkdir -p "$BACKUP_DIR"
+    # 只复制用户配置和数据，跳过体积巨大的 venv
+    cp -r "$INSTALL_DIR"/*.yaml "$BACKUP_DIR/" 2>/dev/null || true
+    cp -r "$INSTALL_DIR"/*.json "$BACKUP_DIR/" 2>/dev/null || true
+    # 直接删除旧环境，避免先复制整个目录再删除的低效操作
+    rm -rf "$INSTALL_DIR/venv" "$INSTALL_DIR/bin"
 fi
 
 # ==================== 安装新版本 ====================
@@ -53,7 +58,7 @@ mkdir -p "$BIN_DIR"
 
 # 创建虚拟环境
 echo "📦 创建虚拟环境..."
-python3 -m venv "$VENV_DIR"
+python3 -m venv --upgrade-deps "$VENV_DIR"
 
 # 创建临时目录复制源码进行安装（与开发目录完全分离）
 echo "📦 准备安装包..."
@@ -61,7 +66,7 @@ TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
 # 复制项目文件到临时目录
-cp -r "$PROJECT_DIR/src" "$TEMP_DIR/"
+cp -r "$PROJECT_DIR/core" "$TEMP_DIR/"
 cp -r "$PROJECT_DIR/script" "$TEMP_DIR/"
 cp -r "$PROJECT_DIR/config" "$TEMP_DIR/" 2>/dev/null || true
 cp "$PROJECT_DIR/pyproject.toml" "$TEMP_DIR/"
@@ -71,8 +76,8 @@ cp "$PROJECT_DIR/LICENSE" "$TEMP_DIR/" 2>/dev/null || true
 # 使用虚拟环境的 pip 安装（非 editable 模式）
 echo "📦 安装 Smart Router 到虚拟环境..."
 cd "$TEMP_DIR"
-"$VENV_DIR/bin/pip" install --upgrade pip -q
-"$VENV_DIR/bin/pip" install -q ".[dev]"
+"$VENV_DIR/bin/pip" install -q -U pip setuptools wheel
+"$VENV_DIR/bin/pip" install -q "."
 
 # 验证安装
 echo "✅ 验证安装..."
@@ -84,9 +89,9 @@ from smart_router.config.loader import ConfigLoader
 print('✓ 所有模块导入成功')
 "
 
-# 生成默认配置
-echo "📝 生成默认配置文件..."
-"$VENV_DIR/bin/smart-router" init -f --output "$INSTALL_DIR"
+# 生成默认配置（安全模式：不覆盖已有配置）
+echo "📝 检查并生成默认配置文件..."
+"$VENV_DIR/bin/smart-router" init --safe --output "$INSTALL_DIR"
 
 # ==================== 创建可移植启动脚本 ====================
 

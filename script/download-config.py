@@ -34,7 +34,7 @@ def download_configs(output_dir: Path, force: bool = False) -> bool:
     
     for filename in config_files:
         # Fetch from templates directory to align with new source of config
-        url = f"{repo_url}/src/smart_router/templates/{filename}"
+        url = f"{repo_url}/core/smart_router/templates/{filename}"
         filepath = output_dir / filename
         
         if filepath.exists() and not force:

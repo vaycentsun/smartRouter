@@ -1,0 +1,322 @@
+"""上下文长度感知路由与动态难度校准测试"""
+
+import pytest
+from smart_router.utils.token_counter import estimate_tokens, estimate_messages_tokens
+from smart_router.selector.v3_selector import V3ModelSelector
+from smart_router.config.schema import (
+    Config, ProviderConfig, ModelConfig, ModelCapabilities,
+    TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, RoutingConfig
+)
+from smart_router.classifier.task_classifier import TaskClassifier
+from smart_router.classifier.types import ClassificationResult
+
+
+class TestTokenCounter:
+    """Token 估算工具测试"""
+    
+    def test_estimate_tokens_empty(self):
+        """测试空文本"""
+        assert estimate_tokens("") == 0
+    
+    def test_estimate_tokens_english(self):
+        """测试英文文本估算"""
+        text = "Hello world"
+        # 英文约 4 chars/token
+        assert estimate_tokens(text) == 3  # 11 / 4 = 2.75 -> ceil = 3
+    
+    def test_estimate_tokens_chinese(self):
+        """测试中文文本估算"""
+        text = "你好世界"
+        # 中文约 1.5 chars/token
+        assert estimate_tokens(text) == 3  # 4 / 1.5 = 2.67 -> ceil = 3
+    
+    def test_estimate_tokens_mixed(self):
+        """测试中英文混合"""
+        text = "Hello 世界"
+        # 英文 5 chars + 中文 2 chars
+        # 英文部分: 5/4 = 1.25, 中文部分: 2/1.5 = 1.33
+        # 混合平均约 7/2.5 = 2.8 -> ceil = 3
+        result = estimate_tokens(text)
+        assert result >= 2
+    
+    def test_estimate_messages_tokens_single(self):
+        """测试单条消息估算"""
+        messages = [{"role": "user", "content": "Hello world"}]
+        result = estimate_messages_tokens(messages)
+        # 内容 token + 每条消息固定开销 4
+        assert result >= 7  # 3 + 4
+    
+    def test_estimate_messages_tokens_multiple(self):
+        """测试多条消息估算"""
+        messages = [
+            {"role": "system", "content": "You are helpful"},
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there"}
+        ]
+        result = estimate_messages_tokens(messages)
+        # 3条消息，每条 +4 开销
+        assert result >= 12  # at least 3*4 = 12 overhead
+    
+    def test_estimate_messages_tokens_empty_content(self):
+        """测试空内容消息"""
+        messages = [{"role": "user", "content": ""}]
+        assert estimate_messages_tokens(messages) == 7  # 消息开销 4 + 框架 3
+    
+    def test_estimate_messages_tokens_none_messages(self):
+        """测试 None messages"""
+        assert estimate_messages_tokens(None) == 0
+    
+    def test_estimate_messages_tokens_no_content_key(self):
+        """测试缺少 content 键的消息"""
+        messages = [{"role": "user"}]
+        assert estimate_messages_tokens(messages) == 7  # 消息开销 4 + 框架 3
+
+
+class TestModelSelectorContextAware:
+    """模型选择器上下文感知测试（V3 架构）"""
+
+    @pytest.fixture
+    def selector(self):
+        """创建 V3 选择器实例"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat", "coding"],
+                    difficulty_support=["easy", "medium", "hard"]
+                ),
+                "gpt-4o-mini": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o-mini",
+                    capabilities=ModelCapabilities(quality=6, cost=9, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy", "medium"]
+                ),
+                "claude-haiku": ModelConfig(
+                    provider="openai",
+                    litellm_model="anthropic/claude-haiku",
+                    capabilities=ModelCapabilities(quality=7, cost=8, context=200000),
+                    supported_tasks=["chat", "coding"],
+                    difficulty_support=["easy", "medium", "hard"]
+                ),
+                "gpt-3.5-turbo": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-3.5-turbo",
+                    capabilities=ModelCapabilities(quality=5, cost=10, context=16000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy", "medium"]
+                )
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(name="Chat", description="General chat", capability_weights={"quality": 0.5, "cost": 0.5}),
+                    "coding": TaskConfig(name="Coding", description="Write code", capability_weights={"quality": 0.6, "cost": 0.4})
+                },
+                difficulties={
+                    "easy": DifficultyConfig(description="Easy", max_tokens=2000),
+                    "medium": DifficultyConfig(description="Medium", max_tokens=8000),
+                    "hard": DifficultyConfig(description="Hard", max_tokens=16000)
+                },
+                strategies={
+                    "auto": StrategyConfig(description="Auto"),
+                    "quality": StrategyConfig(description="Quality"),
+                    "cost": StrategyConfig(description="Cost")
+                },
+                fallback=FallbackConfig()
+            )
+        )
+        return V3ModelSelector(config)
+
+    def test_select_without_context_filter(self, selector):
+        """测试不传 required_context 时不做过滤"""
+        result = selector.select("chat", "easy", "auto")
+        # gpt-4o-mini (6*0.5+9*0.5=7.5) > gpt-3.5-turbo (5*0.5+10*0.5=7.5) tie -> 按排序先出现的
+        # gpt-4o (9*0.5+3*0.5=6.0) < claude-haiku (7*0.5+8*0.5=7.5)
+        # 实际 gpt-4o-mini 和 gpt-3.5-turbo 同分，但 gpt-4o-mini 先定义
+        assert result.model_name == "gpt-4o-mini"
+
+    def test_select_with_small_context(self, selector):
+        """测试小上下文需求不过滤"""
+        result = selector.select("chat", "easy", "auto", required_context=1000)
+        assert result.model_name == "gpt-4o-mini"
+
+    def test_select_with_large_context(self, selector):
+        """测试大上下文需求过滤小窗口模型"""
+        result = selector.select("chat", "easy", "auto", required_context=50000)
+        # gpt-3.5-turbo (16k) 被过滤
+        assert result.model_name == "gpt-4o-mini"
+
+    def test_select_with_very_large_context(self, selector):
+        """测试超大上下文需求只留 Claude"""
+        result = selector.select("chat", "easy", "auto", required_context=150000)
+        # 只有 claude-haiku (200k) 满足
+        assert result.model_name == "claude-haiku"
+
+    def test_select_with_excessive_context(self, selector):
+        """测试超过所有模型的上下文需求应抛异常"""
+        with pytest.raises(Exception):
+            selector.select("chat", "easy", "auto", required_context=500000)
+
+    def test_select_with_context_and_auto_strategy(self, selector):
+        """测试 auto 策略结合上下文过滤"""
+        result = selector.select("chat", "easy", "auto", required_context=50000)
+        # gpt-3.5-turbo 被过滤，auto 策略按 quality*0.5 + cost*0.5 计算
+        # gpt-4o-mini (6*0.5+9*0.5=7.5) 与 claude-haiku (7*0.5+8*0.5=7.5) 同分，按定义顺序 gpt-4o-mini 在前
+        assert result.model_name == "gpt-4o-mini"
+
+    def test_select_with_context_and_cost_strategy(self, selector):
+        """测试成本策略结合上下文过滤"""
+        result = selector.select("chat", "easy", "cost", required_context=50000)
+        # gpt-3.5-turbo 被过滤，在剩余中 cost 最高（最便宜）的是 gpt-4o-mini (9)
+        assert result.model_name == "gpt-4o-mini"
+
+    def test_get_available_models_with_context(self, selector):
+        """测试 get_available_models 支持上下文过滤"""
+        candidates = selector.get_available_models("chat", "easy")
+        assert "gpt-3.5-turbo" in candidates
+        assert "gpt-4o-mini" in candidates
+        assert "gpt-4o" in candidates
+        assert "claude-haiku" in candidates
+
+
+class TestDynamicDifficultyCalibration:
+    """动态难度校准测试"""
+    
+    @pytest.fixture
+    def classifier(self):
+        """创建集成动态难度的分类器"""
+        rules = [
+            {
+                "pattern": r"(?i)(写|write|draft)",
+                "task_type": "writing",
+                "difficulty": "medium"
+            },
+            {
+                "pattern": r"(?i)(review|审查|code)",
+                "task_type": "code_review",
+                "difficulty": "medium"
+            }
+        ]
+        return TaskClassifier(rules=rules, embedding_config={})
+    
+    def test_short_text_easy(self, classifier):
+        """测试短文本被评估为 easy"""
+        messages = [{"role": "user", "content": "Hi"}]
+        result = classifier.classify(messages)
+        assert result.estimated_difficulty == "easy"
+        assert result.source == "dynamic_difficulty"
+    
+    def test_long_text_hard(self, classifier):
+        """测试长文本被评估为 hard"""
+        text = "这是一个非常复杂的深度分析问题，" + "需要详细考虑各个方面。" * 50
+        messages = [{"role": "user", "content": text}]
+        result = classifier.classify(messages)
+        assert result.estimated_difficulty == "hard"
+    
+    def test_hard_keyword(self, classifier):
+        """测试复杂关键词提升难度"""
+        messages = [{"role": "user", "content": "请深入分析这个架构设计模式的问题"}]
+        result = classifier.classify(messages)
+        # 虽然有复杂关键词，但长度不长，可能 medium
+        assert result.estimated_difficulty in ["medium", "hard"]
+    
+    def test_multi_turn_conversation_medium(self, classifier):
+        """测试多轮对话提升难度"""
+        messages = [
+            {"role": "user", "content": "问题1"},
+            {"role": "assistant", "content": "回答1"},
+            {"role": "user", "content": "问题2"},
+            {"role": "assistant", "content": "回答2"},
+            {"role": "user", "content": "问题3"},
+            {"role": "assistant", "content": "回答3"},
+            {"role": "user", "content": "问题4"}
+        ]
+        result = classifier.classify(messages)
+        # 4 轮 user 消息，多轮对话升档，至少 medium
+        assert result.estimated_difficulty in ["medium", "hard"]
+    
+    def test_explicit_marker_overrides(self, classifier):
+        """测试显式标记覆盖动态评估"""
+        # 注意：这个测试在 TaskClassifier 层面不直接测 marker
+        # marker 在 plugin.py 层面处理，TaskClassifier 只负责内容分析
+        pass
+    
+    def test_empty_messages_default(self, classifier):
+        """测试空消息返回默认"""
+        result = classifier.classify([])
+        assert result.task_type == "chat"
+        assert result.estimated_difficulty == "medium"
+    
+    def test_combined_difficulty_factors(self, classifier):
+        """测试多因素叠加评估 hard"""
+        # 复杂关键词（优先级最高）
+        messages = [
+            {"role": "user", "content": "请详细深入分析这个复杂系统的架构设计"}
+        ]
+        result = classifier.classify(messages)
+        assert result.estimated_difficulty == "hard"
+
+
+class TestIntegrationContextAndDifficulty:
+    """集成测试：上下文过滤 + 动态难度（V3 架构）"""
+    
+    @pytest.fixture
+    def full_selector(self):
+        """创建完整 V3 选择器"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "cheap-small": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/cheap-small",
+                    capabilities=ModelCapabilities(quality=5, cost=10, context=4000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy", "medium"]
+                ),
+                "mid-large": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/mid-large",
+                    capabilities=ModelCapabilities(quality=7, cost=6, context=128000),
+                    supported_tasks=["chat", "coding"],
+                    difficulty_support=["easy", "medium", "hard"]
+                )
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(name="Chat", description="General chat", capability_weights={"quality": 0.5, "cost": 0.5}),
+                    "coding": TaskConfig(name="Coding", description="Write code", capability_weights={"quality": 0.6, "cost": 0.4})
+                },
+                difficulties={
+                    "easy": DifficultyConfig(description="Easy", max_tokens=2000),
+                    "medium": DifficultyConfig(description="Medium", max_tokens=8000),
+                    "hard": DifficultyConfig(description="Hard", max_tokens=16000)
+                },
+                strategies={
+                    "auto": StrategyConfig(description="Auto"),
+                    "quality": StrategyConfig(description="Quality"),
+                    "cost": StrategyConfig(description="Cost")
+                },
+                fallback=FallbackConfig()
+            )
+        )
+        return V3ModelSelector(config)
+    
+    def test_long_prompt_routes_to_large_context(self, full_selector):
+        """测试长提示自动路由到大上下文模型"""
+        # 模拟 10000 tokens 的输入
+        long_text = "a" * 40000  # ~10000 tokens
+        required_context = estimate_tokens(long_text) + 2000  # + 输出预留
+        
+        result = full_selector.select("chat", "hard", "auto", required_context=required_context)
+        assert result.model_name == "mid-large"
+    
+    def test_easy_task_short_prompt_routes_to_cheap(self, full_selector):
+        """测试简单任务短提示路由到便宜模型"""
+        # 简单任务，小上下文
+        result = full_selector.select("chat", "easy", "auto", required_context=1000)
+        # cheap-small 满足 easy chat + 1000 tokens，且 cost 最高（最便宜）
+        # auto 策略: cheap-small (5*0.5+10*0.5=7.5) > mid-large (7*0.5+6*0.5=6.5)
+        assert result.model_name == "cheap-small"
