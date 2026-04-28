@@ -50,7 +50,6 @@ describe('App', () => {
     const { unmount } = render(<App />)
     unmount()
     vi.advanceTimersByTime(5000)
-    // fetchAll should still only be called once (on mount)
     expect(mockStoreState.fetchAll).toHaveBeenCalledTimes(1)
     vi.useRealTimers()
   })
@@ -68,15 +67,16 @@ describe('App', () => {
     expect(mockStoreState.clearError).toHaveBeenCalled()
   })
 
-  it('renders main sections', () => {
-    mockStoreState.models = []
-    mockStoreState.providers = []
-    mockStoreState.status = null
+  it('renders dashboard tab by default', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: 'Smart Router Dashboard' })).toBeInTheDocument()
-    expect(screen.getByText('服务状态')).toBeInTheDocument()
-    expect(screen.getByText('快速路由测试')).toBeInTheDocument()
-    expect(screen.getByText('Provider 配置')).toBeInTheDocument()
-    expect(screen.getByText('模型列表')).toBeInTheDocument()
+    expect(screen.getByText('仪表盘')).toBeInTheDocument()
+    expect(screen.getByText('模型清单')).toBeInTheDocument()
+    expect(screen.getByText('模型总数')).toBeInTheDocument()
+  })
+
+  it('switches to models tab when clicked', () => {
+    render(<App />)
+    fireEvent.click(screen.getByText('模型清单'))
+    expect(screen.getByText('暂无 Provider 数据')).toBeInTheDocument()
   })
 })
