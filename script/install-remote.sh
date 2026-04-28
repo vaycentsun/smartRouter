@@ -113,6 +113,8 @@ if [ "$INSTALL_METHOD" == "release" ]; then
     echo "✓ SHA256 校验通过 (${ACTUAL_SHA})"
 
     # 安装
+    echo "  升级 pip..."
+    pip3 install -q -U pip
     echo "  安装 smart-router..."
     pip3 install -q "${TMPDIR}/${SDIST_FILE}"
     echo "✓ smart-router v${TARGET_VERSION} 安装成功"
@@ -123,6 +125,8 @@ elif [ "$INSTALL_METHOD" == "git" ]; then
     echo "📦 从 Git 源码安装开发版..."
     REPO_URL="https://github.com/${REPO}.git"
 
+    echo "  升级 pip..."
+    pip3 install -q -U pip
     if pip3 show smartRouter &> /dev/null; then
         echo "  发现已安装的 smartRouter，正在升级..."
         pip3 install -q --force-reinstall --no-deps "git+${REPO_URL}#egg=smartRouter[dev]"

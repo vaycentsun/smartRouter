@@ -58,7 +58,7 @@ mkdir -p "$BIN_DIR"
 
 # 创建虚拟环境
 echo "📦 创建虚拟环境..."
-python3 -m venv "$VENV_DIR"
+python3 -m venv --upgrade-deps "$VENV_DIR"
 
 # 创建临时目录复制源码进行安装（与开发目录完全分离）
 echo "📦 准备安装包..."
@@ -76,7 +76,7 @@ cp "$PROJECT_DIR/LICENSE" "$TEMP_DIR/" 2>/dev/null || true
 # 使用虚拟环境的 pip 安装（非 editable 模式）
 echo "📦 安装 Smart Router 到虚拟环境..."
 cd "$TEMP_DIR"
-"$VENV_DIR/bin/pip" install -q pip
+"$VENV_DIR/bin/pip" install -q -U pip setuptools wheel
 "$VENV_DIR/bin/pip" install -q "."
 
 # 验证安装
