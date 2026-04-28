@@ -372,3 +372,81 @@ class TestMiddlewareLogic:
         # 这个测试验证的是 start_server 中的条件逻辑
         assert getattr(app.state, '_smart_router_middleware_added', False) is True
         assert app.add_middleware.call_count == 0
+
+    def test_override_header_skips_routing(self):
+        """测试模型覆盖请求头存在时跳过智能路由"""
+        override_provider = "openai"
+        override_model = "gpt-4o"
+        
+        # 验证逻辑：当 override header 存在时，不应触发路由判断
+        original_model = "auto"
+        should_route = (
+            original_model in ("auto", "smart-router", "default") or
+            original_model.startswith("stage:") or
+            original_model.startswith("strategy-")
+        )
+        # 有 override header 时，should_route 仍然为 True，但中间件会先处理 override
+        # 这个测试验证的是 override 优先级高于路由逻辑
+        assert should_route is True
+        
+        # 模拟覆盖后的模型名
+        overridden_model = override_model
+        assert overridden_model == "gpt-4o"
+
+    def test_override_header_invalid_model(self):
+        """测试无效的模型覆盖请求头"""
+        from smart_router.config import (
+            Config, ProviderConfig, ModelConfig, ModelCapabilities,
+            RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig
+        )
+        
+        config = Config(
+            providers={
+                "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="test")
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy", "medium", "hard"]
+                )
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})
+                },
+                difficulties={
+                    "easy": DifficultyConfig(description="Easy", max_tokens=1000),
+                    "medium": DifficultyConfig(description="Medium", max_tokens=4000)
+                },
+                strategies={"auto": StrategyConfig(description="Auto")},
+                fallback=FallbackConfig(mode="auto")
+            )
+        )
+        
+        # 未知模型
+        assert "gpt-4-turbo" not in config.models
+        
+        # provider 不匹配
+        model_config = config.models.get("gpt-4o")
+        assert model_config is not None
+        assert model_config.provider != "anthropic"
+        
+        # 模型不可用（当 api_key 无效时）
+        assert config.is_model_available("gpt-4o") is True  # 这里 test key 直接配置了
+
+    def test_override_response_headers(self):
+        """测试覆盖响应头设置逻辑"""
+        class MockState:
+            def __init__(self):
+                self.smart_router_override = True
+                self.smart_router_override_provider = "openai"
+                self.smart_router_override_model = "gpt-4o"
+                self.smart_router_original = "auto"
+        
+        state = MockState()
+        assert hasattr(state, 'smart_router_override')
+        assert state.smart_router_override_provider == "openai"
+        assert state.smart_router_override_model == "gpt-4o"

@@ -6,6 +6,7 @@ import type {
   DryRunRequest,
   DryRunResult,
   ProviderUpdate,
+  ModelOverrideInfo,
 } from '../types'
 
 const client = axios.create({
@@ -25,6 +26,7 @@ export const api = {
   getStatus: () => client.get<ServiceStatus>('/api/status').then((r) => r.data),
   getModels: () => client.get<ModelsResponse>('/api/models').then((r) => r.data),
   getProviders: () => client.get<ProvidersResponse>('/api/providers').then((r) => r.data),
+  getModelOverrides: () => client.get<ModelOverrideInfo>('/api/model-overrides').then((r) => r.data),
   dryRun: (data: DryRunRequest) =>
     client.post<DryRunResult>('/api/dry-run', data).then((r) => r.data),
   stopService: () => client.post('/api/stop').then((r) => r.data),

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useDashboardStore } from './store/useDashboardStore'
 import { Header } from './components/Header'
+import { ModelOverrideBar } from './components/ModelOverrideBar'
 import { DashboardPage } from './components/DashboardPage'
 import { ModelsExplorer } from './components/ModelsExplorer'
 
@@ -23,6 +24,7 @@ function App() {
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 relative z-10">
+        <ModelOverrideBar />
         {/* Error Alert */}
         {error && (
           <div className="glass-card rounded-2xl p-4 flex items-center justify-between border border-red-400/20">
