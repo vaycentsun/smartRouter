@@ -220,7 +220,40 @@ models:
       context: 8000
     supported_tasks: [analysis, explanation, chat]
     difficulty_support: [easy, medium]
-    
+  
+  # Qwen 3.5 Flash - 高速轻量版
+  qwen3.5-flash:
+    provider: aliyun
+    litellm_model: openai/qwen3.5-flash
+    capabilities:
+      quality: 7
+      cost: 10
+      context: 128000
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+  
+  # Qwen 3.5 35B A3B - MoE 中等参数模型
+  qwen3.5-35b-a3b:
+    provider: aliyun
+    litellm_model: openai/qwen3.5-35b-a3b
+    capabilities:
+      quality: 8
+      cost: 10
+      context: 32000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
+    difficulty_support: [easy, medium, hard]
+  
+  # DeepSeek V4 Flash - 阿里云部署
+  deepseek-v4-flash:
+    provider: aliyun
+    litellm_model: openai/deepseek-v4-flash
+    capabilities:
+      quality: 8
+      cost: 10
+      context: 128000
+    supported_tasks: [coding, code_review, writing, reasoning, analysis, explanation, chat]
+    difficulty_support: [easy, medium, hard]
+  
   # ==================== 智谱 GLM (阿里部署) ====================
   # 注：以下 GLM 模型通过阿里云平台调用
   # 免费额度：1,000,000 tokens/模型（glm-5 已使用约 3万，剩余约 97万）
