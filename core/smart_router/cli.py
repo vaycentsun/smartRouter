@@ -3,7 +3,7 @@
 import shutil
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from rich.console import Console
@@ -65,34 +65,55 @@ def init(
         False,
         "--force", "-f",
         help="强制覆盖已存在的配置文件"
+    ),
+    safe: bool = typer.Option(
+        False,
+        "--safe",
+        help="安全模式：只生成缺失的配置文件，不覆盖已有文件"
     )
 ):
     """生成默认配置文件 (providers.yaml + models.yaml + routing.yaml)"""
-    # 调用 download_config 逻辑，保持统一
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # 检查文件是否已存在
-    existing_files = []
-    for filename in ["providers.yaml", "models.yaml", "routing.yaml"]:
-        if (output_dir / filename).exists():
-            existing_files.append(filename)
-    
-    if existing_files and not force:
-        overwrite = typer.confirm(
-            f"以下文件已存在: {', '.join(existing_files)}\n是否覆盖？"
-        )
-        if not overwrite:
-            console.print("[yellow]已取消[/yellow]")
+
+    config_files = ["providers.yaml", "models.yaml", "routing.yaml"]
+
+    if safe:
+        # 安全模式：只生成缺失的文件
+        missing_files = []
+        for filename in config_files:
+            if not (output_dir / filename).exists():
+                missing_files.append(filename)
+
+        if not missing_files:
+            console.print("[dim]所有配置文件已存在，跳过生成[/dim]")
             raise typer.Exit()
-    
+
+        files_to_generate = missing_files
+    else:
+        # 检查文件是否已存在
+        existing_files = []
+        for filename in config_files:
+            if (output_dir / filename).exists():
+                existing_files.append(filename)
+
+        if existing_files and not force:
+            overwrite = typer.confirm(
+                f"以下文件已存在: {', '.join(existing_files)}\n是否覆盖？"
+            )
+            if not overwrite:
+                console.print("[yellow]已取消[/yellow]")
+                raise typer.Exit()
+
+        files_to_generate = config_files
+
     # 从包内模板复制配置（支持 pip install 和源码运行）
     try:
         from importlib.resources import files
         templates_dir = files("smart_router") / "templates"
         if templates_dir.exists() and (templates_dir / "models.yaml").exists():
             import shutil
-            for filename in ["providers.yaml", "models.yaml", "routing.yaml"]:
+            for filename in files_to_generate:
                 src = templates_dir / filename
                 dst = output_dir / filename
                 if src.exists():
@@ -102,16 +123,18 @@ def init(
             raise FileNotFoundError("模板目录不存在")
     except Exception:
         console.print("[yellow]⚠[/yellow] 未找到示例配置文件，使用默认配置...")
-        _write_default_configs(output_dir)
-    
-    console.print("  - providers.yaml")
-    console.print("  - models.yaml")
-    console.print("  - routing.yaml")
+        _write_default_configs(output_dir, filenames=files_to_generate)
+
+    for filename in files_to_generate:
+        console.print(f"  - {filename}")
     console.print("[dim]请编辑文件中的 API Key，然后运行 `smart-router start` 启动服务[/dim]")
 
 
-def _write_default_configs(output_dir: Path):
+def _write_default_configs(output_dir: Path, filenames: Optional[List[str]] = None):
     """写入默认配置文件（回退方案）"""
+    if filenames is None:
+        filenames = ["providers.yaml", "models.yaml", "routing.yaml"]
+
     # providers.yaml
     providers_content = '''# Providers Configuration
 # API 服务商连接配置
@@ -320,9 +343,12 @@ fallback:
 '''
     
     # 写入文件
-    (output_dir / "providers.yaml").write_text(providers_content)
-    (output_dir / "models.yaml").write_text(models_content)
-    (output_dir / "routing.yaml").write_text(routing_content)
+    if "providers.yaml" in filenames:
+        (output_dir / "providers.yaml").write_text(providers_content)
+    if "models.yaml" in filenames:
+        (output_dir / "models.yaml").write_text(models_content)
+    if "routing.yaml" in filenames:
+        (output_dir / "routing.yaml").write_text(routing_content)
 
 @app.command()
 def start(
