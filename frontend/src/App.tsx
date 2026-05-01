@@ -5,10 +5,11 @@ import { ModelOverrideBar } from './components/ModelOverrideBar'
 import { DashboardPage } from './components/DashboardPage'
 import { ModelsExplorer } from './components/ModelsExplorer'
 import { LogsPanel } from './components/LogsPanel'
+import { TokenStatsPage } from './components/TokenStatsPage'
 
 function App() {
   const { fetchAll, error, clearError } = useDashboardStore()
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'models' | 'logs'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'models' | 'logs' | 'token-stats'>('dashboard')
 
   // Auto refresh every 5 seconds
   useEffect(() => {
@@ -80,10 +81,26 @@ function App() {
             </svg>
             日志
           </button>
+          <button
+            onClick={() => setActiveTab('token-stats')}
+            className={`px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+              activeTab === 'token-stats'
+                ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] shadow-sm'
+                : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
+            </svg>
+            Token 统计
+          </button>
         </div>
 
         {/* Page Content */}
-        {activeTab === 'dashboard' ? <DashboardPage /> : activeTab === 'models' ? <ModelsExplorer /> : <LogsPanel />}
+        {activeTab === 'dashboard' ? <DashboardPage /> :
+         activeTab === 'models' ? <ModelsExplorer /> :
+         activeTab === 'logs' ? <LogsPanel /> :
+         <TokenStatsPage />}
       </main>
 
       {/* Footer */}
