@@ -403,6 +403,36 @@ async def get_logs(source: str = "service", offset: int = 0, limit: int = 500):
         raise HTTPException(status_code=500, detail=f"读取日志失败: {e}")
 
 
+async def token_stats():
+    from ..utils.token_stats import TokenStats
+    stats = TokenStats()
+    data = stats.get_all()
+
+    result = []
+    total_prompt = 0
+    total_completion = 0
+    total_requests = 0
+
+    for model, entry in data.items():
+        result.append({
+            "model": model,
+            "prompt_tokens": entry.get("prompt_tokens", 0),
+            "completion_tokens": entry.get("completion_tokens", 0),
+            "total_tokens": entry.get("total_tokens", 0),
+            "request_count": entry.get("request_count", 0),
+        })
+        total_prompt += entry.get("prompt_tokens", 0)
+        total_completion += entry.get("completion_tokens", 0)
+        total_requests += entry.get("request_count", 0)
+
+    return {
+        "stats": result,
+        "total_prompt_tokens": total_prompt,
+        "total_completion_tokens": total_completion,
+        "total_requests": total_requests,
+    }
+
+
 # ==================== App 构建 ====================
 
 def build_dashboard_app(static_dir: Optional[Path] = None):
@@ -422,6 +452,7 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.post("/api/dry-run")(dry_run)
     app.post("/api/stop")(stop)
     app.get("/api/logs")(get_logs)
+    app.get("/api/token-stats")(token_stats)
 
     if static_dir and static_dir.exists():
         # 将 Mount 追加到 routes 末尾，确保 API 路由优先匹配

@@ -136,3 +136,52 @@ class TestStaticFiles:
         response = client.get("/api/health")
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
+
+
+import json
+from unittest.mock import patch
+from smart_router.utils.token_stats import TokenStats as RealTokenStats
+
+
+class TestTokenStatsAPI:
+    def test_token_stats_empty(self, client):
+        response = client.get("/api/token-stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["stats"] == []
+        assert data["total_prompt_tokens"] == 0
+        assert data["total_completion_tokens"] == 0
+        assert data["total_requests"] == 0
+
+    def test_token_stats_with_data(self, client, tmp_path):
+        stats_file = tmp_path / "token_stats.json"
+        stats_data = {
+            "version": 1,
+            "records": {
+                "gpt-4o": {
+                    "prompt_tokens": 1000,
+                    "completion_tokens": 500,
+                    "total_tokens": 1500,
+                    "request_count": 10,
+                },
+                "claude-3-sonnet": {
+                    "prompt_tokens": 2000,
+                    "completion_tokens": 1000,
+                    "total_tokens": 3000,
+                    "request_count": 5,
+                },
+            },
+        }
+        stats_file.write_text(json.dumps(stats_data))
+
+        with patch("smart_router.utils.token_stats.TokenStats") as MockStats:
+            mock_instance = RealTokenStats(stats_file=stats_file)
+            MockStats.return_value = mock_instance
+
+            response = client.get("/api/token-stats")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["stats"]) == 2
+            assert data["total_prompt_tokens"] == 3000
+            assert data["total_completion_tokens"] == 1500
+            assert data["total_requests"] == 15
