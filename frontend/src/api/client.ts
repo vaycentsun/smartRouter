@@ -9,6 +9,7 @@ import type {
   ModelOverrideInfo,
   LogsResponse,
   LogSource,
+  TokenStatsResponse,
 } from '../types'
 
 const client = axios.create({
@@ -36,4 +37,6 @@ export const api = {
     client.put<{ success: boolean; errors?: string[] }>('/api/providers', { providers: data }).then((r) => r.data),
   getLogs: (source: LogSource, offset: number, limit?: number) =>
     client.get<LogsResponse>('/api/logs', { params: { source, offset, limit } }).then((r) => r.data),
+  getTokenStats: () =>
+    client.get<TokenStatsResponse>('/api/token-stats').then((r) => r.data),
 }

@@ -9,6 +9,7 @@ import type {
   ModelOverrideState,
   LogState,
   LogSource,
+  TokenStatsItem,
 } from '../types'
 import { api } from '../api/client'
 
@@ -36,6 +37,10 @@ interface DashboardState {
   isLoadingLogs: boolean
   logError: string | null
 
+  // Token Stats
+  tokenStats: TokenStatsItem[]
+  isLoadingTokenStats: boolean
+
   // Actions
   fetchAll: () => Promise<void>
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
@@ -50,6 +55,7 @@ interface DashboardState {
   fetchLogs: (source?: LogSource) => Promise<void>
   setLogSource: (source: LogSource) => void
   clearLogError: () => void
+  fetchTokenStats: () => Promise<void>
 }
 
 const STORAGE_KEY = 'smart-router-model-override'
@@ -97,21 +103,25 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   logs: { lines: [], offset: 0, total_size: 0, source: 'service' as LogSource },
   isLoadingLogs: false,
   logError: null,
+  tokenStats: [],
+  isLoadingTokenStats: false,
 
   fetchAll: async () => {
     set({ isLoading: true, error: null })
     try {
-      const [status, modelsRes, providersRes, overridesRes] = await Promise.all([
+      const [status, modelsRes, providersRes, overridesRes, tokenStatsRes] = await Promise.all([
         api.getStatus(),
         api.getModels(),
         api.getProviders(),
         api.getModelOverrides(),
+        api.getTokenStats(),
       ])
       set({
         status,
         models: modelsRes.models,
         providers: providersRes.providers,
         modelOverrides: overridesRes.overrides,
+        tokenStats: tokenStatsRes.stats,
         isLoading: false,
       })
     } catch (err) {
@@ -214,4 +224,14 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   clearLogError: () => set({ logError: null }),
+
+  fetchTokenStats: async () => {
+    set({ isLoadingTokenStats: true })
+    try {
+      const result = await api.getTokenStats()
+      set({ tokenStats: result.stats, isLoadingTokenStats: false })
+    } catch (err) {
+      set({ error: (err as Error).message, isLoadingTokenStats: false })
+    }
+  },
 }))

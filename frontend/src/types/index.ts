@@ -85,3 +85,18 @@ export interface LogState {
   total_size: number
   source: LogSource
 }
+
+export interface TokenStatsItem {
+  model: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  request_count: number
+}
+
+export interface TokenStatsResponse {
+  stats: TokenStatsItem[]
+  total_prompt_tokens: number
+  total_completion_tokens: number
+  total_requests: number
+}

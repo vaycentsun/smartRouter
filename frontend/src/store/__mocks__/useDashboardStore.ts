@@ -5,6 +5,7 @@ export const mockStoreState: Record<string, unknown> = {
   modelOverride: { provider: null, model: null, enabled: false },
   setModelOverride: vi.fn(),
   clearModelOverride: vi.fn(),
+  tokenStats: [],
 }
 
 export const useDashboardStore = vi.fn(() => mockStoreState)
