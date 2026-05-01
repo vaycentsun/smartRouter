@@ -129,6 +129,59 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             response.headers["X-Smart-Router-Override-Provider"] = request.state.smart_router_override_provider
             response.headers["X-Smart-Router-Override-Model"] = request.state.smart_router_override_model
         
+        # Token 统计：拦截 chat/completions 响应
+        if request.url.path == "/v1/chat/completions" and request.method == "POST":
+            content_type = response.headers.get("content-type", "")
+            if "text/event-stream" not in content_type:
+                try:
+                    # 确定统计模型名（按优先级）
+                    model_name = getattr(request.state, 'smart_router_selected', None)
+                    if not model_name:
+                        model_name = getattr(request.state, 'smart_router_override_model', None)
+                    if not model_name:
+                        # 回退：从请求体解析原始 model 字段
+                        try:
+                            req_body = await request.body()
+                            if req_body:
+                                req_data = json.loads(req_body)
+                                model_name = req_data.get("model", None)
+                        except Exception:
+                            pass
+                    
+                    if model_name:
+                        # 消费响应 body
+                        body_bytes = b""
+                        if hasattr(response, "body_iterator"):
+                            async for chunk in response.body_iterator:
+                                body_bytes += chunk
+                        else:
+                            body_bytes = response.body
+                        
+                        # 解析 usage
+                        resp_data = json.loads(body_bytes)
+                        usage = resp_data.get("usage", {})
+                        if usage:
+                            prompt_tokens = usage.get("prompt_tokens", 0)
+                            completion_tokens = usage.get("completion_tokens", 0)
+                            total_tokens = usage.get("total_tokens", 0)
+                            
+                            token_stats = request.app.state.token_stats
+                            await token_stats.record(
+                                model_name, prompt_tokens, completion_tokens, total_tokens
+                            )
+                        
+                        # 重建 Response，确保下游正常消费
+                        from starlette.responses import Response
+                        response = Response(
+                            content=body_bytes,
+                            status_code=response.status_code,
+                            headers=dict(response.headers),
+                            media_type=response.media_type,
+                        )
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"Token stats recording failed: {e}")
+        
         return response
 
 
@@ -240,6 +293,10 @@ def start_server(config_path: Optional[Path] = None):
         from litellm.proxy.proxy_server import app
         
         app.state.smart_router = router
+        
+        # 初始化 Token 统计
+        from ..utils.token_stats import TokenStats
+        app.state.token_stats = TokenStats()
         
         # 在应用启动时只添加一次中间件
         if not getattr(app.state, '_smart_router_middleware_added', False):
