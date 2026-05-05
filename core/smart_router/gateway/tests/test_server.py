@@ -703,3 +703,159 @@ class TestTokenStatsMiddleware:
         # 验证返回的是 StreamingResponse
         from starlette.responses import StreamingResponse
         assert isinstance(response, StreamingResponse)
+
+
+class TestErrorCounter:
+    """测试 ErrorCounter 5 分钟滑动窗口"""
+
+    def test_record_error(self):
+        from smart_router.gateway.error_counter import ErrorCounter
+        ec = ErrorCounter()
+        ec.record(True)
+        assert ec.get_error_rate() == 1.0
+
+    def test_record_success(self):
+        from smart_router.gateway.error_counter import ErrorCounter
+        ec = ErrorCounter()
+        ec.record(False)
+        assert ec.get_error_rate() == 0.0
+
+    def test_error_rate_mixed(self):
+        from smart_router.gateway.error_counter import ErrorCounter
+        ec = ErrorCounter()
+        ec.record(True)
+        ec.record(False)
+        ec.record(True)
+        assert ec.get_error_rate() == 2 / 3
+
+    def test_window_expires_old_entries(self, monkeypatch):
+        """超过 5 分钟的数据应被清除"""
+        from smart_router.gateway.error_counter import ErrorCounter
+        import time
+        ec = ErrorCounter()
+        # 模拟一个旧时间戳
+        old_time = time.time() - 400  # 6 分 40 秒前
+        ec._entries.append((old_time, True))
+        assert ec.get_error_rate() == 0.0  # 旧条目应被清理
+
+    def test_empty_counter(self):
+        from smart_router.gateway.error_counter import ErrorCounter
+        ec = ErrorCounter()
+        assert ec.get_error_rate() == 0.0
+
+
+class TestMiddlewareErrorCounter:
+    """测试中间件集成 ErrorCounter"""
+
+    @pytest.fixture
+    def mock_router(self):
+        router = MagicMock()
+        router.sr_config = MagicMock()
+        return router
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_error_on_non_2xx(self, mock_router):
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.gateway.error_counter import ErrorCounter
+
+        async def mock_call_next(request):
+            return Response(content=b'error', status_code=500, headers={})
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.error_counter = ErrorCounter()
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 500
+        assert app.state.error_counter.get_error_rate() == 1.0
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_success_on_2xx(self, mock_router):
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.gateway.error_counter import ErrorCounter
+
+        async def mock_call_next(request):
+            return Response(content=b'ok', status_code=200, headers={})
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.error_counter = ErrorCounter()
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert app.state.error_counter.get_error_rate() == 0.0
+
+    @pytest.mark.asyncio
+    async def test_middleware_mixed_responses(self, mock_router):
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.gateway.error_counter import ErrorCounter
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.error_counter = ErrorCounter()
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        async def error_call_next(request):
+            return Response(content=b'error', status_code=500)
+
+        async def success_call_next(request):
+            return Response(content=b'ok', status_code=200)
+
+        await middleware.dispatch(request, error_call_next)
+        await middleware.dispatch(request, success_call_next)
+        await middleware.dispatch(request, error_call_next)
+
+        assert app.state.error_counter.get_error_rate() == 2 / 3

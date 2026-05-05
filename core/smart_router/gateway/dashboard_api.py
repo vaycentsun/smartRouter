@@ -22,6 +22,8 @@ from ..classifier.task_classifier import TaskTypeClassifier
 from ..classifier.difficulty_classifier import DifficultyClassifier
 from ..selector.v3_selector import V3ModelSelector
 from ..utils.markers import parse_markers
+from .playground_api import playground_router
+from ..alerts.config import AlertConfig, AlertRule, AlertCondition, AlertChannel
 
 
 # ==================== 进程管理工具（从 daemon.py 内联，避免循环导入）====================
@@ -120,6 +122,27 @@ class LogsResponse(BaseModel):
     lines: list[str]
     offset: int
     total_size: int
+
+
+class AlertRuleCreate(BaseModel):
+    id: str
+    name: str
+    enabled: bool = True
+    condition: AlertCondition
+    severity: str = "warning"
+    time_window: str = "1d"
+    channels: list[AlertChannel] = []
+    cooldown_minutes: int = 60
+
+
+class AlertRuleUpdate(BaseModel):
+    name: Optional[str] = None
+    enabled: Optional[bool] = None
+    condition: Optional[AlertCondition] = None
+    severity: Optional[str] = None
+    time_window: Optional[str] = None
+    channels: Optional[list[AlertChannel]] = None
+    cooldown_minutes: Optional[int] = None
 
 
 LOG_FILE_MAP = {
@@ -433,6 +456,276 @@ async def token_stats():
     }
 
 
+# ==================== Analytics API ====================
+
+def _load_config_for_analytics():
+    """加载配置用于分析，失败时返回 None"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        return loader.load()
+    except Exception:
+        return None
+
+
+def _clamp_days(days: int) -> int:
+    """限制 days 最大 90"""
+    if days < 1:
+        return 1
+    return min(days, 90)
+
+
+def _compute_cost(prompt_tokens: int, completion_tokens: int, price) -> float:
+    """根据单价计算成本"""
+    if price is None:
+        return 0.0
+    return (prompt_tokens / 1000 * price.prompt_per_1k) + (completion_tokens / 1000 * price.completion_per_1k)
+
+
+async def analytics_summary(days: int = 7):
+    """汇总统计：总成本、请求数、token 数"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    stats = TokenStats()
+    summary = stats.get_summary(days)
+    config = _load_config_for_analytics()
+
+    total_cost = 0.0
+    incomplete = False
+    model_breakdown = summary.get("model_breakdown", {})
+
+    if config and model_breakdown:
+        for model_name, entry in model_breakdown.items():
+            model_config = config.models.get(model_name)
+            price = getattr(model_config, "price", None) if model_config else None
+            if price is None:
+                incomplete = True
+                continue
+            total_cost += _compute_cost(
+                entry.get("prompt_tokens", 0),
+                entry.get("completion_tokens", 0),
+                price,
+            )
+    elif model_breakdown:
+        incomplete = True
+
+    return {
+        "total_cost": total_cost,
+        "total_requests": summary.get("total_requests", 0),
+        "total_prompt_tokens": summary.get("total_prompt_tokens", 0),
+        "total_completion_tokens": summary.get("total_completion_tokens", 0),
+        "incomplete": incomplete,
+    }
+
+
+async def analytics_daily(days: int = 7):
+    """每日趋势"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    stats = TokenStats()
+    # 获取最近 days 天的日期范围
+    import time
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    result = {}
+    for i in range(days):
+        date_obj = now - timedelta(days=i)
+        date_str = date_obj.strftime("%Y-%m-%d")
+        daily = stats.get_daily(date_str)
+        if daily:
+            result[date_str] = daily
+    return result
+
+
+async def analytics_by_model(days: int = 7):
+    """按模型聚合（含成本）"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    stats = TokenStats()
+    summary = stats.get_summary(days)
+    config = _load_config_for_analytics()
+
+    result = {}
+    for model_name, entry in summary.get("model_breakdown", {}).items():
+        model_config = config.models.get(model_name) if config else None
+        price = getattr(model_config, "price", None) if model_config else None
+        cost = _compute_cost(
+            entry.get("prompt_tokens", 0),
+            entry.get("completion_tokens", 0),
+            price,
+        )
+        result[model_name] = {
+            "prompt_tokens": entry.get("prompt_tokens", 0),
+            "completion_tokens": entry.get("completion_tokens", 0),
+            "total_tokens": entry.get("total_tokens", 0),
+            "request_count": entry.get("request_count", 0),
+            "cost": cost,
+        }
+    return result
+
+
+async def analytics_top_models(limit: int = 10, days: int = 7):
+    """TOP N 模型（按 request_count 降序）"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    limit = max(1, limit)
+    stats = TokenStats()
+    summary = stats.get_summary(days)
+    config = _load_config_for_analytics()
+
+    items = []
+    for model_name, entry in summary.get("model_breakdown", {}).items():
+        model_config = config.models.get(model_name) if config else None
+        price = getattr(model_config, "price", None) if model_config else None
+        cost = _compute_cost(
+            entry.get("prompt_tokens", 0),
+            entry.get("completion_tokens", 0),
+            price,
+        )
+        items.append({
+            "model": model_name,
+            "prompt_tokens": entry.get("prompt_tokens", 0),
+            "completion_tokens": entry.get("completion_tokens", 0),
+            "total_tokens": entry.get("total_tokens", 0),
+            "request_count": entry.get("request_count", 0),
+            "cost": cost,
+        })
+
+    items.sort(key=lambda x: x["request_count"], reverse=True)
+    return items[:limit]
+
+
+# ==================== Alerts API ====================
+
+ALERTS_CONFIG_PATH = DEFAULT_PID_DIR / "alerts.yaml"
+ALERTS_HISTORY_PATH = DEFAULT_PID_DIR / "alerts_history.json"
+
+
+def _get_alert_config() -> AlertConfig:
+    """获取 AlertConfig 实例"""
+    return AlertConfig(ALERTS_CONFIG_PATH)
+
+
+def _load_alert_history(limit: int = 50) -> list[dict]:
+    """加载告警历史"""
+    if not ALERTS_HISTORY_PATH.exists():
+        return []
+    try:
+        data = json.loads(ALERTS_HISTORY_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data[-limit:]
+        return []
+    except Exception:
+        return []
+
+
+async def get_alert_rules():
+    """获取所有告警规则"""
+    cfg = _get_alert_config()
+    return {"rules": [r.model_dump() for r in cfg.rules]}
+
+
+async def create_alert_rule(request: AlertRuleCreate):
+    """创建告警规则"""
+    cfg = _get_alert_config()
+    if cfg.get_rule(request.id):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"Rule ID already exists: {request.id}")
+
+    rule = AlertRule(
+        id=request.id,
+        name=request.name,
+        enabled=request.enabled,
+        condition=request.condition,
+        severity=request.severity,
+        time_window=request.time_window,
+        channels=request.channels,
+        cooldown_minutes=request.cooldown_minutes,
+    )
+    cfg.add_rule(rule)
+    return {"success": True, "rule": rule.model_dump()}
+
+
+async def update_alert_rule(rule_id: str, request: AlertRuleUpdate):
+    """更新告警规则"""
+    from fastapi import HTTPException
+    cfg = _get_alert_config()
+    existing = cfg.get_rule(rule_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Rule not found: {rule_id}")
+
+    updated = AlertRule(
+        id=rule_id,
+        name=request.name if request.name is not None else existing.name,
+        enabled=request.enabled if request.enabled is not None else existing.enabled,
+        condition=request.condition if request.condition is not None else existing.condition,
+        severity=request.severity if request.severity is not None else existing.severity,
+        time_window=request.time_window if request.time_window is not None else existing.time_window,
+        channels=request.channels if request.channels is not None else existing.channels,
+        cooldown_minutes=request.cooldown_minutes if request.cooldown_minutes is not None else existing.cooldown_minutes,
+    )
+    cfg.update_rule(rule_id, updated)
+    return {"success": True, "rule": updated.model_dump()}
+
+
+async def delete_alert_rule(rule_id: str):
+    """删除告警规则"""
+    from fastapi import HTTPException
+    cfg = _get_alert_config()
+    if not cfg.delete_rule(rule_id):
+        raise HTTPException(status_code=404, detail=f"Rule not found: {rule_id}")
+    return {"success": True}
+
+
+async def get_alert_history(limit: int = 50):
+    """获取告警历史"""
+    history = _load_alert_history(limit)
+    return {"history": history}
+
+
+async def test_alert_rule(request: AlertRuleCreate):
+    """测试告警规则（不保存）"""
+    from fastapi import HTTPException
+    from ..utils.token_stats import TokenStats
+    from .error_counter import ErrorCounter
+    from ..alerts.checker import AlertChecker
+
+    cfg = AlertConfig(ALERTS_CONFIG_PATH)
+    rule = AlertRule(
+        id="test-rule",
+        name=request.name,
+        enabled=True,
+        condition=request.condition,
+        severity=request.severity,
+        time_window=request.time_window,
+        channels=request.channels,
+        cooldown_minutes=0,  # 测试时无冷却期
+    )
+    cfg.rules = [rule]
+
+    token_stats = TokenStats()
+    error_counter = ErrorCounter()
+    checker = AlertChecker(cfg, token_stats, error_counter)
+
+    triggers = await checker.check_all()
+
+    return {
+        "triggered": len(triggers) > 0,
+        "triggers": [
+            {
+                "rule_id": t.rule_id,
+                "rule_name": t.rule_name,
+                "severity": t.severity,
+                "metric": t.metric,
+                "current_value": t.current_value,
+                "threshold": t.threshold,
+                "message": t.message,
+            }
+            for t in triggers
+        ],
+    }
+
+
 # ==================== App 构建 ====================
 
 def build_dashboard_app(static_dir: Optional[Path] = None):
@@ -453,6 +746,23 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.post("/api/stop")(stop)
     app.get("/api/logs")(get_logs)
     app.get("/api/token-stats")(token_stats)
+
+    # Analytics API
+    app.get("/api/analytics/summary")(analytics_summary)
+    app.get("/api/analytics/daily")(analytics_daily)
+    app.get("/api/analytics/by-model")(analytics_by_model)
+    app.get("/api/analytics/top-models")(analytics_top_models)
+
+    # Alerts API
+    app.get("/api/alerts/rules")(get_alert_rules)
+    app.post("/api/alerts/rules")(create_alert_rule)
+    app.put("/api/alerts/rules/{rule_id}")(update_alert_rule)
+    app.delete("/api/alerts/rules/{rule_id}")(delete_alert_rule)
+    app.get("/api/alerts/history")(get_alert_history)
+    app.post("/api/alerts/test")(test_alert_rule)
+
+    # Playground API
+    app.include_router(playground_router, prefix="/api/playground")
 
     if static_dir and static_dir.exists():
         # 将 Mount 追加到 routes 末尾，确保 API 路由优先匹配

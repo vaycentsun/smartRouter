@@ -10,6 +10,15 @@ import type {
   LogState,
   LogSource,
   TokenStatsItem,
+  AnalyticsSummary,
+  AnalyticsDailyItem,
+  AnalyticsByModelItem,
+  AnalyticsTopModelItem,
+  PlaygroundResult,
+  PlaygroundHistoryRecord,
+  PlaygroundRequest,
+  AlertRule,
+  AlertHistoryItem,
 } from '../types'
 import { api } from '../api/client'
 
@@ -41,6 +50,26 @@ interface DashboardState {
   tokenStats: TokenStatsItem[]
   isLoadingTokenStats: boolean
 
+  // Analytics
+  analyticsSummary: AnalyticsSummary | null
+  analyticsDaily: AnalyticsDailyItem[]
+  analyticsByModel: AnalyticsByModelItem[]
+  analyticsTopModels: AnalyticsTopModelItem[]
+  isLoadingAnalytics: boolean
+  analyticsError: string | null
+
+  // Playground
+  playgroundResults: PlaygroundResult[]
+  playgroundHistory: PlaygroundHistoryRecord[]
+  isLoadingPlayground: boolean
+  playgroundError: string | null
+
+  // Alerts
+  alertRules: AlertRule[]
+  alertHistory: AlertHistoryItem[]
+  isLoadingAlerts: boolean
+  alertsError: string | null
+
   // Actions
   fetchAll: () => Promise<void>
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
@@ -56,6 +85,18 @@ interface DashboardState {
   setLogSource: (source: LogSource) => void
   clearLogError: () => void
   fetchTokenStats: () => Promise<void>
+  fetchAnalytics: (days?: number) => Promise<void>
+  runPlayground: (request: PlaygroundRequest) => Promise<void>
+  fetchPlaygroundHistory: () => Promise<void>
+  deletePlaygroundHistory: (id: string) => Promise<void>
+  clearPlaygroundError: () => void
+  fetchAlertRules: () => Promise<void>
+  createAlertRule: (rule: AlertRule) => Promise<void>
+  updateAlertRule: (id: string, rule: Partial<AlertRule>) => Promise<void>
+  deleteAlertRule: (id: string) => Promise<void>
+  fetchAlertHistory: () => Promise<void>
+  testAlertRule: (rule: AlertRule) => Promise<{ triggered: boolean; triggers: Array<Pick<AlertHistoryItem, 'rule_id' | 'rule_name' | 'severity' | 'metric' | 'current_value' | 'threshold' | 'message'>> } | null>
+  clearAlertsError: () => void
 }
 
 const STORAGE_KEY = 'smart-router-model-override'
@@ -105,6 +146,24 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   logError: null,
   tokenStats: [],
   isLoadingTokenStats: false,
+  analyticsSummary: null,
+  analyticsDaily: [],
+  analyticsByModel: [],
+  analyticsTopModels: [],
+  isLoadingAnalytics: false,
+  analyticsError: null,
+
+  // Playground
+  playgroundResults: [],
+  playgroundHistory: [],
+  isLoadingPlayground: false,
+  playgroundError: null,
+
+  // Alerts
+  alertRules: [],
+  alertHistory: [],
+  isLoadingAlerts: false,
+  alertsError: null,
 
   fetchAll: async () => {
     set({ isLoading: true, error: null })
@@ -234,4 +293,121 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       set({ error: (err as Error).message, isLoadingTokenStats: false })
     }
   },
+
+  fetchAnalytics: async (days = 7) => {
+    set({ isLoadingAnalytics: true, analyticsError: null })
+    try {
+      const [summary, daily, byModel, topModels] = await Promise.all([
+        api.getAnalyticsSummary(days),
+        api.getAnalyticsDaily(days),
+        api.getAnalyticsByModel(days),
+        api.getAnalyticsTopModels(10, days),
+      ])
+      set({
+        analyticsSummary: summary,
+        analyticsDaily: daily,
+        analyticsByModel: byModel,
+        analyticsTopModels: topModels,
+        isLoadingAnalytics: false,
+      })
+    } catch (err) {
+      set({ analyticsError: (err as Error).message, isLoadingAnalytics: false })
+    }
+  },
+
+  runPlayground: async (request: PlaygroundRequest) => {
+    set({ isLoadingPlayground: true, playgroundError: null })
+    try {
+      const result = await api.postPlayground(request)
+      set({ playgroundResults: result.results, isLoadingPlayground: false })
+    } catch (err) {
+      set({ playgroundError: (err as Error).message, isLoadingPlayground: false })
+    }
+  },
+
+  fetchPlaygroundHistory: async () => {
+    try {
+      const result = await api.getPlaygroundHistory()
+      set({ playgroundHistory: result.history })
+    } catch {
+      // 历史记录加载失败不设置错误
+    }
+  },
+
+  deletePlaygroundHistory: async (id: string) => {
+    try {
+      await api.deletePlaygroundHistory(id)
+      set((state) => ({
+        playgroundHistory: state.playgroundHistory.filter((h) => h.id !== id),
+      }))
+    } catch (err) {
+      set({ playgroundError: (err as Error).message })
+    }
+  },
+
+  clearPlaygroundError: () => set({ playgroundError: null }),
+
+  fetchAlertRules: async () => {
+    set({ isLoadingAlerts: true, alertsError: null })
+    try {
+      const result = await api.getAlertRules()
+      set({ alertRules: result.rules, isLoadingAlerts: false })
+    } catch (err) {
+      set({ alertsError: (err as Error).message, isLoadingAlerts: false })
+    }
+  },
+
+  createAlertRule: async (rule: AlertRule) => {
+    set({ isLoadingAlerts: true, alertsError: null })
+    try {
+      await api.createAlertRule(rule)
+      await get().fetchAlertRules()
+      set({ toast: { message: '告警规则已创建', type: 'success' }, isLoadingAlerts: false })
+    } catch (err) {
+      set({ alertsError: (err as Error).message, isLoadingAlerts: false })
+    }
+  },
+
+  updateAlertRule: async (id: string, rule: Partial<AlertRule>) => {
+    set({ isLoadingAlerts: true, alertsError: null })
+    try {
+      await api.updateAlertRule(id, rule)
+      await get().fetchAlertRules()
+      set({ toast: { message: '告警规则已更新', type: 'success' }, isLoadingAlerts: false })
+    } catch (err) {
+      set({ alertsError: (err as Error).message, isLoadingAlerts: false })
+    }
+  },
+
+  deleteAlertRule: async (id: string) => {
+    set({ isLoadingAlerts: true, alertsError: null })
+    try {
+      await api.deleteAlertRule(id)
+      await get().fetchAlertRules()
+      set({ toast: { message: '告警规则已删除', type: 'success' }, isLoadingAlerts: false })
+    } catch (err) {
+      set({ alertsError: (err as Error).message, isLoadingAlerts: false })
+    }
+  },
+
+  fetchAlertHistory: async () => {
+    try {
+      const result = await api.getAlertHistory(50)
+      set({ alertHistory: result.history })
+    } catch {
+      // 历史记录加载失败不设置错误
+    }
+  },
+
+  testAlertRule: async (rule: AlertRule) => {
+    try {
+      const result = await api.testAlertRule(rule)
+      return result
+    } catch (err) {
+      set({ alertsError: (err as Error).message })
+      return null
+    }
+  },
+
+  clearAlertsError: () => set({ alertsError: null }),
 }))

@@ -117,7 +117,11 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 console.print(traceback.format_exc())
         
         response = await call_next(request)
-        
+
+        # 记录错误率
+        if hasattr(request.app.state, 'error_counter'):
+            request.app.state.error_counter.record(not (200 <= response.status_code < 300))
+
         console.print(f"[dim]Middleware: path={request.url.path} method={request.method} selected={getattr(request.state, 'smart_router_selected', None)}[/dim]")
         
         # 添加响应头
@@ -354,6 +358,74 @@ def start_server(config_path: Optional[Path] = None):
         # 初始化 Token 统计
         from ..utils.token_stats import TokenStats
         app.state.token_stats = TokenStats()
+
+        # 初始化错误计数器
+        from .error_counter import ErrorCounter
+        app.state.error_counter = ErrorCounter()
+
+        # 初始化告警系统
+        from ..alerts.config import AlertConfig
+        from ..alerts.checker import AlertChecker
+        from ..alerts.notifier import AlertNotifier
+        alerts_config = AlertConfig(config_dir / "alerts.yaml")
+        app.state.alert_checker = AlertChecker(alerts_config, app.state.token_stats, app.state.error_counter)
+        app.state.alert_notifier = AlertNotifier()
+        app.state.alerts_config = alerts_config
+
+        # 注册后台告警检查协程（通过 startup 事件）
+        import asyncio
+        from fastapi import BackgroundTasks
+
+        @app.on_event("startup")
+        async def _start_alert_background_task():
+            alerts_history_path = config_dir / "alerts_history.json"
+            async def _alert_background_task():
+                """每 60 秒检查一次告警规则"""
+                while True:
+                    try:
+                        await asyncio.sleep(60)
+                        triggers = await app.state.alert_checker.check_all()
+                        for trigger in triggers:
+                            rule = alerts_config.get_rule(trigger.rule_id)
+                            if not rule:
+                                continue
+                            for channel in rule.channels:
+                                try:
+                                    await app.state.alert_notifier.send(rule, trigger, channel)
+                                except Exception as e:
+                                    console.print(f"[yellow]Alert notification failed: {e}[/yellow]")
+
+                            # 记录触发历史
+                            try:
+                                history = []
+                                if alerts_history_path.exists():
+                                    history = json.loads(alerts_history_path.read_text(encoding="utf-8"))
+                                history.append({
+                                    "rule_id": trigger.rule_id,
+                                    "rule_name": trigger.rule_name,
+                                    "severity": trigger.severity,
+                                    "metric": trigger.metric,
+                                    "current_value": trigger.current_value,
+                                    "threshold": trigger.threshold,
+                                    "timestamp": trigger.timestamp,
+                                    "message": trigger.message,
+                                })
+                                # 最多保留 1000 条
+                                if len(history) > 1000:
+                                    history = history[-1000:]
+                                alerts_history_path.write_text(json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8")
+                                try:
+                                    alerts_history_path.chmod(0o600)
+                                except OSError:
+                                    pass
+                            except Exception as e:
+                                console.print(f"[yellow]Failed to save alert history: {e}[/yellow]")
+                    except asyncio.CancelledError:
+                        break
+                    except Exception as e:
+                        console.print(f"[yellow]Alert background task error: {e}[/yellow]")
+
+            app.state._alert_task = asyncio.create_task(_alert_background_task())
         
         # 在应用启动时只添加一次中间件
         if not getattr(app.state, '_smart_router_middleware_added', False):

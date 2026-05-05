@@ -8,6 +8,7 @@ from smart_router.config.schema import (
     ProviderConfig,
     ModelConfig,
     ModelCapabilities,
+    ModelPrice,
     RoutingConfig,
     TaskConfig,
     DifficultyConfig,
@@ -438,3 +439,102 @@ class TestProviderConfigRateLimit:
         params = config.get_litellm_params("qwen-max")
         assert params["custom_llm_provider"] == "openai"
         assert params["api_base"] == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+
+class TestModelPrice:
+    """测试 ModelPrice 字段解析与验证"""
+
+    def test_model_with_price(self):
+        """含 price 的配置正确解析"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(
+                    api_base="https://api.openai.com/v1",
+                    api_key="sk-test"
+                )
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                    price=ModelPrice(
+                        prompt_per_1k=0.005,
+                        completion_per_1k=0.015,
+                        currency="USD"
+                    )
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={},
+                strategies={},
+                fallback=FallbackConfig()
+            )
+        )
+        model = config.models["gpt-4o"]
+        assert model.price is not None
+        assert model.price.prompt_per_1k == 0.005
+        assert model.price.completion_per_1k == 0.015
+        assert model.price.currency == "USD"
+
+    def test_model_without_price(self):
+        """不含 price 的配置正确解析（向后兼容）"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(
+                    api_base="https://api.openai.com/v1",
+                    api_key="sk-test"
+                )
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={},
+                strategies={},
+                fallback=FallbackConfig()
+            )
+        )
+        assert config.models["gpt-4o"].price is None
+
+    def test_invalid_currency_fails(self):
+        """非法 currency 验证失败"""
+        with pytest.raises(ValidationError):
+            ModelPrice(
+                prompt_per_1k=0.005,
+                completion_per_1k=0.015,
+                currency="EUR"  # 不支持的货币
+            )
+
+    def test_negative_price_fails(self):
+        """负数价格验证失败"""
+        with pytest.raises(ValidationError):
+            ModelPrice(
+                prompt_per_1k=-0.005,
+                completion_per_1k=0.015,
+                currency="USD"
+            )
+
+    def test_price_defaults(self):
+        """price 字段默认值"""
+        price = ModelPrice(prompt_per_1k=0.005, completion_per_1k=0.015)
+        assert price.currency == "USD"
+
+    def test_cny_currency_accepted(self):
+        """CNY 货币被接受"""
+        price = ModelPrice(
+            prompt_per_1k=0.035,
+            completion_per_1k=0.105,
+            currency="CNY"
+        )
+        assert price.currency == "CNY"

@@ -23,6 +23,19 @@ class ProviderConfig(BaseModel):
     rate_limit: Optional[int] = None  # 每分钟请求数限制
 
 
+class ModelPrice(BaseModel):
+    """模型单价配置
+    
+    用于成本计算：
+    - prompt_per_1k: 每 1K prompt tokens 的价格
+    - completion_per_1k: 每 1K completion tokens 的价格
+    - currency: 货币单位（USD/CNY）
+    """
+    prompt_per_1k: float = Field(gt=0, description="每 1K prompt tokens 价格")
+    completion_per_1k: float = Field(gt=0, description="每 1K completion tokens 价格")
+    currency: Literal["USD", "CNY"] = Field(default="USD", description="货币单位")
+
+
 class ModelCapabilities(BaseModel):
     """模型能力评分 (1-10)
     
@@ -57,6 +70,7 @@ class ModelConfig(BaseModel):
     capabilities: ModelCapabilities
     supported_tasks: List[str]
     difficulty_support: List[Literal["easy", "medium", "hard", "expert"]]
+    price: Optional[ModelPrice] = Field(default=None, description="模型单价（可选）")
 
 
 class TaskConfig(BaseModel):
