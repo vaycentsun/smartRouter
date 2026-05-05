@@ -8,6 +8,8 @@ import { mockStoreState } from './store/__mocks__/useDashboardStore'
 
 describe('App', () => {
   beforeEach(() => {
+    // Reset URL so wouter starts at root (will redirect to /dashboard)
+    window.history.pushState({}, '', '/')
     Object.keys(mockStoreState).forEach((k) => delete (mockStoreState as Record<string, unknown>)[k])
     mockStoreState.fetchAll = vi.fn().mockResolvedValue(undefined)
     mockStoreState.clearError = vi.fn()
@@ -88,5 +90,21 @@ describe('App', () => {
     render(<App />)
     fireEvent.click(screen.getByText('模型清单'))
     expect(screen.getByText('暂无 Provider 数据')).toBeInTheDocument()
+  })
+
+  it('stops periodic fetchAll when switching away from dashboard', () => {
+    vi.useFakeTimers()
+    render(<App />)
+    expect(mockStoreState.fetchAll).toHaveBeenCalledTimes(1)
+
+    // Switch to models tab
+    fireEvent.click(screen.getByText('模型清单'))
+    expect(screen.getByText('暂无 Provider 数据')).toBeInTheDocument()
+
+    // Advance time; fetchAll should NOT be called again
+    vi.advanceTimersByTime(5000)
+    expect(mockStoreState.fetchAll).toHaveBeenCalledTimes(1)
+
+    vi.useRealTimers()
   })
 })
