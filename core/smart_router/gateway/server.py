@@ -117,7 +117,11 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 console.print(traceback.format_exc())
         
         response = await call_next(request)
-        
+
+        # 记录错误率
+        if hasattr(request.app.state, 'error_counter'):
+            request.app.state.error_counter.record(not (200 <= response.status_code < 300))
+
         console.print(f"[dim]Middleware: path={request.url.path} method={request.method} selected={getattr(request.state, 'smart_router_selected', None)}[/dim]")
         
         # 添加响应头
@@ -354,6 +358,10 @@ def start_server(config_path: Optional[Path] = None):
         # 初始化 Token 统计
         from ..utils.token_stats import TokenStats
         app.state.token_stats = TokenStats()
+
+        # 初始化错误计数器
+        from .error_counter import ErrorCounter
+        app.state.error_counter = ErrorCounter()
         
         # 在应用启动时只添加一次中间件
         if not getattr(app.state, '_smart_router_middleware_added', False):

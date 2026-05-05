@@ -433,6 +433,145 @@ async def token_stats():
     }
 
 
+# ==================== Analytics API ====================
+
+def _load_config_for_analytics():
+    """加载配置用于分析，失败时返回 None"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        return loader.load()
+    except Exception:
+        return None
+
+
+def _clamp_days(days: int) -> int:
+    """限制 days 最大 90"""
+    if days < 1:
+        return 1
+    return min(days, 90)
+
+
+def _compute_cost(prompt_tokens: int, completion_tokens: int, price) -> float:
+    """根据单价计算成本"""
+    if price is None:
+        return 0.0
+    return (prompt_tokens / 1000 * price.prompt_per_1k) + (completion_tokens / 1000 * price.completion_per_1k)
+
+
+async def analytics_summary(days: int = 7):
+    """汇总统计：总成本、请求数、token 数"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    stats = TokenStats()
+    summary = stats.get_summary(days)
+    config = _load_config_for_analytics()
+
+    total_cost = 0.0
+    incomplete = False
+    model_breakdown = summary.get("model_breakdown", {})
+
+    if config and model_breakdown:
+        for model_name, entry in model_breakdown.items():
+            model_config = config.models.get(model_name)
+            price = getattr(model_config, "price", None) if model_config else None
+            if price is None:
+                incomplete = True
+                continue
+            total_cost += _compute_cost(
+                entry.get("prompt_tokens", 0),
+                entry.get("completion_tokens", 0),
+                price,
+            )
+    elif model_breakdown:
+        incomplete = True
+
+    return {
+        "total_cost": total_cost,
+        "total_requests": summary.get("total_requests", 0),
+        "total_prompt_tokens": summary.get("total_prompt_tokens", 0),
+        "total_completion_tokens": summary.get("total_completion_tokens", 0),
+        "incomplete": incomplete,
+    }
+
+
+async def analytics_daily(days: int = 7):
+    """每日趋势"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    stats = TokenStats()
+    # 获取最近 days 天的日期范围
+    import time
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    result = {}
+    for i in range(days):
+        date_obj = now - timedelta(days=i)
+        date_str = date_obj.strftime("%Y-%m-%d")
+        daily = stats.get_daily(date_str)
+        if daily:
+            result[date_str] = daily
+    return result
+
+
+async def analytics_by_model(days: int = 7):
+    """按模型聚合（含成本）"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    stats = TokenStats()
+    summary = stats.get_summary(days)
+    config = _load_config_for_analytics()
+
+    result = {}
+    for model_name, entry in summary.get("model_breakdown", {}).items():
+        model_config = config.models.get(model_name) if config else None
+        price = getattr(model_config, "price", None) if model_config else None
+        cost = _compute_cost(
+            entry.get("prompt_tokens", 0),
+            entry.get("completion_tokens", 0),
+            price,
+        )
+        result[model_name] = {
+            "prompt_tokens": entry.get("prompt_tokens", 0),
+            "completion_tokens": entry.get("completion_tokens", 0),
+            "total_tokens": entry.get("total_tokens", 0),
+            "request_count": entry.get("request_count", 0),
+            "cost": cost,
+        }
+    return result
+
+
+async def analytics_top_models(limit: int = 10, days: int = 7):
+    """TOP N 模型（按 request_count 降序）"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    limit = max(1, limit)
+    stats = TokenStats()
+    summary = stats.get_summary(days)
+    config = _load_config_for_analytics()
+
+    items = []
+    for model_name, entry in summary.get("model_breakdown", {}).items():
+        model_config = config.models.get(model_name) if config else None
+        price = getattr(model_config, "price", None) if model_config else None
+        cost = _compute_cost(
+            entry.get("prompt_tokens", 0),
+            entry.get("completion_tokens", 0),
+            price,
+        )
+        items.append({
+            "model": model_name,
+            "prompt_tokens": entry.get("prompt_tokens", 0),
+            "completion_tokens": entry.get("completion_tokens", 0),
+            "total_tokens": entry.get("total_tokens", 0),
+            "request_count": entry.get("request_count", 0),
+            "cost": cost,
+        })
+
+    items.sort(key=lambda x: x["request_count"], reverse=True)
+    return items[:limit]
+
+
 # ==================== App 构建 ====================
 
 def build_dashboard_app(static_dir: Optional[Path] = None):
@@ -453,6 +592,12 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.post("/api/stop")(stop)
     app.get("/api/logs")(get_logs)
     app.get("/api/token-stats")(token_stats)
+
+    # Analytics API
+    app.get("/api/analytics/summary")(analytics_summary)
+    app.get("/api/analytics/daily")(analytics_daily)
+    app.get("/api/analytics/by-model")(analytics_by_model)
+    app.get("/api/analytics/top-models")(analytics_top_models)
 
     if static_dir and static_dir.exists():
         # 将 Mount 追加到 routes 末尾，确保 API 路由优先匹配
