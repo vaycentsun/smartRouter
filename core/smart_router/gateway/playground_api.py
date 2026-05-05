@@ -20,6 +20,7 @@ from ..classifier.task_classifier import TaskTypeClassifier
 from ..config.loader import ConfigLoader
 from ..selector.v3_selector import V3ModelSelector
 from ..utils.markers import parse_markers
+from ..utils.token_stats import TokenStats
 
 playground_router = APIRouter()
 
@@ -171,6 +172,9 @@ async def _call_model(model_name: str, prompt: str, config):
         content = response.choices[0].message.content or ""
         prompt_tokens = getattr(response.usage, "prompt_tokens", 0)
         completion_tokens = getattr(response.usage, "completion_tokens", 0)
+        total_tokens = prompt_tokens + completion_tokens
+
+        await TokenStats().record(model_name, prompt_tokens, completion_tokens, total_tokens)
 
         cost = _calculate_cost(model_name, prompt_tokens, completion_tokens, config)
 
