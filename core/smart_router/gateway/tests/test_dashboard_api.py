@@ -137,6 +137,29 @@ class TestStaticFiles:
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
 
+    def test_spa_fallback_to_index(self, tmp_path):
+        """访问不存在的无扩展名路径应回退到 index.html（SPA 刷新支持）"""
+        static_dir = tmp_path / "static"
+        static_dir.mkdir()
+        (static_dir / "index.html").write_text("<html>spa</html>")
+
+        app = build_dashboard_app(static_dir=static_dir)
+        client = TestClient(app)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        assert "spa" in response.text
+
+    def test_spa_fallback_404_for_files(self, tmp_path):
+        """访问不存在的带扩展名路径不应回退，应返回 404"""
+        static_dir = tmp_path / "static"
+        static_dir.mkdir()
+        (static_dir / "index.html").write_text("<html>spa</html>")
+
+        app = build_dashboard_app(static_dir=static_dir)
+        client = TestClient(app)
+        response = client.get("/missing.js")
+        assert response.status_code == 404
+
 
 import json
 from unittest.mock import patch

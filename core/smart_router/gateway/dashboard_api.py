@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
-from starlette.responses import FileResponse, PlainTextResponse
+from starlette.responses import FileResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
 from ..config.loader import ConfigLoader
@@ -861,11 +862,13 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.include_router(playground_router, prefix="/api/playground")
 
     class SPAStaticFiles(StaticFiles):
-        async def get_response(self, path, path_type):
-            response = await super().get_response(path, path_type)
-            if response.status_code == 404 and "." not in path:
-                return await super().get_response("index.html", path_type)
-            return response
+        async def get_response(self, path: str, scope) -> Response:
+            try:
+                return await super().get_response(path, scope)
+            except StarletteHTTPException as exc:
+                if exc.status_code == 404 and "." not in path:
+                    return await super().get_response("index.html", scope)
+                raise
 
     if static_dir and static_dir.exists():
         app.routes.append(
