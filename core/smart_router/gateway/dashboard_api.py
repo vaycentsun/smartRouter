@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 from starlette.responses import FileResponse, PlainTextResponse
@@ -143,6 +143,17 @@ class AlertRuleUpdate(BaseModel):
     time_window: Optional[str] = None
     channels: Optional[list[AlertChannel]] = None
     cooldown_minutes: Optional[int] = None
+
+
+class ModelOverrideRequest(BaseModel):
+    provider: str
+    model: str
+
+
+class ModelOverrideResponse(BaseModel):
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    enabled: bool = False
 
 
 LOG_FILE_MAP = {
@@ -404,6 +415,64 @@ async def model_overrides():
                 overrides[model.provider] = []
             overrides[model.provider].append(name)
     return {"overrides": overrides}
+
+
+async def get_model_override(request: Request):
+    """获取当前全局模型覆盖状态"""
+    state = getattr(request.app.state, 'global_model_override', None)
+    if state and state.get('enabled'):
+        return {
+            "provider": state.get('provider'),
+            "model": state.get('model'),
+            "enabled": True,
+        }
+    return {"provider": None, "model": None, "enabled": False}
+
+
+async def set_model_override(request: Request, body: ModelOverrideRequest):
+    """设置全局模型覆盖"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        cfg = loader.load()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"配置加载失败: {e}")
+
+    model_name = body.model
+    if model_name not in cfg.models:
+        raise HTTPException(status_code=400, detail=f"未知模型: {model_name}")
+
+    model_config = cfg.models[model_name]
+    if model_config.provider != body.provider:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Provider 不匹配: 模型 {model_name} 属于 {model_config.provider}，而非 {body.provider}"
+        )
+
+    if not cfg.is_model_available(model_name):
+        raise HTTPException(status_code=400, detail=f"模型不可用: {model_name}")
+
+    request.app.state.global_model_override = {
+        "provider": body.provider,
+        "model": body.model,
+        "enabled": True,
+    }
+    return {
+        "provider": body.provider,
+        "model": body.model,
+        "enabled": True,
+    }
+
+
+async def delete_model_override(request: Request):
+    """清除全局模型覆盖"""
+    if hasattr(request.app.state, 'global_model_override'):
+        request.app.state.global_model_override = {
+            "provider": None,
+            "model": None,
+            "enabled": False,
+        }
+    return {"provider": None, "model": None, "enabled": False}
 
 
 async def stop():
@@ -766,6 +835,9 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.get("/api/providers")(providers)
     app.put("/api/providers")(update_providers)
     app.get("/api/model-overrides")(model_overrides)
+    app.get("/api/model-override")(get_model_override)
+    app.post("/api/model-override")(set_model_override)
+    app.delete("/api/model-override")(delete_model_override)
     app.post("/api/dry-run")(dry_run)
     app.post("/api/stop")(stop)
     app.get("/api/logs")(get_logs)

@@ -143,6 +143,82 @@ from unittest.mock import patch
 from smart_router.utils.token_stats import TokenStats as RealTokenStats
 
 
+class TestModelOverrideAPI:
+    def test_get_model_override_initial(self, client):
+        response = client.get("/api/model-override")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["enabled"] is False
+        assert data["provider"] is None
+        assert data["model"] is None
+
+    def test_set_and_get_model_override(self, client):
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.models = {
+                "gui-plus-2026-02-26": MagicMock(provider="aliyun"),
+            }
+            mock_cfg.is_model_available.return_value = True
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.post("/api/model-override", json={"provider": "aliyun", "model": "gui-plus-2026-02-26"})
+            assert response.status_code == 200
+            data = response.json()
+            assert data["enabled"] is True
+            assert data["provider"] == "aliyun"
+            assert data["model"] == "gui-plus-2026-02-26"
+
+            response = client.get("/api/model-override")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["enabled"] is True
+            assert data["provider"] == "aliyun"
+            assert data["model"] == "gui-plus-2026-02-26"
+
+    def test_set_model_override_unknown_model(self, client):
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.post("/api/model-override", json={"provider": "aliyun", "model": "unknown"})
+            assert response.status_code == 400
+            assert "未知模型" in response.json()["detail"]
+
+    def test_set_model_override_provider_mismatch(self, client):
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.models = {
+                "gui-plus-2026-02-26": MagicMock(provider="aliyun"),
+            }
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.post("/api/model-override", json={"provider": "openai", "model": "gui-plus-2026-02-26"})
+            assert response.status_code == 400
+            assert "Provider 不匹配" in response.json()["detail"]
+
+    def test_delete_model_override(self, client):
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.models = {
+                "gui-plus-2026-02-26": MagicMock(provider="aliyun"),
+            }
+            mock_cfg.is_model_available.return_value = True
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            client.post("/api/model-override", json={"provider": "aliyun", "model": "gui-plus-2026-02-26"})
+
+            response = client.delete("/api/model-override")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["enabled"] is False
+            assert data["provider"] is None
+            assert data["model"] is None
+
+            response = client.get("/api/model-override")
+            assert response.json()["enabled"] is False
+
+
 class TestTokenStatsAPI:
     def test_token_stats_empty(self, client):
         response = client.get("/api/token-stats")

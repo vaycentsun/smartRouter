@@ -66,6 +66,10 @@ export const api = {
   getModels: () => client.get<ModelsResponse>('/api/models').then((r) => r.data),
   getProviders: () => client.get<ProvidersResponse>('/api/providers').then((r) => r.data),
   getModelOverrides: () => client.get<ModelOverrideInfo>('/api/model-overrides').then((r) => r.data),
+  getModelOverride: () => client.get<{ provider: string | null; model: string | null; enabled: boolean }>('/api/model-override').then((r) => r.data),
+  setModelOverride: (provider: string, model: string) =>
+    client.post<{ provider: string; model: string; enabled: boolean }>('/api/model-override', { provider, model }).then((r) => r.data),
+  clearModelOverride: () => client.delete<{ provider: null; model: null; enabled: false }>('/api/model-override').then((r) => r.data),
   dryRun: (data: DryRunRequest) =>
     client.post<DryRunResult>('/api/dry-run', data).then((r) => r.data),
   stopService: () => client.post('/api/stop').then((r) => r.data),
