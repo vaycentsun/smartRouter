@@ -75,7 +75,12 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             console.print(f"[yellow]模型覆盖无效: 未知模型 {model_name}[/yellow]")
                     else:
                         # 检查全局模型覆盖（管理员通过 Dashboard 设置）
-                        global_override = getattr(request.app.state, 'global_model_override', None)
+                        # 优先从文件读取，实现 Dashboard 与 Proxy 跨进程状态共享
+                        from ..utils.model_override_store import load_override_state
+                        global_override = load_override_state()
+                        if not global_override.get('enabled'):
+                            # 回退到内存状态（兼容旧逻辑）
+                            global_override = getattr(request.app.state, 'global_model_override', None)
                         if global_override and global_override.get('enabled'):
                             config = self.router.sr_config
                             go_provider = global_override.get('provider')
@@ -388,12 +393,9 @@ def start_server(config_path: Optional[Path] = None):
         
         app.state.smart_router = router
         
-        # 初始化全局模型覆盖状态
-        app.state.global_model_override = {
-            "provider": None,
-            "model": None,
-            "enabled": False,
-        }
+        # 初始化全局模型覆盖状态（优先从文件加载，实现 Dashboard 与 Proxy 跨进程共享）
+        from ..utils.model_override_store import load_override_state
+        app.state.global_model_override = load_override_state()
         
         # 初始化 Token 统计
         from ..utils.token_stats import TokenStats
@@ -483,6 +485,39 @@ def start_server(config_path: Optional[Path] = None):
                         overrides[model.provider] = []
                     overrides[model.provider].append(name)
             return {"overrides": overrides}
+        
+        # 注册 model-override API（供 Proxy 直接查询/设置，解决 Dashboard 与 Proxy 跨进程状态不同步）
+        from ..utils.model_override_store import load_override_state, save_override_state, clear_override_state
+        
+        @app.get("/api/model-override")
+        async def _get_model_override():
+            state = load_override_state()
+            return state
+        
+        @app.post("/api/model-override")
+        async def _set_model_override(body: dict):
+            provider = body.get("provider")
+            model = body.get("model")
+            if not provider or not model:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=400, detail="provider 和 model 必填")
+            config = app.state.smart_router.sr_config
+            if model not in config.models:
+                raise HTTPException(status_code=400, detail=f"未知模型: {model}")
+            model_cfg = config.models[model]
+            if model_cfg.provider != provider:
+                raise HTTPException(status_code=400, detail=f"Provider 不匹配")
+            if not config.is_model_available(model):
+                raise HTTPException(status_code=400, detail=f"模型不可用: {model}")
+            save_override_state(provider, model, True)
+            app.state.global_model_override = {"provider": provider, "model": model, "enabled": True}
+            return {"provider": provider, "model": model, "enabled": True}
+        
+        @app.delete("/api/model-override")
+        async def _delete_model_override():
+            clear_override_state()
+            app.state.global_model_override = {"provider": None, "model": None, "enabled": False}
+            return {"provider": None, "model": None, "enabled": False}
         
         # 启动配置热重载监听
         watcher = ConfigWatcher(

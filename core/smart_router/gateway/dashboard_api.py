@@ -419,9 +419,10 @@ async def model_overrides():
 
 
 async def get_model_override(request: Request):
-    """获取当前全局模型覆盖状态"""
-    state = getattr(request.app.state, 'global_model_override', None)
-    if state and state.get('enabled'):
+    """获取当前全局模型覆盖状态（优先从文件读取，兼容跨进程共享）"""
+    from ..utils.model_override_store import load_override_state
+    state = load_override_state()
+    if state.get('enabled'):
         return {
             "provider": state.get('provider'),
             "model": state.get('model'),
@@ -453,11 +454,14 @@ async def set_model_override(request: Request, body: ModelOverrideRequest):
     if not cfg.is_model_available(model_name):
         raise HTTPException(status_code=400, detail=f"模型不可用: {model_name}")
 
+    # 同时更新内存状态和文件状态（供 Proxy 进程读取）
     request.app.state.global_model_override = {
         "provider": body.provider,
         "model": body.model,
         "enabled": True,
     }
+    from ..utils.model_override_store import save_override_state
+    save_override_state(body.provider, body.model, True)
     return {
         "provider": body.provider,
         "model": body.model,
@@ -473,6 +477,8 @@ async def delete_model_override(request: Request):
             "model": None,
             "enabled": False,
         }
+    from ..utils.model_override_store import clear_override_state
+    clear_override_state()
     return {"provider": None, "model": None, "enabled": False}
 
 
