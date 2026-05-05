@@ -137,7 +137,6 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             content_type = response.headers.get("content-type", "")
             console.print(f"[dim]Content-Type: {content_type}[/dim]")
             
-            # 移除 text/event-stream 限制，所有响应都尝试统计
             try:
                 # 确定统计模型名（按优先级）
                 model_name = getattr(request.state, 'smart_router_selected', None)
@@ -166,41 +165,75 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                     
                     console.print(f"[dim]Response body size: {len(body_bytes)} bytes[/dim]")
                     
-                    # 解析 usage
-                    try:
-                        resp_data = json.loads(body_bytes)
-                        usage = resp_data.get("usage", {})
-                        console.print(f"[dim]Usage field: {usage}[/dim]")
+                    # 解析 usage（支持普通 JSON 和 SSE 流式格式）
+                    usage = {}
+                    is_sse = "text/event-stream" in content_type
+                    
+                    if is_sse:
+                        # 解析 SSE 格式，从 data: 行中提取包含 usage 的 JSON
+                        try:
+                            text = body_bytes.decode("utf-8", errors="replace")
+                            for line in text.splitlines():
+                                line = line.strip()
+                                if line.startswith("data: "):
+                                    data = line[6:]  # 去掉 "data: " 前缀
+                                    if data == "[DONE]":
+                                        continue
+                                    try:
+                                        chunk = json.loads(data)
+                                        if chunk.get("usage"):
+                                            usage = chunk["usage"]
+                                    except json.JSONDecodeError:
+                                        continue
+                            console.print(f"[dim]SSE usage extracted: {usage}[/dim]")
+                        except Exception as e:
+                            console.print(f"[yellow]Error parsing SSE response: {e}[/yellow]")
+                    else:
+                        try:
+                            resp_data = json.loads(body_bytes)
+                            usage = resp_data.get("usage", {})
+                            console.print(f"[dim]Usage field: {usage}[/dim]")
+                        except json.JSONDecodeError as e:
+                            console.print(f"[red]Failed to parse response JSON: {e}[/red]")
+                            console.print(f"[dim]Body preview: {body_bytes[:200]}[/dim]")
+                        except Exception as e:
+                            console.print(f"[yellow]Error parsing response: {e}[/yellow]")
+                    
+                    if usage:
+                        prompt_tokens = usage.get("prompt_tokens", 0)
+                        completion_tokens = usage.get("completion_tokens", 0)
+                        total_tokens = usage.get("total_tokens", 0)
                         
-                        if usage:
-                            prompt_tokens = usage.get("prompt_tokens", 0)
-                            completion_tokens = usage.get("completion_tokens", 0)
-                            total_tokens = usage.get("total_tokens", 0)
-                            
-                            console.print(f"[green]✓ Recording tokens: {model_name} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens}[/green]")
-                            
-                            token_stats = request.app.state.token_stats
-                            await token_stats.record(
-                                model_name, prompt_tokens, completion_tokens, total_tokens
-                            )
-                        else:
-                            console.print("[yellow]No usage data in response[/yellow]")
-                    except json.JSONDecodeError as e:
-                        console.print(f"[red]Failed to parse response JSON: {e}[/red]")
-                        console.print(f"[dim]Body preview: {body_bytes[:200]}[/dim]")
-                    except Exception as e:
-                        console.print(f"[yellow]Error parsing response: {e}[/yellow]")
+                        console.print(f"[green]✓ Recording tokens: {model_name} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens}[/green]")
+                        
+                        token_stats = request.app.state.token_stats
+                        await token_stats.record(
+                            model_name, prompt_tokens, completion_tokens, total_tokens
+                        )
+                    else:
+                        console.print("[yellow]No usage data in response[/yellow]")
                 else:
                     console.print("[yellow]No model name resolved, skipping stats[/yellow]")
                 
                 # 重建 Response，确保下游正常消费
-                from starlette.responses import Response
-                response = Response(
-                    content=body_bytes,
-                    status_code=response.status_code,
-                    headers=dict(response.headers),
-                    media_type=response.media_type,
-                )
+                if is_sse:
+                    async def _stream_body():
+                        yield body_bytes
+                    from starlette.responses import StreamingResponse
+                    response = StreamingResponse(
+                        content=_stream_body(),
+                        status_code=response.status_code,
+                        headers=dict(response.headers),
+                        media_type=response.media_type,
+                    )
+                else:
+                    from starlette.responses import Response
+                    response = Response(
+                        content=body_bytes,
+                        status_code=response.status_code,
+                        headers=dict(response.headers),
+                        media_type=response.media_type,
+                    )
             except Exception as e:
                 import traceback
                 console.print(f"[red]Token stats error: {e}[/red]")
