@@ -39,6 +39,20 @@ const client = axios.create({
   timeout: 10000,
 })
 
+client.interceptors.request.use((config) => {
+  const overrideStr = localStorage.getItem('smart-router-model-override')
+  if (overrideStr) {
+    try {
+      const override = JSON.parse(overrideStr)
+      if (override.enabled && override.provider && override.model) {
+        config.headers['X-Smart-Router-Override-Provider'] = override.provider
+        config.headers['X-Smart-Router-Override-Model'] = override.model
+      }
+    } catch {}
+  }
+  return config
+})
+
 client.interceptors.response.use(
   (response) => response,
   (error) => {
