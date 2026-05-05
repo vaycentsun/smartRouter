@@ -79,8 +79,8 @@ interface DashboardState {
   setModelsSort: (key: string) => void
   clearError: () => void
   clearToast: () => void
-  setModelOverride: (provider: string | null, model: string | null) => void
-  clearModelOverride: () => void
+  setModelOverride: (provider: string | null, model: string | null) => Promise<void>
+  clearModelOverride: () => Promise<void>
   fetchLogs: (source?: LogSource) => Promise<void>
   setLogSource: (source: LogSource) => void
   clearLogError: () => void
@@ -168,12 +168,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   fetchAll: async () => {
     set({ isLoading: true, error: null })
     try {
-      const [status, modelsRes, providersRes, overridesRes, tokenStatsRes] = await Promise.all([
+      const [status, modelsRes, providersRes, overridesRes, tokenStatsRes, overrideState] = await Promise.all([
         api.getStatus(),
         api.getModels(),
         api.getProviders(),
         api.getModelOverrides(),
         api.getTokenStats(),
+        api.getModelOverride(),
       ])
       set({
         status,
@@ -181,7 +182,18 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         providers: providersRes.providers,
         modelOverrides: overridesRes.overrides,
         tokenStats: tokenStatsRes.stats,
+        modelOverride: {
+          provider: overrideState.provider || null,
+          model: overrideState.model || null,
+          enabled: overrideState.enabled,
+        },
         isLoading: false,
+      })
+      // 同步到 localStorage
+      saveOverrideToStorage({
+        provider: overrideState.provider || null,
+        model: overrideState.model || null,
+        enabled: overrideState.enabled,
       })
     } catch (err) {
       set({ error: (err as Error).message, isLoading: false })
@@ -241,16 +253,42 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   clearError: () => set({ error: null }),
   clearToast: () => set({ toast: null }),
 
-  setModelOverride: (provider: string | null, model: string | null) => {
-    const state = { provider, model, enabled: !!(provider && model) }
-    saveOverrideToStorage(state)
-    set({ modelOverride: state })
+  setModelOverride: async (provider: string | null, model: string | null) => {
+    const enabled = !!(provider && model)
+    if (!enabled) {
+      const state = { provider: null, model: null, enabled: false }
+      saveOverrideToStorage(state)
+      set({ modelOverride: state })
+      try {
+        await api.clearModelOverride()
+      } catch {
+        // ignore
+      }
+      return
+    }
+    try {
+      const result = await api.setModelOverride(provider, model)
+      const state = {
+        provider: result.provider || null,
+        model: result.model || null,
+        enabled: result.enabled,
+      }
+      saveOverrideToStorage(state)
+      set({ modelOverride: state })
+    } catch (err) {
+      set({ error: (err as Error).message })
+    }
   },
 
-  clearModelOverride: () => {
+  clearModelOverride: async () => {
     const state = { provider: null, model: null, enabled: false }
     saveOverrideToStorage(state)
     set({ modelOverride: state })
+    try {
+      await api.clearModelOverride()
+    } catch {
+      // ignore
+    }
   },
 
   fetchLogs: async (source?: LogSource) => {

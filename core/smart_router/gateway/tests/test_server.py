@@ -859,3 +859,161 @@ class TestMiddlewareErrorCounter:
         await middleware.dispatch(request, error_call_next)
 
         assert app.state.error_counter.get_error_rate() == 2 / 3
+
+
+class TestGlobalModelOverride:
+    @pytest.fixture
+    def mock_router(self):
+        router = MagicMock()
+        config = MagicMock()
+        
+        # 模拟模型配置
+        model_config = MagicMock()
+        model_config.provider = "aliyun"
+        
+        gpt4o_config = MagicMock()
+        gpt4o_config.provider = "openai"
+        
+        config.models = {
+            "gui-plus-2026-02-26": model_config,
+            "gpt-4o": gpt4o_config,
+        }
+        config.is_model_available = MagicMock(return_value=True)
+        
+        router.sr_config = config
+        return router
+
+    @pytest.mark.asyncio
+    async def test_global_override_replaces_model(self, mock_router):
+        """全局模型覆盖应替换请求中的模型，并保留原始模型供统计"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+
+        async def mock_call_next(request):
+            return Response(
+                content=json.dumps({"usage": {"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70}}).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = {
+            "provider": "aliyun",
+            "model": "gui-plus-2026-02-26",
+            "enabled": True,
+        }
+        app.state.token_stats = MagicMock()
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "strategy-cost", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert request.state.smart_router_selected == "gui-plus-2026-02-26"
+        assert request.state.smart_router_original == "strategy-cost"
+        assert request.state.smart_router_override is True
+        assert request.state.smart_router_override_model == "gui-plus-2026-02-26"
+        assert request.state.smart_router_override_provider == "aliyun"
+
+    @pytest.mark.asyncio
+    async def test_global_override_invalid_model_falls_back_to_routing(self, mock_router):
+        """全局覆盖模型无效时，应回退到原有路由逻辑"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+
+        async def mock_call_next(request):
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = {
+            "provider": "aliyun",
+            "model": "nonexistent-model",
+            "enabled": True,
+        }
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "strategy-cost", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        # 无效的全局覆盖不应设置 selected
+        assert not hasattr(request.state, 'smart_router_selected')
+
+    @pytest.mark.asyncio
+    async def test_request_header_override_takes_priority_over_global(self, mock_router):
+        """请求头覆盖优先级应高于全局覆盖"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+
+        async def mock_call_next(request):
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = {
+            "provider": "aliyun",
+            "model": "gui-plus-2026-02-26",
+            "enabled": True,
+        }
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [
+                (b"x-smart-router-override-provider", b"openai"),
+                (b"x-smart-router-override-model", b"gpt-4o"),
+            ],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "strategy-cost", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        # 请求头覆盖应生效
+        assert request.state.smart_router_override_model == "gpt-4o"
+        assert request.state.smart_router_override_provider == "openai"

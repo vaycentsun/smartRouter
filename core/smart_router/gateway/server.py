@@ -74,43 +74,76 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         else:
                             console.print(f"[yellow]模型覆盖无效: 未知模型 {model_name}[/yellow]")
                     else:
-                        # 没有覆盖请求头，走原有智能路由逻辑
-                        should_route = (
-                            original_model in ("auto", "smart-router", "default") or
-                            original_model.startswith("stage:") or
-                            original_model.startswith("strategy-")
-                        )
-                        
-                        if should_route:
-                            messages = data.get("messages", [])
+                        # 检查全局模型覆盖（管理员通过 Dashboard 设置）
+                        global_override = getattr(request.app.state, 'global_model_override', None)
+                        if global_override and global_override.get('enabled'):
+                            config = self.router.sr_config
+                            go_provider = global_override.get('provider')
+                            go_model = global_override.get('model')
                             
-                            try:
-                                result = self.router.select_model(
-                                    model_hint=original_model,
-                                    messages=messages
-                                )
-                                selected = result.model_name
+                            if go_model in config.models:
+                                model_config = config.models[go_model]
+                                if model_config.provider == go_provider and config.is_model_available(go_model):
+                                    # 全局覆盖生效：替换模型，但保留原始 model 供统计
+                                    data["model"] = go_model
+                                    
+                                    request.state.smart_router_selected = go_model
+                                    request.state.smart_router_original = original_model
+                                    request.state.smart_router_task = "override"
+                                    request.state.smart_router_override = True
+                                    request.state.smart_router_override_provider = go_provider
+                                    request.state.smart_router_override_model = go_model
+                                    
+                                    console.print(f"[cyan]全局模型覆盖: {original_model} -> {go_model} (provider: {go_provider})[/cyan]")
+                                    
+                                    modified_body = json.dumps(data).encode("utf-8")
+                                    
+                                    async def receive():
+                                        return {"type": "http.request", "body": modified_body, "more_body": False}
+                                    
+                                    request = Request(request.scope, receive, request._send)
+                                else:
+                                    console.print(f"[yellow]全局模型覆盖无效: {go_provider}/{go_model} (不可用或 provider 不匹配)[/yellow]")
+                            else:
+                                console.print(f"[yellow]全局模型覆盖无效: 未知模型 {go_model}[/yellow]")
+                        else:
+                            # 没有覆盖请求头，走原有智能路由逻辑
+                            should_route = (
+                                original_model in ("auto", "smart-router", "default") or
+                                original_model.startswith("stage:") or
+                                original_model.startswith("strategy-")
+                            )
+                            
+                            if should_route:
+                                messages = data.get("messages", [])
                                 
-                                console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
-                                
-                                # 修改请求体
-                                data["model"] = selected
-                                
-                                # 保存到 request.state 供后续使用
-                                request.state.smart_router_selected = selected
-                                request.state.smart_router_original = original_model
-                                request.state.smart_router_task = result.task_type
-                                
-                                # 重新构建请求体
-                                modified_body = json.dumps(data).encode("utf-8")
-                                
-                                # 创建新的请求，使用修改后的 body
-                                async def receive():
-                                    return {"type": "http.request", "body": modified_body, "more_body": False}
-                                
-                                request = Request(request.scope, receive, request._send)
-                            except Exception as e:
-                                console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
+                                try:
+                                    result = self.router.select_model(
+                                        model_hint=original_model,
+                                        messages=messages
+                                    )
+                                    selected = result.model_name
+                                    
+                                    console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
+                                    
+                                    # 修改请求体
+                                    data["model"] = selected
+                                    
+                                    # 保存到 request.state 供后续使用
+                                    request.state.smart_router_selected = selected
+                                    request.state.smart_router_original = original_model
+                                    request.state.smart_router_task = result.task_type
+                                    
+                                    # 重新构建请求体
+                                    modified_body = json.dumps(data).encode("utf-8")
+                                    
+                                    # 创建新的请求，使用修改后的 body
+                                    async def receive():
+                                        return {"type": "http.request", "body": modified_body, "more_body": False}
+                                    
+                                    request = Request(request.scope, receive, request._send)
+                                except Exception as e:
+                                    console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
             except Exception as e:
                 console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                 import traceback
@@ -354,6 +387,13 @@ def start_server(config_path: Optional[Path] = None):
         from litellm.proxy.proxy_server import app
         
         app.state.smart_router = router
+        
+        # 初始化全局模型覆盖状态
+        app.state.global_model_override = {
+            "provider": None,
+            "model": None,
+            "enabled": False,
+        }
         
         # 初始化 Token 统计
         from ..utils.token_stats import TokenStats
