@@ -22,6 +22,18 @@ export const mockStoreState: Record<string, unknown> = {
   fetchPlaygroundHistory: vi.fn().mockResolvedValue(undefined),
   deletePlaygroundHistory: vi.fn().mockResolvedValue(undefined),
   clearPlaygroundError: vi.fn(),
+  // Alerts
+  alertRules: [],
+  alertHistory: [],
+  isLoadingAlerts: false,
+  alertsError: null,
+  fetchAlertRules: vi.fn().mockResolvedValue(undefined),
+  createAlertRule: vi.fn().mockResolvedValue(undefined),
+  updateAlertRule: vi.fn().mockResolvedValue(undefined),
+  deleteAlertRule: vi.fn().mockResolvedValue(undefined),
+  fetchAlertHistory: vi.fn().mockResolvedValue(undefined),
+  testAlertRule: vi.fn().mockResolvedValue(null),
+  clearAlertsError: vi.fn(),
 }
 
 export const useDashboardStore = vi.fn(() => mockStoreState)

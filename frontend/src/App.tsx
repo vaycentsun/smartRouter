@@ -7,10 +7,11 @@ import { ModelsExplorer } from './components/ModelsExplorer'
 import { LogsPanel } from './components/LogsPanel'
 import { AnalyticsPage } from './components/AnalyticsPage'
 import { PlaygroundPage } from './components/PlaygroundPage'
+import { AlertsPage } from './components/AlertsPage'
 
 function App() {
   const { fetchAll, error, clearError } = useDashboardStore()
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'models' | 'logs' | 'analytics' | 'playground'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'models' | 'logs' | 'analytics' | 'playground' | 'alerts'>('dashboard')
 
   // Auto refresh every 5 seconds
   useEffect(() => {
@@ -109,6 +110,19 @@ function App() {
             </svg>
             Playground
           </button>
+          <button
+            onClick={() => setActiveTab('alerts')}
+            className={`px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+              activeTab === 'alerts'
+                ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] shadow-sm'
+                : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            告警
+          </button>
         </div>
 
         {/* Page Content */}
@@ -116,7 +130,8 @@ function App() {
          activeTab === 'models' ? <ModelsExplorer /> :
          activeTab === 'logs' ? <LogsPanel /> :
          activeTab === 'analytics' ? <AnalyticsPage /> :
-         <PlaygroundPage />}
+         activeTab === 'playground' ? <PlaygroundPage /> :
+         <AlertsPage />}
       </main>
 
       {/* Footer */}

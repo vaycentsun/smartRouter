@@ -157,3 +157,36 @@ export interface PlaygroundHistoryRecord {
   results: PlaygroundResult[]
   created_at: number
 }
+
+export interface AlertCondition {
+  metric: 'daily_cost' | 'daily_requests' | 'daily_tokens' | 'error_rate'
+  operator: '>' | '<' | '>=' | '<='
+  threshold: number
+}
+
+export interface AlertChannel {
+  type: 'webhook' | 'log'
+  url?: string
+}
+
+export interface AlertRule {
+  id: string
+  name: string
+  enabled: boolean
+  condition: AlertCondition
+  severity: 'info' | 'warning' | 'critical'
+  time_window: string
+  channels: AlertChannel[]
+  cooldown_minutes: number
+}
+
+export interface AlertHistoryItem {
+  rule_id: string
+  rule_name: string
+  severity: string
+  metric: string
+  current_value: number
+  threshold: number
+  timestamp: number
+  message: string
+}
