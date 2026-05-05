@@ -21,13 +21,22 @@ def client():
 class TestAnalyticsSummary:
     def test_summary_empty(self, client):
         """空数据返回零值"""
-        response = client.get("/api/analytics/summary?days=7")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["total_cost"] == 0.0
-        assert data["total_requests"] == 0
-        assert data["total_prompt_tokens"] == 0
-        assert data["total_completion_tokens"] == 0
+        mock_ts = MagicMock()
+        mock_ts.get_summary.return_value = {
+            "total_prompt_tokens": 0,
+            "total_completion_tokens": 0,
+            "total_requests": 0,
+            "model_breakdown": {},
+        }
+        with patch("smart_router.utils.token_stats.TokenStats") as MockStats:
+            MockStats.return_value = mock_ts
+            response = client.get("/api/analytics/summary?days=7")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_cost"] == 0.0
+            assert data["total_requests"] == 0
+            assert data["total_tokens"] == 0
+            assert data["avg_daily_cost"] == 0.0
 
     def test_summary_with_data(self, client, tmp_path, monkeypatch):
         """有数据时正确计算汇总"""
@@ -72,8 +81,8 @@ class TestAnalyticsSummary:
                 # cost = (3000/1000 * 0.005) + (1500/1000 * 0.015) = 0.015 + 0.0225 = 0.0375
                 assert data["total_cost"] == 0.0375
                 assert data["total_requests"] == 3
-                assert data["total_prompt_tokens"] == 3000
-                assert data["total_completion_tokens"] == 1500
+                assert data["total_tokens"] == 4500
+                assert data["avg_daily_cost"] == 0.0375 / 7
                 assert data["incomplete"] is False
 
     def test_summary_incomplete_without_price(self, client, tmp_path, monkeypatch):
@@ -114,18 +123,31 @@ class TestAnalyticsSummary:
 
     def test_summary_days_max_90(self, client):
         """days 超过 90 应被限制"""
-        response = client.get("/api/analytics/summary?days=100")
-        assert response.status_code == 200
-        # 应该按 90 处理，空数据返回 0
-        data = response.json()
-        assert data["total_requests"] == 0
+        mock_ts = MagicMock()
+        mock_ts.get_summary.return_value = {
+            "total_prompt_tokens": 0,
+            "total_completion_tokens": 0,
+            "total_requests": 0,
+            "model_breakdown": {},
+        }
+        with patch("smart_router.utils.token_stats.TokenStats") as MockStats:
+            MockStats.return_value = mock_ts
+            response = client.get("/api/analytics/summary?days=100")
+            assert response.status_code == 200
+            # 应该按 90 处理，空数据返回 0
+            data = response.json()
+            assert data["total_requests"] == 0
 
 
 class TestAnalyticsDaily:
     def test_daily_empty(self, client):
-        response = client.get("/api/analytics/daily?days=7")
-        assert response.status_code == 200
-        assert response.json() == {}
+        mock_ts = MagicMock()
+        mock_ts.get_daily.return_value = {}
+        with patch("smart_router.utils.token_stats.TokenStats") as MockStats:
+            MockStats.return_value = mock_ts
+            response = client.get("/api/analytics/daily?days=7")
+            assert response.status_code == 200
+            assert response.json() == []
 
     def test_daily_with_data(self, client, tmp_path):
         stats_file = tmp_path / "token_stats.json"
@@ -148,16 +170,29 @@ class TestAnalyticsDaily:
             assert response.status_code == 200
             data = response.json()
             assert len(data) == 3
+            date_set = {item["date"] for item in data}
             for d in dates:
-                assert d in data
-            assert data[dates[0]]["gpt-4o"]["prompt_tokens"] == 100
+                assert d in date_set
+            # 找到今天的数据项
+            today_item = next(item for item in data if item["date"] == dates[0])
+            assert today_item["requests"] == 1
+            assert today_item["tokens"] == 150
 
 
 class TestAnalyticsByModel:
     def test_by_model_empty(self, client):
-        response = client.get("/api/analytics/by-model?days=7")
-        assert response.status_code == 200
-        assert response.json() == {}
+        mock_ts = MagicMock()
+        mock_ts.get_summary.return_value = {
+            "total_prompt_tokens": 0,
+            "total_completion_tokens": 0,
+            "total_requests": 0,
+            "model_breakdown": {},
+        }
+        with patch("smart_router.utils.token_stats.TokenStats") as MockStats:
+            MockStats.return_value = mock_ts
+            response = client.get("/api/analytics/by-model?days=7")
+            assert response.status_code == 200
+            assert response.json() == []
 
     def test_by_model_with_data(self, client, tmp_path, monkeypatch):
         stats_file = tmp_path / "token_stats.json"
@@ -191,16 +226,26 @@ class TestAnalyticsByModel:
                 response = client.get("/api/analytics/by-model?days=7")
                 assert response.status_code == 200
                 data = response.json()
-                assert "gpt-4o" in data
-                assert data["gpt-4o"]["cost"] == (2000 / 1000 * 0.005 + 1000 / 1000 * 0.015)
-                assert data["gpt-4o"]["request_count"] == 1
+                assert len(data) == 1
+                assert data[0]["model"] == "gpt-4o"
+                assert data[0]["cost"] == (2000 / 1000 * 0.005 + 1000 / 1000 * 0.015)
+                assert data[0]["request_count"] == 1
 
 
 class TestAnalyticsTopModels:
     def test_top_models_empty(self, client):
-        response = client.get("/api/analytics/top-models?limit=10&days=7")
-        assert response.status_code == 200
-        assert response.json() == []
+        mock_ts = MagicMock()
+        mock_ts.get_summary.return_value = {
+            "total_prompt_tokens": 0,
+            "total_completion_tokens": 0,
+            "total_requests": 0,
+            "model_breakdown": {},
+        }
+        with patch("smart_router.utils.token_stats.TokenStats") as MockStats:
+            MockStats.return_value = mock_ts
+            response = client.get("/api/analytics/top-models?limit=10&days=7")
+            assert response.status_code == 200
+            assert response.json() == []
 
     def test_top_models_with_data(self, client, tmp_path, monkeypatch):
         stats_file = tmp_path / "token_stats.json"

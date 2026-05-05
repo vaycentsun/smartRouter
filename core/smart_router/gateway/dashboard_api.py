@@ -509,11 +509,16 @@ async def analytics_summary(days: int = 7):
     elif model_breakdown:
         incomplete = True
 
+    total_prompt_tokens = summary.get("total_prompt_tokens", 0)
+    total_completion_tokens = summary.get("total_completion_tokens", 0)
+    total_tokens = total_prompt_tokens + total_completion_tokens
+    avg_daily_cost = total_cost / days if days > 0 else 0.0
+
     return {
         "total_cost": total_cost,
         "total_requests": summary.get("total_requests", 0),
-        "total_prompt_tokens": summary.get("total_prompt_tokens", 0),
-        "total_completion_tokens": summary.get("total_completion_tokens", 0),
+        "total_tokens": total_tokens,
+        "avg_daily_cost": avg_daily_cost,
         "incomplete": incomplete,
     }
 
@@ -523,17 +528,36 @@ async def analytics_daily(days: int = 7):
     from ..utils.token_stats import TokenStats
     days = _clamp_days(days)
     stats = TokenStats()
+    config = _load_config_for_analytics()
     # 获取最近 days 天的日期范围
     import time
     from datetime import datetime, timedelta
     now = datetime.utcnow()
-    result = {}
+    result = []
     for i in range(days):
         date_obj = now - timedelta(days=i)
         date_str = date_obj.strftime("%Y-%m-%d")
         daily = stats.get_daily(date_str)
         if daily:
-            result[date_str] = daily
+            day_cost = 0.0
+            day_requests = 0
+            day_tokens = 0
+            for model_name, entry in daily.items():
+                day_requests += entry.get("request_count", 0)
+                day_tokens += entry.get("total_tokens", 0)
+                model_config = config.models.get(model_name) if config else None
+                price = getattr(model_config, "price", None) if model_config else None
+                day_cost += _compute_cost(
+                    entry.get("prompt_tokens", 0),
+                    entry.get("completion_tokens", 0),
+                    price,
+                )
+            result.append({
+                "date": date_str,
+                "cost": day_cost,
+                "requests": day_requests,
+                "tokens": day_tokens,
+            })
     return result
 
 
@@ -545,7 +569,7 @@ async def analytics_by_model(days: int = 7):
     summary = stats.get_summary(days)
     config = _load_config_for_analytics()
 
-    result = {}
+    result = []
     for model_name, entry in summary.get("model_breakdown", {}).items():
         model_config = config.models.get(model_name) if config else None
         price = getattr(model_config, "price", None) if model_config else None
@@ -554,13 +578,13 @@ async def analytics_by_model(days: int = 7):
             entry.get("completion_tokens", 0),
             price,
         )
-        result[model_name] = {
+        result.append({
+            "model": model_name,
             "prompt_tokens": entry.get("prompt_tokens", 0),
             "completion_tokens": entry.get("completion_tokens", 0),
-            "total_tokens": entry.get("total_tokens", 0),
-            "request_count": entry.get("request_count", 0),
             "cost": cost,
-        }
+            "request_count": entry.get("request_count", 0),
+        })
     return result
 
 
