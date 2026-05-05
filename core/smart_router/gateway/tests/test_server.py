@@ -450,3 +450,570 @@ class TestMiddlewareLogic:
         assert hasattr(state, 'smart_router_override')
         assert state.smart_router_override_provider == "openai"
         assert state.smart_router_override_model == "gpt-4o"
+
+
+import json
+import pytest
+from unittest.mock import AsyncMock, MagicMock
+from starlette.requests import Request
+from starlette.responses import Response
+
+
+class TestTokenStatsMiddleware:
+    @pytest.fixture
+    def mock_router(self):
+        router = MagicMock()
+        router.sr_config = MagicMock()
+        return router
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_usage(self, mock_router, tmp_path):
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.token_stats import TokenStats
+        
+        stats_file = tmp_path / "token_stats.json"
+        token_stats = TokenStats(stats_file=stats_file)
+        
+        async def mock_call_next(request):
+            return Response(
+                content=json.dumps({
+                    "id": "test",
+                    "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150}
+                }).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+        
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.token_stats = token_stats
+        
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+        
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+        
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+        
+        async def send(message):
+            pass
+        
+        request = Request(scope, receive, send)
+        request.state.smart_router_selected = "gpt-4o"
+        request.state.smart_router_original = "auto"
+        request.state.smart_router_task = "chat"
+        
+        response = await middleware.dispatch(request, mock_call_next)
+        
+        all_stats = token_stats.get_all()
+        assert "gpt-4o" in all_stats
+        assert all_stats["gpt-4o"]["prompt_tokens"] == 100
+        assert all_stats["gpt-4o"]["request_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_middleware_uses_override_model(self, mock_router, tmp_path):
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.token_stats import TokenStats
+        
+        stats_file = tmp_path / "token_stats.json"
+        token_stats = TokenStats(stats_file=stats_file)
+        
+        async def mock_call_next(request):
+            return Response(
+                content=json.dumps({
+                    "usage": {"prompt_tokens": 200, "completion_tokens": 100, "total_tokens": 300}
+                }).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+        
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.token_stats = token_stats
+        
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+        
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+        
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+        
+        async def send(message):
+            pass
+        
+        request = Request(scope, receive, send)
+        request.state.smart_router_override_model = "claude-3-sonnet"
+        
+        response = await middleware.dispatch(request, mock_call_next)
+        
+        all_stats = token_stats.get_all()
+        assert "claude-3-sonnet" in all_stats
+        assert all_stats["claude-3-sonnet"]["request_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_middleware_uses_request_body_model(self, mock_router, tmp_path):
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.token_stats import TokenStats
+        
+        stats_file = tmp_path / "token_stats.json"
+        token_stats = TokenStats(stats_file=stats_file)
+        
+        async def mock_call_next(request):
+            return Response(
+                content=json.dumps({
+                    "usage": {"prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75}
+                }).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+        
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.token_stats = token_stats
+        
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+        
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+        
+        async def receive():
+            return {"type": "http.request", "body": b'{"model": "gpt-3.5-turbo"}', "more_body": False}
+        
+        async def send(message):
+            pass
+        
+        request = Request(scope, receive, send)
+        # 不设置 smart_router_selected 或 override_model
+        
+        response = await middleware.dispatch(request, mock_call_next)
+        
+        all_stats = token_stats.get_all()
+        assert "gpt-3.5-turbo" in all_stats
+        assert all_stats["gpt-3.5-turbo"]["request_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_middleware_skips_streaming_no_usage(self, mock_router):
+        """SSE 流式响应不含 usage 时不记录"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        
+        async def mock_call_next(request):
+            body = b'data: {"choices": [{"delta": {"content": "hello"}}]}\n\ndata: [DONE]\n\n'
+            return Response(content=body, status_code=200, headers={"content-type": "text/event-stream"})
+        
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.token_stats = MagicMock()
+        
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+        
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+        
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+        
+        async def send(message):
+            pass
+        
+        request = Request(scope, receive, send)
+        request.state.smart_router_selected = "gpt-4o"
+        request.state.smart_router_original = "auto"
+        request.state.smart_router_task = "chat"
+        
+        response = await middleware.dispatch(request, mock_call_next)
+        
+        app.state.token_stats.record.assert_not_called()
+        # 验证返回的是 StreamingResponse
+        from starlette.responses import StreamingResponse
+        assert isinstance(response, StreamingResponse)
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_streaming_usage(self, mock_router, tmp_path):
+        """SSE 流式响应包含 usage 时正确记录"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.token_stats import TokenStats
+        
+        stats_file = tmp_path / "token_stats.json"
+        token_stats = TokenStats(stats_file=stats_file)
+        
+        async def mock_call_next(request):
+            body = (
+                b'data: {"choices": [{"delta": {"content": "hello"}}]}\n\n'
+                b'data: {"choices": [], "usage": {"prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75}}\n\n'
+                b'data: [DONE]\n\n'
+            )
+            return Response(content=body, status_code=200, headers={"content-type": "text/event-stream"})
+        
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.token_stats = token_stats
+        
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+        
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+        
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+        
+        async def send(message):
+            pass
+        
+        request = Request(scope, receive, send)
+        request.state.smart_router_selected = "gpt-4o"
+        request.state.smart_router_original = "auto"
+        request.state.smart_router_task = "chat"
+        
+        response = await middleware.dispatch(request, mock_call_next)
+        
+        all_stats = token_stats.get_all()
+        assert "gpt-4o" in all_stats
+        assert all_stats["gpt-4o"]["prompt_tokens"] == 50
+        assert all_stats["gpt-4o"]["completion_tokens"] == 25
+        assert all_stats["gpt-4o"]["total_tokens"] == 75
+        assert all_stats["gpt-4o"]["request_count"] == 1
+        
+        # 验证返回的是 StreamingResponse
+        from starlette.responses import StreamingResponse
+        assert isinstance(response, StreamingResponse)
+
+
+class TestErrorCounter:
+    """测试 ErrorCounter 5 分钟滑动窗口"""
+
+    def test_record_error(self):
+        from smart_router.gateway.error_counter import ErrorCounter
+        ec = ErrorCounter()
+        ec.record(True)
+        assert ec.get_error_rate() == 1.0
+
+    def test_record_success(self):
+        from smart_router.gateway.error_counter import ErrorCounter
+        ec = ErrorCounter()
+        ec.record(False)
+        assert ec.get_error_rate() == 0.0
+
+    def test_error_rate_mixed(self):
+        from smart_router.gateway.error_counter import ErrorCounter
+        ec = ErrorCounter()
+        ec.record(True)
+        ec.record(False)
+        ec.record(True)
+        assert ec.get_error_rate() == 2 / 3
+
+    def test_window_expires_old_entries(self, monkeypatch):
+        """超过 5 分钟的数据应被清除"""
+        from smart_router.gateway.error_counter import ErrorCounter
+        import time
+        ec = ErrorCounter()
+        # 模拟一个旧时间戳
+        old_time = time.time() - 400  # 6 分 40 秒前
+        ec._entries.append((old_time, True))
+        assert ec.get_error_rate() == 0.0  # 旧条目应被清理
+
+    def test_empty_counter(self):
+        from smart_router.gateway.error_counter import ErrorCounter
+        ec = ErrorCounter()
+        assert ec.get_error_rate() == 0.0
+
+
+class TestMiddlewareErrorCounter:
+    """测试中间件集成 ErrorCounter"""
+
+    @pytest.fixture
+    def mock_router(self):
+        router = MagicMock()
+        router.sr_config = MagicMock()
+        return router
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_error_on_non_2xx(self, mock_router):
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.gateway.error_counter import ErrorCounter
+
+        async def mock_call_next(request):
+            return Response(content=b'error', status_code=500, headers={})
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.error_counter = ErrorCounter()
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 500
+        assert app.state.error_counter.get_error_rate() == 1.0
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_success_on_2xx(self, mock_router):
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.gateway.error_counter import ErrorCounter
+
+        async def mock_call_next(request):
+            return Response(content=b'ok', status_code=200, headers={})
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.error_counter = ErrorCounter()
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert app.state.error_counter.get_error_rate() == 0.0
+
+    @pytest.mark.asyncio
+    async def test_middleware_mixed_responses(self, mock_router):
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.gateway.error_counter import ErrorCounter
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.error_counter = ErrorCounter()
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        async def error_call_next(request):
+            return Response(content=b'error', status_code=500)
+
+        async def success_call_next(request):
+            return Response(content=b'ok', status_code=200)
+
+        await middleware.dispatch(request, error_call_next)
+        await middleware.dispatch(request, success_call_next)
+        await middleware.dispatch(request, error_call_next)
+
+        assert app.state.error_counter.get_error_rate() == 2 / 3
+
+
+class TestGlobalModelOverride:
+    @pytest.fixture
+    def mock_router(self):
+        router = MagicMock()
+        config = MagicMock()
+        
+        # 模拟模型配置
+        model_config = MagicMock()
+        model_config.provider = "aliyun"
+        
+        gpt4o_config = MagicMock()
+        gpt4o_config.provider = "openai"
+        
+        config.models = {
+            "gui-plus-2026-02-26": model_config,
+            "gpt-4o": gpt4o_config,
+        }
+        config.is_model_available = MagicMock(return_value=True)
+        
+        router.sr_config = config
+        return router
+
+    @pytest.mark.asyncio
+    async def test_global_override_replaces_model(self, mock_router):
+        """全局模型覆盖应替换请求中的模型，并保留原始模型供统计"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+
+        async def mock_call_next(request):
+            return Response(
+                content=json.dumps({"usage": {"prompt_tokens": 50, "completion_tokens": 20, "total_tokens": 70}}).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = {
+            "provider": "aliyun",
+            "model": "gui-plus-2026-02-26",
+            "enabled": True,
+        }
+        app.state.token_stats = MagicMock()
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "strategy-cost", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert request.state.smart_router_selected == "gui-plus-2026-02-26"
+        assert request.state.smart_router_original == "strategy-cost"
+        assert request.state.smart_router_override is True
+        assert request.state.smart_router_override_model == "gui-plus-2026-02-26"
+        assert request.state.smart_router_override_provider == "aliyun"
+
+    @pytest.mark.asyncio
+    async def test_global_override_invalid_model_falls_back_to_routing(self, mock_router):
+        """全局覆盖模型无效时，应回退到原有路由逻辑"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+
+        async def mock_call_next(request):
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = {
+            "provider": "aliyun",
+            "model": "nonexistent-model",
+            "enabled": True,
+        }
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "strategy-cost", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        # 无效的全局覆盖不应设置 selected
+        assert not hasattr(request.state, 'smart_router_selected')
+
+    @pytest.mark.asyncio
+    async def test_request_header_override_takes_priority_over_global(self, mock_router):
+        """请求头覆盖优先级应高于全局覆盖"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+
+        async def mock_call_next(request):
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = {
+            "provider": "aliyun",
+            "model": "gui-plus-2026-02-26",
+            "enabled": True,
+        }
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [
+                (b"x-smart-router-override-provider", b"openai"),
+                (b"x-smart-router-override-model", b"gpt-4o"),
+            ],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "strategy-cost", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        # 请求头覆盖应生效
+        assert request.state.smart_router_override_model == "gpt-4o"
+        assert request.state.smart_router_override_provider == "openai"

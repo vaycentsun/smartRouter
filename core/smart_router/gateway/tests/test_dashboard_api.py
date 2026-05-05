@@ -136,3 +136,151 @@ class TestStaticFiles:
         response = client.get("/api/health")
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
+
+    def test_spa_fallback_to_index(self, tmp_path):
+        """访问不存在的无扩展名路径应回退到 index.html（SPA 刷新支持）"""
+        static_dir = tmp_path / "static"
+        static_dir.mkdir()
+        (static_dir / "index.html").write_text("<html>spa</html>")
+
+        app = build_dashboard_app(static_dir=static_dir)
+        client = TestClient(app)
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        assert "spa" in response.text
+
+    def test_spa_fallback_404_for_files(self, tmp_path):
+        """访问不存在的带扩展名路径不应回退，应返回 404"""
+        static_dir = tmp_path / "static"
+        static_dir.mkdir()
+        (static_dir / "index.html").write_text("<html>spa</html>")
+
+        app = build_dashboard_app(static_dir=static_dir)
+        client = TestClient(app)
+        response = client.get("/missing.js")
+        assert response.status_code == 404
+
+
+import json
+from unittest.mock import patch
+from smart_router.utils.token_stats import TokenStats as RealTokenStats
+
+
+class TestModelOverrideAPI:
+    def test_get_model_override_initial(self, client):
+        response = client.get("/api/model-override")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["enabled"] is False
+        assert data["provider"] is None
+        assert data["model"] is None
+
+    def test_set_and_get_model_override(self, client):
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.models = {
+                "gui-plus-2026-02-26": MagicMock(provider="aliyun"),
+            }
+            mock_cfg.is_model_available.return_value = True
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.post("/api/model-override", json={"provider": "aliyun", "model": "gui-plus-2026-02-26"})
+            assert response.status_code == 200
+            data = response.json()
+            assert data["enabled"] is True
+            assert data["provider"] == "aliyun"
+            assert data["model"] == "gui-plus-2026-02-26"
+
+            response = client.get("/api/model-override")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["enabled"] is True
+            assert data["provider"] == "aliyun"
+            assert data["model"] == "gui-plus-2026-02-26"
+
+    def test_set_model_override_unknown_model(self, client):
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.post("/api/model-override", json={"provider": "aliyun", "model": "unknown"})
+            assert response.status_code == 400
+            assert "未知模型" in response.json()["detail"]
+
+    def test_set_model_override_provider_mismatch(self, client):
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.models = {
+                "gui-plus-2026-02-26": MagicMock(provider="aliyun"),
+            }
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.post("/api/model-override", json={"provider": "openai", "model": "gui-plus-2026-02-26"})
+            assert response.status_code == 400
+            assert "Provider 不匹配" in response.json()["detail"]
+
+    def test_delete_model_override(self, client):
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.models = {
+                "gui-plus-2026-02-26": MagicMock(provider="aliyun"),
+            }
+            mock_cfg.is_model_available.return_value = True
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            client.post("/api/model-override", json={"provider": "aliyun", "model": "gui-plus-2026-02-26"})
+
+            response = client.delete("/api/model-override")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["enabled"] is False
+            assert data["provider"] is None
+            assert data["model"] is None
+
+            response = client.get("/api/model-override")
+            assert response.json()["enabled"] is False
+
+
+class TestTokenStatsAPI:
+    def test_token_stats_empty(self, client):
+        response = client.get("/api/token-stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["stats"] == []
+        assert data["total_prompt_tokens"] == 0
+        assert data["total_completion_tokens"] == 0
+        assert data["total_requests"] == 0
+
+    def test_token_stats_with_data(self, client, tmp_path):
+        stats_file = tmp_path / "token_stats.json"
+        stats_data = {
+            "version": 1,
+            "records": {
+                "gpt-4o": {
+                    "prompt_tokens": 1000,
+                    "completion_tokens": 500,
+                    "total_tokens": 1500,
+                    "request_count": 10,
+                },
+                "claude-3-sonnet": {
+                    "prompt_tokens": 2000,
+                    "completion_tokens": 1000,
+                    "total_tokens": 3000,
+                    "request_count": 5,
+                },
+            },
+        }
+        stats_file.write_text(json.dumps(stats_data))
+
+        with patch("smart_router.utils.token_stats.TokenStats") as MockStats:
+            mock_instance = RealTokenStats(stats_file=stats_file)
+            MockStats.return_value = mock_instance
+
+            response = client.get("/api/token-stats")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["stats"]) == 2
+            assert data["total_prompt_tokens"] == 3000
+            assert data["total_completion_tokens"] == 1500
+            assert data["total_requests"] == 15

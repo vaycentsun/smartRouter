@@ -74,49 +74,93 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         else:
                             console.print(f"[yellow]模型覆盖无效: 未知模型 {model_name}[/yellow]")
                     else:
-                        # 没有覆盖请求头，走原有智能路由逻辑
-                        should_route = (
-                            original_model in ("auto", "smart-router", "default") or
-                            original_model.startswith("stage:") or
-                            original_model.startswith("strategy-")
-                        )
-                        
-                        if should_route:
-                            messages = data.get("messages", [])
+                        # 检查全局模型覆盖（管理员通过 Dashboard 设置）
+                        # 优先从文件读取，实现 Dashboard 与 Proxy 跨进程状态共享
+                        from ..utils.model_override_store import load_override_state
+                        global_override = load_override_state()
+                        if not global_override.get('enabled'):
+                            # 回退到内存状态（兼容旧逻辑）
+                            global_override = getattr(request.app.state, 'global_model_override', None)
+                        if global_override and global_override.get('enabled'):
+                            config = self.router.sr_config
+                            go_provider = global_override.get('provider')
+                            go_model = global_override.get('model')
                             
-                            try:
-                                result = self.router.select_model(
-                                    model_hint=original_model,
-                                    messages=messages
-                                )
-                                selected = result.model_name
+                            if go_model in config.models:
+                                model_config = config.models[go_model]
+                                if model_config.provider == go_provider and config.is_model_available(go_model):
+                                    # 全局覆盖生效：替换模型，但保留原始 model 供统计
+                                    data["model"] = go_model
+                                    
+                                    request.state.smart_router_selected = go_model
+                                    request.state.smart_router_original = original_model
+                                    request.state.smart_router_task = "override"
+                                    request.state.smart_router_override = True
+                                    request.state.smart_router_override_provider = go_provider
+                                    request.state.smart_router_override_model = go_model
+                                    
+                                    console.print(f"[cyan]全局模型覆盖: {original_model} -> {go_model} (provider: {go_provider})[/cyan]")
+                                    
+                                    modified_body = json.dumps(data).encode("utf-8")
+                                    
+                                    async def receive():
+                                        return {"type": "http.request", "body": modified_body, "more_body": False}
+                                    
+                                    request = Request(request.scope, receive, request._send)
+                                else:
+                                    console.print(f"[yellow]全局模型覆盖无效: {go_provider}/{go_model} (不可用或 provider 不匹配)[/yellow]")
+                            else:
+                                console.print(f"[yellow]全局模型覆盖无效: 未知模型 {go_model}[/yellow]")
+                        else:
+                            # 没有覆盖请求头，走原有智能路由逻辑
+                            should_route = (
+                                original_model in ("auto", "smart-router", "default") or
+                                original_model.startswith("stage:") or
+                                original_model.startswith("strategy-")
+                            )
+                            
+                            if should_route:
+                                messages = data.get("messages", [])
                                 
-                                console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
-                                
-                                # 修改请求体
-                                data["model"] = selected
-                                
-                                # 保存到 request.state 供后续使用
-                                request.state.smart_router_selected = selected
-                                request.state.smart_router_original = original_model
-                                request.state.smart_router_task = result.task_type
-                                
-                                # 重新构建请求体
-                                modified_body = json.dumps(data).encode("utf-8")
-                                
-                                # 创建新的请求，使用修改后的 body
-                                async def receive():
-                                    return {"type": "http.request", "body": modified_body, "more_body": False}
-                                
-                                request = Request(request.scope, receive, request._send)
-                            except Exception as e:
-                                console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
+                                try:
+                                    result = self.router.select_model(
+                                        model_hint=original_model,
+                                        messages=messages
+                                    )
+                                    selected = result.model_name
+                                    
+                                    console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
+                                    
+                                    # 修改请求体
+                                    data["model"] = selected
+                                    
+                                    # 保存到 request.state 供后续使用
+                                    request.state.smart_router_selected = selected
+                                    request.state.smart_router_original = original_model
+                                    request.state.smart_router_task = result.task_type
+                                    
+                                    # 重新构建请求体
+                                    modified_body = json.dumps(data).encode("utf-8")
+                                    
+                                    # 创建新的请求，使用修改后的 body
+                                    async def receive():
+                                        return {"type": "http.request", "body": modified_body, "more_body": False}
+                                    
+                                    request = Request(request.scope, receive, request._send)
+                                except Exception as e:
+                                    console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
             except Exception as e:
                 console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                 import traceback
                 console.print(traceback.format_exc())
         
         response = await call_next(request)
+
+        # 记录错误率
+        if hasattr(request.app.state, 'error_counter'):
+            request.app.state.error_counter.record(not (200 <= response.status_code < 300))
+
+        console.print(f"[dim]Middleware: path={request.url.path} method={request.method} selected={getattr(request.state, 'smart_router_selected', None)}[/dim]")
         
         # 添加响应头
         if hasattr(request.state, 'smart_router_selected'):
@@ -128,6 +172,114 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             response.headers["X-Smart-Router-Override-Active"] = "true"
             response.headers["X-Smart-Router-Override-Provider"] = request.state.smart_router_override_provider
             response.headers["X-Smart-Router-Override-Model"] = request.state.smart_router_override_model
+        
+        # Token 统计：拦截 chat/completions 响应
+        if request.url.path == "/v1/chat/completions" and request.method == "POST":
+            console.print(f"[cyan]✓ Attempting token stats for POST /v1/chat/completions[/cyan]")
+            content_type = response.headers.get("content-type", "")
+            console.print(f"[dim]Content-Type: {content_type}[/dim]")
+            
+            try:
+                # 确定统计模型名（按优先级）
+                model_name = getattr(request.state, 'smart_router_selected', None)
+                if not model_name:
+                    model_name = getattr(request.state, 'smart_router_override_model', None)
+                if not model_name:
+                    # 回退：从请求体解析原始 model 字段
+                    try:
+                        req_body = await request.body()
+                        if req_body:
+                            req_data = json.loads(req_body)
+                            model_name = req_data.get("model", None)
+                    except Exception as e:
+                        console.print(f"[yellow]Failed to parse request body: {e}[/yellow]")
+                
+                console.print(f"[dim]Model name resolved: {model_name}[/dim]")
+                
+                if model_name:
+                    # 消费响应 body
+                    body_bytes = b""
+                    if hasattr(response, "body_iterator"):
+                        async for chunk in response.body_iterator:
+                            body_bytes += chunk
+                    else:
+                        body_bytes = response.body
+                    
+                    console.print(f"[dim]Response body size: {len(body_bytes)} bytes[/dim]")
+                    
+                    # 解析 usage（支持普通 JSON 和 SSE 流式格式）
+                    usage = {}
+                    is_sse = "text/event-stream" in content_type
+                    
+                    if is_sse:
+                        # 解析 SSE 格式，从 data: 行中提取包含 usage 的 JSON
+                        try:
+                            text = body_bytes.decode("utf-8", errors="replace")
+                            for line in text.splitlines():
+                                line = line.strip()
+                                if line.startswith("data: "):
+                                    data = line[6:]  # 去掉 "data: " 前缀
+                                    if data == "[DONE]":
+                                        continue
+                                    try:
+                                        chunk = json.loads(data)
+                                        if chunk.get("usage"):
+                                            usage = chunk["usage"]
+                                    except json.JSONDecodeError:
+                                        continue
+                            console.print(f"[dim]SSE usage extracted: {usage}[/dim]")
+                        except Exception as e:
+                            console.print(f"[yellow]Error parsing SSE response: {e}[/yellow]")
+                    else:
+                        try:
+                            resp_data = json.loads(body_bytes)
+                            usage = resp_data.get("usage", {})
+                            console.print(f"[dim]Usage field: {usage}[/dim]")
+                        except json.JSONDecodeError as e:
+                            console.print(f"[red]Failed to parse response JSON: {e}[/red]")
+                            console.print(f"[dim]Body preview: {body_bytes[:200]}[/dim]")
+                        except Exception as e:
+                            console.print(f"[yellow]Error parsing response: {e}[/yellow]")
+                    
+                    if usage:
+                        prompt_tokens = usage.get("prompt_tokens", 0)
+                        completion_tokens = usage.get("completion_tokens", 0)
+                        total_tokens = usage.get("total_tokens", 0)
+                        
+                        console.print(f"[green]✓ Recording tokens: {model_name} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens}[/green]")
+                        
+                        token_stats = request.app.state.token_stats
+                        await token_stats.record(
+                            model_name, prompt_tokens, completion_tokens, total_tokens
+                        )
+                    else:
+                        console.print("[yellow]No usage data in response[/yellow]")
+                else:
+                    console.print("[yellow]No model name resolved, skipping stats[/yellow]")
+                
+                # 重建 Response，确保下游正常消费
+                if is_sse:
+                    async def _stream_body():
+                        yield body_bytes
+                    from starlette.responses import StreamingResponse
+                    response = StreamingResponse(
+                        content=_stream_body(),
+                        status_code=response.status_code,
+                        headers=dict(response.headers),
+                        media_type=response.media_type,
+                    )
+                else:
+                    from starlette.responses import Response
+                    response = Response(
+                        content=body_bytes,
+                        status_code=response.status_code,
+                        headers=dict(response.headers),
+                        media_type=response.media_type,
+                    )
+            except Exception as e:
+                import traceback
+                console.print(f"[red]Token stats error: {e}[/red]")
+                console.print(traceback.format_exc())
         
         return response
 
@@ -241,6 +393,82 @@ def start_server(config_path: Optional[Path] = None):
         
         app.state.smart_router = router
         
+        # 初始化全局模型覆盖状态（优先从文件加载，实现 Dashboard 与 Proxy 跨进程共享）
+        from ..utils.model_override_store import load_override_state
+        app.state.global_model_override = load_override_state()
+        
+        # 初始化 Token 统计
+        from ..utils.token_stats import TokenStats
+        app.state.token_stats = TokenStats()
+
+        # 初始化错误计数器
+        from .error_counter import ErrorCounter
+        app.state.error_counter = ErrorCounter()
+
+        # 初始化告警系统
+        from ..alerts.config import AlertConfig
+        from ..alerts.checker import AlertChecker
+        from ..alerts.notifier import AlertNotifier
+        alerts_config = AlertConfig(config_dir / "alerts.yaml")
+        app.state.alert_checker = AlertChecker(alerts_config, app.state.token_stats, app.state.error_counter)
+        app.state.alert_notifier = AlertNotifier()
+        app.state.alerts_config = alerts_config
+
+        # 注册后台告警检查协程（通过 startup 事件）
+        import asyncio
+        from fastapi import BackgroundTasks
+
+        @app.on_event("startup")
+        async def _start_alert_background_task():
+            alerts_history_path = config_dir / "alerts_history.json"
+            async def _alert_background_task():
+                """每 60 秒检查一次告警规则"""
+                while True:
+                    try:
+                        await asyncio.sleep(60)
+                        triggers = await app.state.alert_checker.check_all()
+                        for trigger in triggers:
+                            rule = alerts_config.get_rule(trigger.rule_id)
+                            if not rule:
+                                continue
+                            for channel in rule.channels:
+                                try:
+                                    await app.state.alert_notifier.send(rule, trigger, channel)
+                                except Exception as e:
+                                    console.print(f"[yellow]Alert notification failed: {e}[/yellow]")
+
+                            # 记录触发历史
+                            try:
+                                history = []
+                                if alerts_history_path.exists():
+                                    history = json.loads(alerts_history_path.read_text(encoding="utf-8"))
+                                history.append({
+                                    "rule_id": trigger.rule_id,
+                                    "rule_name": trigger.rule_name,
+                                    "severity": trigger.severity,
+                                    "metric": trigger.metric,
+                                    "current_value": trigger.current_value,
+                                    "threshold": trigger.threshold,
+                                    "timestamp": trigger.timestamp,
+                                    "message": trigger.message,
+                                })
+                                # 最多保留 1000 条
+                                if len(history) > 1000:
+                                    history = history[-1000:]
+                                alerts_history_path.write_text(json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8")
+                                try:
+                                    alerts_history_path.chmod(0o600)
+                                except OSError:
+                                    pass
+                            except Exception as e:
+                                console.print(f"[yellow]Failed to save alert history: {e}[/yellow]")
+                    except asyncio.CancelledError:
+                        break
+                    except Exception as e:
+                        console.print(f"[yellow]Alert background task error: {e}[/yellow]")
+
+            app.state._alert_task = asyncio.create_task(_alert_background_task())
+        
         # 在应用启动时只添加一次中间件
         if not getattr(app.state, '_smart_router_middleware_added', False):
             app.add_middleware(SmartRouterMiddleware, router=router)
@@ -257,6 +485,39 @@ def start_server(config_path: Optional[Path] = None):
                         overrides[model.provider] = []
                     overrides[model.provider].append(name)
             return {"overrides": overrides}
+        
+        # 注册 model-override API（供 Proxy 直接查询/设置，解决 Dashboard 与 Proxy 跨进程状态不同步）
+        from ..utils.model_override_store import load_override_state, save_override_state, clear_override_state
+        
+        @app.get("/api/model-override")
+        async def _get_model_override():
+            state = load_override_state()
+            return state
+        
+        @app.post("/api/model-override")
+        async def _set_model_override(body: dict):
+            provider = body.get("provider")
+            model = body.get("model")
+            if not provider or not model:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=400, detail="provider 和 model 必填")
+            config = app.state.smart_router.sr_config
+            if model not in config.models:
+                raise HTTPException(status_code=400, detail=f"未知模型: {model}")
+            model_cfg = config.models[model]
+            if model_cfg.provider != provider:
+                raise HTTPException(status_code=400, detail=f"Provider 不匹配")
+            if not config.is_model_available(model):
+                raise HTTPException(status_code=400, detail=f"模型不可用: {model}")
+            save_override_state(provider, model, True)
+            app.state.global_model_override = {"provider": provider, "model": model, "enabled": True}
+            return {"provider": provider, "model": model, "enabled": True}
+        
+        @app.delete("/api/model-override")
+        async def _delete_model_override():
+            clear_override_state()
+            app.state.global_model_override = {"provider": None, "model": None, "enabled": False}
+            return {"provider": None, "model": None, "enabled": False}
         
         # 启动配置热重载监听
         watcher = ConfigWatcher(

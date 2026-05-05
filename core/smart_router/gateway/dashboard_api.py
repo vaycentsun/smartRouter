@@ -11,10 +11,11 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
-from starlette.responses import FileResponse, PlainTextResponse
+from starlette.responses import FileResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
 from ..config.loader import ConfigLoader
@@ -22,6 +23,8 @@ from ..classifier.task_classifier import TaskTypeClassifier
 from ..classifier.difficulty_classifier import DifficultyClassifier
 from ..selector.v3_selector import V3ModelSelector
 from ..utils.markers import parse_markers
+from .playground_api import playground_router
+from ..alerts.config import AlertConfig, AlertRule, AlertCondition, AlertChannel
 
 
 # ==================== 进程管理工具（从 daemon.py 内联，避免循环导入）====================
@@ -120,6 +123,38 @@ class LogsResponse(BaseModel):
     lines: list[str]
     offset: int
     total_size: int
+
+
+class AlertRuleCreate(BaseModel):
+    id: str
+    name: str
+    enabled: bool = True
+    condition: AlertCondition
+    severity: str = "warning"
+    time_window: str = "1d"
+    channels: list[AlertChannel] = []
+    cooldown_minutes: int = 60
+
+
+class AlertRuleUpdate(BaseModel):
+    name: Optional[str] = None
+    enabled: Optional[bool] = None
+    condition: Optional[AlertCondition] = None
+    severity: Optional[str] = None
+    time_window: Optional[str] = None
+    channels: Optional[list[AlertChannel]] = None
+    cooldown_minutes: Optional[int] = None
+
+
+class ModelOverrideRequest(BaseModel):
+    provider: str
+    model: str
+
+
+class ModelOverrideResponse(BaseModel):
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    enabled: bool = False
 
 
 LOG_FILE_MAP = {
@@ -383,6 +418,70 @@ async def model_overrides():
     return {"overrides": overrides}
 
 
+async def get_model_override(request: Request):
+    """获取当前全局模型覆盖状态（优先从文件读取，兼容跨进程共享）"""
+    from ..utils.model_override_store import load_override_state
+    state = load_override_state()
+    if state.get('enabled'):
+        return {
+            "provider": state.get('provider'),
+            "model": state.get('model'),
+            "enabled": True,
+        }
+    return {"provider": None, "model": None, "enabled": False}
+
+
+async def set_model_override(request: Request, body: ModelOverrideRequest):
+    """设置全局模型覆盖"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        cfg = loader.load()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"配置加载失败: {e}")
+
+    model_name = body.model
+    if model_name not in cfg.models:
+        raise HTTPException(status_code=400, detail=f"未知模型: {model_name}")
+
+    model_config = cfg.models[model_name]
+    if model_config.provider != body.provider:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Provider 不匹配: 模型 {model_name} 属于 {model_config.provider}，而非 {body.provider}"
+        )
+
+    if not cfg.is_model_available(model_name):
+        raise HTTPException(status_code=400, detail=f"模型不可用: {model_name}")
+
+    # 同时更新内存状态和文件状态（供 Proxy 进程读取）
+    request.app.state.global_model_override = {
+        "provider": body.provider,
+        "model": body.model,
+        "enabled": True,
+    }
+    from ..utils.model_override_store import save_override_state
+    save_override_state(body.provider, body.model, True)
+    return {
+        "provider": body.provider,
+        "model": body.model,
+        "enabled": True,
+    }
+
+
+async def delete_model_override(request: Request):
+    """清除全局模型覆盖"""
+    if hasattr(request.app.state, 'global_model_override'):
+        request.app.state.global_model_override = {
+            "provider": None,
+            "model": None,
+            "enabled": False,
+        }
+    from ..utils.model_override_store import clear_override_state
+    clear_override_state()
+    return {"provider": None, "model": None, "enabled": False}
+
+
 async def stop():
     stop_daemon()
     return {"success": True, "message": "Smart Router stopped"}
@@ -403,6 +502,330 @@ async def get_logs(source: str = "service", offset: int = 0, limit: int = 500):
         raise HTTPException(status_code=500, detail=f"读取日志失败: {e}")
 
 
+async def token_stats():
+    from ..utils.token_stats import TokenStats
+    stats = TokenStats()
+    data = stats.get_all()
+
+    result = []
+    total_prompt = 0
+    total_completion = 0
+    total_requests = 0
+
+    for model, entry in data.items():
+        result.append({
+            "model": model,
+            "prompt_tokens": entry.get("prompt_tokens", 0),
+            "completion_tokens": entry.get("completion_tokens", 0),
+            "total_tokens": entry.get("total_tokens", 0),
+            "request_count": entry.get("request_count", 0),
+        })
+        total_prompt += entry.get("prompt_tokens", 0)
+        total_completion += entry.get("completion_tokens", 0)
+        total_requests += entry.get("request_count", 0)
+
+    return {
+        "stats": result,
+        "total_prompt_tokens": total_prompt,
+        "total_completion_tokens": total_completion,
+        "total_requests": total_requests,
+    }
+
+
+# ==================== Analytics API ====================
+
+def _load_config_for_analytics():
+    """加载配置用于分析，失败时返回 None"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        return loader.load()
+    except Exception:
+        return None
+
+
+def _clamp_days(days: int) -> int:
+    """限制 days 最大 90"""
+    if days < 1:
+        return 1
+    return min(days, 90)
+
+
+def _compute_cost(prompt_tokens: int, completion_tokens: int, price) -> float:
+    """根据单价计算成本"""
+    if price is None:
+        return 0.0
+    return (prompt_tokens / 1000 * price.prompt_per_1k) + (completion_tokens / 1000 * price.completion_per_1k)
+
+
+async def analytics_summary(days: int = 7):
+    """汇总统计：总成本、请求数、token 数"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    stats = TokenStats()
+    summary = stats.get_summary(days)
+    config = _load_config_for_analytics()
+
+    total_cost = 0.0
+    incomplete = False
+    model_breakdown = summary.get("model_breakdown", {})
+
+    if config and model_breakdown:
+        for model_name, entry in model_breakdown.items():
+            model_config = config.models.get(model_name)
+            price = getattr(model_config, "price", None) if model_config else None
+            if price is None:
+                incomplete = True
+                continue
+            total_cost += _compute_cost(
+                entry.get("prompt_tokens", 0),
+                entry.get("completion_tokens", 0),
+                price,
+            )
+    elif model_breakdown:
+        incomplete = True
+
+    total_prompt_tokens = summary.get("total_prompt_tokens", 0)
+    total_completion_tokens = summary.get("total_completion_tokens", 0)
+    total_tokens = total_prompt_tokens + total_completion_tokens
+    avg_daily_cost = total_cost / days if days > 0 else 0.0
+
+    return {
+        "total_cost": total_cost,
+        "total_requests": summary.get("total_requests", 0),
+        "total_tokens": total_tokens,
+        "avg_daily_cost": avg_daily_cost,
+        "incomplete": incomplete,
+    }
+
+
+async def analytics_daily(days: int = 7):
+    """每日趋势"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    stats = TokenStats()
+    config = _load_config_for_analytics()
+    # 获取最近 days 天的日期范围
+    import time
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    result = []
+    for i in range(days):
+        date_obj = now - timedelta(days=i)
+        date_str = date_obj.strftime("%Y-%m-%d")
+        daily = stats.get_daily(date_str)
+        if daily:
+            day_cost = 0.0
+            day_requests = 0
+            day_tokens = 0
+            for model_name, entry in daily.items():
+                day_requests += entry.get("request_count", 0)
+                day_tokens += entry.get("total_tokens", 0)
+                model_config = config.models.get(model_name) if config else None
+                price = getattr(model_config, "price", None) if model_config else None
+                day_cost += _compute_cost(
+                    entry.get("prompt_tokens", 0),
+                    entry.get("completion_tokens", 0),
+                    price,
+                )
+            result.append({
+                "date": date_str,
+                "cost": day_cost,
+                "requests": day_requests,
+                "tokens": day_tokens,
+            })
+    return result
+
+
+async def analytics_by_model(days: int = 7):
+    """按模型聚合（含成本）"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    stats = TokenStats()
+    summary = stats.get_summary(days)
+    config = _load_config_for_analytics()
+
+    result = []
+    for model_name, entry in summary.get("model_breakdown", {}).items():
+        model_config = config.models.get(model_name) if config else None
+        price = getattr(model_config, "price", None) if model_config else None
+        cost = _compute_cost(
+            entry.get("prompt_tokens", 0),
+            entry.get("completion_tokens", 0),
+            price,
+        )
+        result.append({
+            "model": model_name,
+            "prompt_tokens": entry.get("prompt_tokens", 0),
+            "completion_tokens": entry.get("completion_tokens", 0),
+            "cost": cost,
+            "request_count": entry.get("request_count", 0),
+        })
+    return result
+
+
+async def analytics_top_models(limit: int = 10, days: int = 7):
+    """TOP N 模型（按 request_count 降序）"""
+    from ..utils.token_stats import TokenStats
+    days = _clamp_days(days)
+    limit = max(1, limit)
+    stats = TokenStats()
+    summary = stats.get_summary(days)
+    config = _load_config_for_analytics()
+
+    items = []
+    for model_name, entry in summary.get("model_breakdown", {}).items():
+        model_config = config.models.get(model_name) if config else None
+        price = getattr(model_config, "price", None) if model_config else None
+        cost = _compute_cost(
+            entry.get("prompt_tokens", 0),
+            entry.get("completion_tokens", 0),
+            price,
+        )
+        items.append({
+            "model": model_name,
+            "prompt_tokens": entry.get("prompt_tokens", 0),
+            "completion_tokens": entry.get("completion_tokens", 0),
+            "total_tokens": entry.get("total_tokens", 0),
+            "request_count": entry.get("request_count", 0),
+            "cost": cost,
+        })
+
+    items.sort(key=lambda x: x["request_count"], reverse=True)
+    return items[:limit]
+
+
+# ==================== Alerts API ====================
+
+ALERTS_CONFIG_PATH = DEFAULT_PID_DIR / "alerts.yaml"
+ALERTS_HISTORY_PATH = DEFAULT_PID_DIR / "alerts_history.json"
+
+
+def _get_alert_config() -> AlertConfig:
+    """获取 AlertConfig 实例"""
+    return AlertConfig(ALERTS_CONFIG_PATH)
+
+
+def _load_alert_history(limit: int = 50) -> list[dict]:
+    """加载告警历史"""
+    if not ALERTS_HISTORY_PATH.exists():
+        return []
+    try:
+        data = json.loads(ALERTS_HISTORY_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data[-limit:]
+        return []
+    except Exception:
+        return []
+
+
+async def get_alert_rules():
+    """获取所有告警规则"""
+    cfg = _get_alert_config()
+    return {"rules": [r.model_dump() for r in cfg.rules]}
+
+
+async def create_alert_rule(request: AlertRuleCreate):
+    """创建告警规则"""
+    cfg = _get_alert_config()
+    if cfg.get_rule(request.id):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"Rule ID already exists: {request.id}")
+
+    rule = AlertRule(
+        id=request.id,
+        name=request.name,
+        enabled=request.enabled,
+        condition=request.condition,
+        severity=request.severity,
+        time_window=request.time_window,
+        channels=request.channels,
+        cooldown_minutes=request.cooldown_minutes,
+    )
+    cfg.add_rule(rule)
+    return {"success": True, "rule": rule.model_dump()}
+
+
+async def update_alert_rule(rule_id: str, request: AlertRuleUpdate):
+    """更新告警规则"""
+    from fastapi import HTTPException
+    cfg = _get_alert_config()
+    existing = cfg.get_rule(rule_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Rule not found: {rule_id}")
+
+    updated = AlertRule(
+        id=rule_id,
+        name=request.name if request.name is not None else existing.name,
+        enabled=request.enabled if request.enabled is not None else existing.enabled,
+        condition=request.condition if request.condition is not None else existing.condition,
+        severity=request.severity if request.severity is not None else existing.severity,
+        time_window=request.time_window if request.time_window is not None else existing.time_window,
+        channels=request.channels if request.channels is not None else existing.channels,
+        cooldown_minutes=request.cooldown_minutes if request.cooldown_minutes is not None else existing.cooldown_minutes,
+    )
+    cfg.update_rule(rule_id, updated)
+    return {"success": True, "rule": updated.model_dump()}
+
+
+async def delete_alert_rule(rule_id: str):
+    """删除告警规则"""
+    from fastapi import HTTPException
+    cfg = _get_alert_config()
+    if not cfg.delete_rule(rule_id):
+        raise HTTPException(status_code=404, detail=f"Rule not found: {rule_id}")
+    return {"success": True}
+
+
+async def get_alert_history(limit: int = 50):
+    """获取告警历史"""
+    history = _load_alert_history(limit)
+    return {"history": history}
+
+
+async def test_alert_rule(request: AlertRuleCreate):
+    """测试告警规则（不保存）"""
+    from fastapi import HTTPException
+    from ..utils.token_stats import TokenStats
+    from .error_counter import ErrorCounter
+    from ..alerts.checker import AlertChecker
+
+    cfg = AlertConfig(ALERTS_CONFIG_PATH)
+    rule = AlertRule(
+        id="test-rule",
+        name=request.name,
+        enabled=True,
+        condition=request.condition,
+        severity=request.severity,
+        time_window=request.time_window,
+        channels=request.channels,
+        cooldown_minutes=0,  # 测试时无冷却期
+    )
+    cfg.rules = [rule]
+
+    token_stats = TokenStats()
+    error_counter = ErrorCounter()
+    checker = AlertChecker(cfg, token_stats, error_counter)
+
+    triggers = await checker.check_all()
+
+    return {
+        "triggered": len(triggers) > 0,
+        "triggers": [
+            {
+                "rule_id": t.rule_id,
+                "rule_name": t.rule_name,
+                "severity": t.severity,
+                "metric": t.metric,
+                "current_value": t.current_value,
+                "threshold": t.threshold,
+                "message": t.message,
+            }
+            for t in triggers
+        ],
+    }
+
+
 # ==================== App 构建 ====================
 
 def build_dashboard_app(static_dir: Optional[Path] = None):
@@ -419,16 +842,45 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.get("/api/providers")(providers)
     app.put("/api/providers")(update_providers)
     app.get("/api/model-overrides")(model_overrides)
+    app.get("/api/model-override")(get_model_override)
+    app.post("/api/model-override")(set_model_override)
+    app.delete("/api/model-override")(delete_model_override)
     app.post("/api/dry-run")(dry_run)
     app.post("/api/stop")(stop)
     app.get("/api/logs")(get_logs)
+    app.get("/api/token-stats")(token_stats)
+
+    # Analytics API
+    app.get("/api/analytics/summary")(analytics_summary)
+    app.get("/api/analytics/daily")(analytics_daily)
+    app.get("/api/analytics/by-model")(analytics_by_model)
+    app.get("/api/analytics/top-models")(analytics_top_models)
+
+    # Alerts API
+    app.get("/api/alerts/rules")(get_alert_rules)
+    app.post("/api/alerts/rules")(create_alert_rule)
+    app.put("/api/alerts/rules/{rule_id}")(update_alert_rule)
+    app.delete("/api/alerts/rules/{rule_id}")(delete_alert_rule)
+    app.get("/api/alerts/history")(get_alert_history)
+    app.post("/api/alerts/test")(test_alert_rule)
+
+    # Playground API
+    app.include_router(playground_router, prefix="/api/playground")
+
+    class SPAStaticFiles(StaticFiles):
+        async def get_response(self, path: str, scope) -> Response:
+            try:
+                return await super().get_response(path, scope)
+            except StarletteHTTPException as exc:
+                if exc.status_code == 404 and "." not in path:
+                    return await super().get_response("index.html", scope)
+                raise
 
     if static_dir and static_dir.exists():
-        # 将 Mount 追加到 routes 末尾，确保 API 路由优先匹配
         app.routes.append(
             Mount(
                 "/",
-                app=StaticFiles(directory=str(static_dir), html=True),
+                app=SPAStaticFiles(directory=str(static_dir), html=True),
                 name="static",
             )
         )
