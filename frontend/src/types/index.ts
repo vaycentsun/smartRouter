@@ -100,3 +100,33 @@ export interface TokenStatsResponse {
   total_completion_tokens: number
   total_requests: number
 }
+
+export interface AnalyticsSummary {
+  total_cost: number | null
+  total_requests: number
+  total_tokens: number
+  avg_daily_cost: number | null
+  incomplete: boolean
+}
+
+export interface AnalyticsDailyItem {
+  date: string
+  cost: number
+  requests: number
+  tokens: number
+}
+
+export interface AnalyticsByModelItem {
+  model: string
+  prompt_tokens: number
+  completion_tokens: number
+  cost: number
+  request_count: number
+}
+
+export interface AnalyticsTopModelItem {
+  model: string
+  total_tokens: number
+  cost: number
+  request_count: number
+}

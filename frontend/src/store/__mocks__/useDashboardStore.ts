@@ -6,6 +6,13 @@ export const mockStoreState: Record<string, unknown> = {
   setModelOverride: vi.fn(),
   clearModelOverride: vi.fn(),
   tokenStats: [],
+  analyticsSummary: null,
+  analyticsDaily: [],
+  analyticsByModel: [],
+  analyticsTopModels: [],
+  isLoadingAnalytics: false,
+  analyticsError: null,
+  fetchAnalytics: vi.fn(),
 }
 
 export const useDashboardStore = vi.fn(() => mockStoreState)

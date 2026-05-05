@@ -10,6 +10,10 @@ import type {
   LogsResponse,
   LogSource,
   TokenStatsResponse,
+  AnalyticsSummary,
+  AnalyticsDailyItem,
+  AnalyticsByModelItem,
+  AnalyticsTopModelItem,
 } from '../types'
 
 const client = axios.create({
@@ -39,4 +43,12 @@ export const api = {
     client.get<LogsResponse>('/api/logs', { params: { source, offset, limit } }).then((r) => r.data),
   getTokenStats: () =>
     client.get<TokenStatsResponse>('/api/token-stats').then((r) => r.data),
+  getAnalyticsSummary: (days = 7) =>
+    client.get<AnalyticsSummary>('/api/analytics/summary', { params: { days } }).then((r) => r.data),
+  getAnalyticsDaily: (days = 7) =>
+    client.get<AnalyticsDailyItem[]>('/api/analytics/daily', { params: { days } }).then((r) => r.data),
+  getAnalyticsByModel: (days = 7) =>
+    client.get<AnalyticsByModelItem[]>('/api/analytics/by-model', { params: { days } }).then((r) => r.data),
+  getAnalyticsTopModels: (limit = 10, days = 7) =>
+    client.get<AnalyticsTopModelItem[]>('/api/analytics/top-models', { params: { limit, days } }).then((r) => r.data),
 }

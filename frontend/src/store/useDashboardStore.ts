@@ -10,6 +10,10 @@ import type {
   LogState,
   LogSource,
   TokenStatsItem,
+  AnalyticsSummary,
+  AnalyticsDailyItem,
+  AnalyticsByModelItem,
+  AnalyticsTopModelItem,
 } from '../types'
 import { api } from '../api/client'
 
@@ -41,6 +45,14 @@ interface DashboardState {
   tokenStats: TokenStatsItem[]
   isLoadingTokenStats: boolean
 
+  // Analytics
+  analyticsSummary: AnalyticsSummary | null
+  analyticsDaily: AnalyticsDailyItem[]
+  analyticsByModel: AnalyticsByModelItem[]
+  analyticsTopModels: AnalyticsTopModelItem[]
+  isLoadingAnalytics: boolean
+  analyticsError: string | null
+
   // Actions
   fetchAll: () => Promise<void>
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
@@ -56,6 +68,7 @@ interface DashboardState {
   setLogSource: (source: LogSource) => void
   clearLogError: () => void
   fetchTokenStats: () => Promise<void>
+  fetchAnalytics: (days?: number) => Promise<void>
 }
 
 const STORAGE_KEY = 'smart-router-model-override'
@@ -105,6 +118,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   logError: null,
   tokenStats: [],
   isLoadingTokenStats: false,
+  analyticsSummary: null,
+  analyticsDaily: [],
+  analyticsByModel: [],
+  analyticsTopModels: [],
+  isLoadingAnalytics: false,
+  analyticsError: null,
 
   fetchAll: async () => {
     set({ isLoading: true, error: null })
@@ -232,6 +251,27 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       set({ tokenStats: result.stats, isLoadingTokenStats: false })
     } catch (err) {
       set({ error: (err as Error).message, isLoadingTokenStats: false })
+    }
+  },
+
+  fetchAnalytics: async (days = 7) => {
+    set({ isLoadingAnalytics: true, analyticsError: null })
+    try {
+      const [summary, daily, byModel, topModels] = await Promise.all([
+        api.getAnalyticsSummary(days),
+        api.getAnalyticsDaily(days),
+        api.getAnalyticsByModel(days),
+        api.getAnalyticsTopModels(10, days),
+      ])
+      set({
+        analyticsSummary: summary,
+        analyticsDaily: daily,
+        analyticsByModel: byModel,
+        analyticsTopModels: topModels,
+        isLoadingAnalytics: false,
+      })
+    } catch (err) {
+      set({ analyticsError: (err as Error).message, isLoadingAnalytics: false })
     }
   },
 }))
