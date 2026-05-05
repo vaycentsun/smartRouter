@@ -292,7 +292,7 @@ class Config(BaseModel):
         # 对于非官方 provider 但使用 openai 兼容接口的情况，
         # 添加 custom_llm_provider 确保 LiteLLM 正确使用 api_base
         if llm_provider == "openai" and model.provider != "openai":
-            params["custom_llm_provider"] = provider.api_base
+            params["custom_llm_provider"] = "openai"
         
         if provider.rate_limit is not None:
             params["rpm_limit"] = provider.rate_limit

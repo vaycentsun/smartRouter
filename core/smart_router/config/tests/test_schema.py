@@ -408,3 +408,33 @@ class TestProviderConfigRateLimit:
 
         params = config.get_litellm_params("gpt-4o")
         assert "rpm_limit" not in params, "rate_limit 为 None 时不应包含 rpm_limit"
+
+    def test_litellm_params_custom_provider_openai_compatible(self):
+        """第三方 OpenAI 兼容接口的 custom_llm_provider 应为 'openai'，而非 URL"""
+        config = Config(
+            providers={
+                "dashscope": ProviderConfig(
+                    api_base="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    api_key="sk-test",
+                )
+            },
+            models={
+                "qwen-max": ModelConfig(
+                    provider="dashscope",
+                    litellm_model="openai/qwen-max",
+                    capabilities=ModelCapabilities(quality=8, cost=5, context=32000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={},
+                strategies={},
+                fallback=FallbackConfig()
+            )
+        )
+
+        params = config.get_litellm_params("qwen-max")
+        assert params["custom_llm_provider"] == "openai"
+        assert params["api_base"] == "https://dashscope.aliyuncs.com/compatible-mode/v1"
