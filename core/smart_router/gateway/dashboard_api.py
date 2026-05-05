@@ -788,12 +788,18 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     # Playground API
     app.include_router(playground_router, prefix="/api/playground")
 
+    class SPAStaticFiles(StaticFiles):
+        async def get_response(self, path, path_type):
+            response = await super().get_response(path, path_type)
+            if response.status_code == 404 and "." not in path:
+                return await super().get_response("index.html", path_type)
+            return response
+
     if static_dir and static_dir.exists():
-        # 将 Mount 追加到 routes 末尾，确保 API 路由优先匹配
         app.routes.append(
             Mount(
                 "/",
-                app=StaticFiles(directory=str(static_dir), html=True),
+                app=SPAStaticFiles(directory=str(static_dir), html=True),
                 name="static",
             )
         )
