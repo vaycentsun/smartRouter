@@ -609,11 +609,13 @@ class TestTokenStatsMiddleware:
         assert all_stats["gpt-3.5-turbo"]["request_count"] == 1
 
     @pytest.mark.asyncio
-    async def test_middleware_skips_streaming(self, mock_router):
+    async def test_middleware_skips_streaming_no_usage(self, mock_router):
+        """SSE 流式响应不含 usage 时不记录"""
         from smart_router.gateway.server import SmartRouterMiddleware
         
         async def mock_call_next(request):
-            return Response(content=b"", status_code=200, headers={"content-type": "text/event-stream"})
+            body = b'data: {"choices": [{"delta": {"content": "hello"}}]}\n\ndata: [DONE]\n\n'
+            return Response(content=body, status_code=200, headers={"content-type": "text/event-stream"})
         
         app = MagicMock()
         app.state = MagicMock()
@@ -643,3 +645,61 @@ class TestTokenStatsMiddleware:
         response = await middleware.dispatch(request, mock_call_next)
         
         app.state.token_stats.record.assert_not_called()
+        # 验证返回的是 StreamingResponse
+        from starlette.responses import StreamingResponse
+        assert isinstance(response, StreamingResponse)
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_streaming_usage(self, mock_router, tmp_path):
+        """SSE 流式响应包含 usage 时正确记录"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.token_stats import TokenStats
+        
+        stats_file = tmp_path / "token_stats.json"
+        token_stats = TokenStats(stats_file=stats_file)
+        
+        async def mock_call_next(request):
+            body = (
+                b'data: {"choices": [{"delta": {"content": "hello"}}]}\n\n'
+                b'data: {"choices": [], "usage": {"prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75}}\n\n'
+                b'data: [DONE]\n\n'
+            )
+            return Response(content=body, status_code=200, headers={"content-type": "text/event-stream"})
+        
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.token_stats = token_stats
+        
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+        
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+        
+        async def receive():
+            return {"type": "http.request", "body": b'{}', "more_body": False}
+        
+        async def send(message):
+            pass
+        
+        request = Request(scope, receive, send)
+        request.state.smart_router_selected = "gpt-4o"
+        request.state.smart_router_original = "auto"
+        request.state.smart_router_task = "chat"
+        
+        response = await middleware.dispatch(request, mock_call_next)
+        
+        all_stats = token_stats.get_all()
+        assert "gpt-4o" in all_stats
+        assert all_stats["gpt-4o"]["prompt_tokens"] == 50
+        assert all_stats["gpt-4o"]["completion_tokens"] == 25
+        assert all_stats["gpt-4o"]["total_tokens"] == 75
+        assert all_stats["gpt-4o"]["request_count"] == 1
+        
+        # 验证返回的是 StreamingResponse
+        from starlette.responses import StreamingResponse
+        assert isinstance(response, StreamingResponse)
