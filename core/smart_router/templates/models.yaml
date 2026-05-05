@@ -210,6 +210,39 @@ models:
       context: 32000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
     difficulty_support: [easy, medium]
+
+  # Qwen 3.5 397B A17B - MoE 大参数模型（阿里云免费额度）
+  qwen3.5-397b-a17b:
+    provider: aliyun
+    litellm_model: openai/qwen3.5-397b-a17b
+    capabilities:
+      quality: 9
+      cost: 10
+      context: 32000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
+    difficulty_support: [medium, hard, expert]
+
+  # GUI Plus 2026-02-26 - 阿里云免费额度版本
+  gui-plus-2026-02-26:
+    provider: aliyun
+    litellm_model: openai/gui-plus-2026-02-26
+    capabilities:
+      quality: 9
+      cost: 10
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+
+  # Qwen Flash Character 2026-02-26 - 角色扮演专用模型（阿里云免费额度）
+  qwen-flash-character-2026-02-26:
+    provider: aliyun
+    litellm_model: openai/qwen-flash-character-2026-02-26
+    capabilities:
+      quality: 8
+      cost: 10
+      context: 64000
+    supported_tasks: [creative, writing, chat]
+    difficulty_support: [easy, medium, hard]
     
   # 通义小米分析 Flash - 轻量级分析模型
   tongyi-xiaomi-analysis:
@@ -315,7 +348,18 @@ models:
       context: 8000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
     difficulty_support: [easy, medium]
-    
+
+  # MiniMax M2.5 - 阿里云免费额度版本
+  minimax-m2.5:
+    provider: aliyun
+    litellm_model: openai/MiniMax-M2.5
+    capabilities:
+      quality: 8
+      cost: 10
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+
   # ==================== LM Studio (本地) ====================
   lmstudio-local:
     provider: lmstudio
