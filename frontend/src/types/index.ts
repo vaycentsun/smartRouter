@@ -130,3 +130,30 @@ export interface AnalyticsTopModelItem {
   cost: number
   request_count: number
 }
+
+export interface PlaygroundRequest {
+  mode: 'single' | 'compare'
+  prompt: string
+  models: string[]
+}
+
+export interface PlaygroundResult {
+  model: string
+  provider: string
+  response: string
+  latency_ms: number
+  prompt_tokens: number
+  completion_tokens: number
+  estimated_cost: number | null
+  error: string | null
+  routing_info: DryRunResult | null
+}
+
+export interface PlaygroundHistoryRecord {
+  id: string
+  mode: string
+  prompt: string
+  models: string[]
+  results: PlaygroundResult[]
+  created_at: number
+}

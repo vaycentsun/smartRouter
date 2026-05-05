@@ -14,6 +14,9 @@ import type {
   AnalyticsDailyItem,
   AnalyticsByModelItem,
   AnalyticsTopModelItem,
+  PlaygroundResult,
+  PlaygroundHistoryRecord,
+  PlaygroundRequest,
 } from '../types'
 import { api } from '../api/client'
 
@@ -53,6 +56,12 @@ interface DashboardState {
   isLoadingAnalytics: boolean
   analyticsError: string | null
 
+  // Playground
+  playgroundResults: PlaygroundResult[]
+  playgroundHistory: PlaygroundHistoryRecord[]
+  isLoadingPlayground: boolean
+  playgroundError: string | null
+
   // Actions
   fetchAll: () => Promise<void>
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
@@ -69,6 +78,10 @@ interface DashboardState {
   clearLogError: () => void
   fetchTokenStats: () => Promise<void>
   fetchAnalytics: (days?: number) => Promise<void>
+  runPlayground: (request: PlaygroundRequest) => Promise<void>
+  fetchPlaygroundHistory: () => Promise<void>
+  deletePlaygroundHistory: (id: string) => Promise<void>
+  clearPlaygroundError: () => void
 }
 
 const STORAGE_KEY = 'smart-router-model-override'
@@ -124,6 +137,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   analyticsTopModels: [],
   isLoadingAnalytics: false,
   analyticsError: null,
+
+  // Playground
+  playgroundResults: [],
+  playgroundHistory: [],
+  isLoadingPlayground: false,
+  playgroundError: null,
 
   fetchAll: async () => {
     set({ isLoading: true, error: null })
@@ -274,4 +293,36 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       set({ analyticsError: (err as Error).message, isLoadingAnalytics: false })
     }
   },
+
+  runPlayground: async (request: PlaygroundRequest) => {
+    set({ isLoadingPlayground: true, playgroundError: null })
+    try {
+      const result = await api.postPlayground(request)
+      set({ playgroundResults: result.results, isLoadingPlayground: false })
+    } catch (err) {
+      set({ playgroundError: (err as Error).message, isLoadingPlayground: false })
+    }
+  },
+
+  fetchPlaygroundHistory: async () => {
+    try {
+      const result = await api.getPlaygroundHistory()
+      set({ playgroundHistory: result.history })
+    } catch {
+      // 历史记录加载失败不设置错误
+    }
+  },
+
+  deletePlaygroundHistory: async (id: string) => {
+    try {
+      await api.deletePlaygroundHistory(id)
+      set((state) => ({
+        playgroundHistory: state.playgroundHistory.filter((h) => h.id !== id),
+      }))
+    } catch (err) {
+      set({ playgroundError: (err as Error).message })
+    }
+  },
+
+  clearPlaygroundError: () => set({ playgroundError: null }),
 }))

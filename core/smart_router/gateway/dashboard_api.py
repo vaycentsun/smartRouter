@@ -22,6 +22,7 @@ from ..classifier.task_classifier import TaskTypeClassifier
 from ..classifier.difficulty_classifier import DifficultyClassifier
 from ..selector.v3_selector import V3ModelSelector
 from ..utils.markers import parse_markers
+from .playground_api import playground_router
 
 
 # ==================== 进程管理工具（从 daemon.py 内联，避免循环导入）====================
@@ -598,6 +599,9 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.get("/api/analytics/daily")(analytics_daily)
     app.get("/api/analytics/by-model")(analytics_by_model)
     app.get("/api/analytics/top-models")(analytics_top_models)
+
+    # Playground API
+    app.include_router(playground_router, prefix="/api/playground")
 
     if static_dir and static_dir.exists():
         # 将 Mount 追加到 routes 末尾，确保 API 路由优先匹配

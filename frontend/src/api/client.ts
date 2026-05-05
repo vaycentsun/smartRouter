@@ -14,6 +14,9 @@ import type {
   AnalyticsDailyItem,
   AnalyticsByModelItem,
   AnalyticsTopModelItem,
+  PlaygroundRequest,
+  PlaygroundResult,
+  PlaygroundHistoryRecord,
 } from '../types'
 
 const client = axios.create({
@@ -51,4 +54,10 @@ export const api = {
     client.get<AnalyticsByModelItem[]>('/api/analytics/by-model', { params: { days } }).then((r) => r.data),
   getAnalyticsTopModels: (limit = 10, days = 7) =>
     client.get<AnalyticsTopModelItem[]>('/api/analytics/top-models', { params: { limit, days } }).then((r) => r.data),
+  postPlayground: (data: PlaygroundRequest) =>
+    client.post<{ results: PlaygroundResult[] }>('/api/playground/completions', data).then((r) => r.data),
+  getPlaygroundHistory: () =>
+    client.get<{ history: PlaygroundHistoryRecord[] }>('/api/playground/history').then((r) => r.data),
+  deletePlaygroundHistory: (id: string) =>
+    client.delete<{ success: boolean }>(`/api/playground/history/${id}`).then((r) => r.data),
 }

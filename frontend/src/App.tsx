@@ -6,10 +6,11 @@ import { DashboardPage } from './components/DashboardPage'
 import { ModelsExplorer } from './components/ModelsExplorer'
 import { LogsPanel } from './components/LogsPanel'
 import { AnalyticsPage } from './components/AnalyticsPage'
+import { PlaygroundPage } from './components/PlaygroundPage'
 
 function App() {
   const { fetchAll, error, clearError } = useDashboardStore()
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'models' | 'logs' | 'analytics'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'models' | 'logs' | 'analytics' | 'playground'>('dashboard')
 
   // Auto refresh every 5 seconds
   useEffect(() => {
@@ -94,13 +95,28 @@ function App() {
             </svg>
             数据分析
           </button>
+          <button
+            onClick={() => setActiveTab('playground')}
+            className={`px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+              activeTab === 'playground'
+                ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] shadow-sm'
+                : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Playground
+          </button>
         </div>
 
         {/* Page Content */}
         {activeTab === 'dashboard' ? <DashboardPage /> :
          activeTab === 'models' ? <ModelsExplorer /> :
          activeTab === 'logs' ? <LogsPanel /> :
-         <AnalyticsPage />}
+         activeTab === 'analytics' ? <AnalyticsPage /> :
+         <PlaygroundPage />}
       </main>
 
       {/* Footer */}
