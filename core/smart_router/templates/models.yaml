@@ -156,12 +156,13 @@ models:
   # - 有效期：请关注阿里云控制台获取准确过期时间
   
   # Qwen 3.6 Plus - 最新旗舰模型
+  # 注意：此模型免费额度已用完，暂时降低 quality 避免被选入 fallback 链
   qwen3.6-plus:
     provider: aliyun
     litellm_model: openai/qwen3.6-plus
     capabilities:
-      quality: 9
-      cost: 10
+      quality: 3
+      cost: 5
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
@@ -169,7 +170,7 @@ models:
   # Qwen 3.5 Plus - 稳定版 Plus
   qwen3.5-plus:
     provider: aliyun
-    litellm_model: openai/qwen3.5-plus-2026-02-15
+    litellm_model: openai/qwen3.5-plus
     capabilities:
       quality: 8
       cost: 10
@@ -180,7 +181,7 @@ models:
   # Qwen 3.5 122B - 大参数模型
   qwen3.5-122b:
     provider: aliyun
-    litellm_model: openai/qwen3.5-122b-a10b
+    litellm_model: openai/qwen3.5-122b
     capabilities:
       quality: 9
       cost: 10
@@ -191,7 +192,7 @@ models:
   # Qwen 3.6 Flash - 高速版本
   qwen3.6-flash:
     provider: aliyun
-    litellm_model: openai/qwen3.6-flash-2026-04-16
+    litellm_model: openai/qwen3.6-flash
     capabilities:
       quality: 7
       cost: 10

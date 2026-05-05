@@ -274,12 +274,26 @@ class Config(BaseModel):
             env_var = api_key.replace("os.environ/", "")
             api_key = os.environ.get(env_var, "")
         
+        # 从 litellm_model 中提取 provider 前缀（如 openai/anthropic）
+        litellm_model = model.litellm_model
+        if "/" in litellm_model:
+            llm_provider = litellm_model.split("/")[0]
+        else:
+            # 如果没有前缀，根据 provider 名称推断
+            llm_provider = "openai"  # 默认使用 openai 兼容接口
+        
         params = {
-            "model": model.litellm_model,
+            "model": litellm_model,
             "api_key": api_key,
             "api_base": provider.api_base,
             "timeout": provider.timeout,
         }
+        
+        # 对于非官方 provider 但使用 openai 兼容接口的情况，
+        # 添加 custom_llm_provider 确保 LiteLLM 正确使用 api_base
+        if llm_provider == "openai" and model.provider != "openai":
+            params["custom_llm_provider"] = provider.api_base
+        
         if provider.rate_limit is not None:
             params["rpm_limit"] = provider.rate_limit
         return params

@@ -118,6 +118,8 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         
         response = await call_next(request)
         
+        console.print(f"[dim]Middleware: path={request.url.path} method={request.method} selected={getattr(request.state, 'smart_router_selected', None)}[/dim]")
+        
         # 添加响应头
         if hasattr(request.state, 'smart_router_selected'):
             response.headers["X-Smart-Router-Model"] = request.state.smart_router_selected
@@ -131,56 +133,78 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         
         # Token 统计：拦截 chat/completions 响应
         if request.url.path == "/v1/chat/completions" and request.method == "POST":
+            console.print(f"[cyan]✓ Attempting token stats for POST /v1/chat/completions[/cyan]")
             content_type = response.headers.get("content-type", "")
-            if "text/event-stream" not in content_type:
-                try:
-                    # 确定统计模型名（按优先级）
-                    model_name = getattr(request.state, 'smart_router_selected', None)
-                    if not model_name:
-                        model_name = getattr(request.state, 'smart_router_override_model', None)
-                    if not model_name:
-                        # 回退：从请求体解析原始 model 字段
-                        try:
-                            req_body = await request.body()
-                            if req_body:
-                                req_data = json.loads(req_body)
-                                model_name = req_data.get("model", None)
-                        except Exception:
-                            pass
+            console.print(f"[dim]Content-Type: {content_type}[/dim]")
+            
+            # 移除 text/event-stream 限制，所有响应都尝试统计
+            try:
+                # 确定统计模型名（按优先级）
+                model_name = getattr(request.state, 'smart_router_selected', None)
+                if not model_name:
+                    model_name = getattr(request.state, 'smart_router_override_model', None)
+                if not model_name:
+                    # 回退：从请求体解析原始 model 字段
+                    try:
+                        req_body = await request.body()
+                        if req_body:
+                            req_data = json.loads(req_body)
+                            model_name = req_data.get("model", None)
+                    except Exception as e:
+                        console.print(f"[yellow]Failed to parse request body: {e}[/yellow]")
+                
+                console.print(f"[dim]Model name resolved: {model_name}[/dim]")
+                
+                if model_name:
+                    # 消费响应 body
+                    body_bytes = b""
+                    if hasattr(response, "body_iterator"):
+                        async for chunk in response.body_iterator:
+                            body_bytes += chunk
+                    else:
+                        body_bytes = response.body
                     
-                    if model_name:
-                        # 消费响应 body
-                        body_bytes = b""
-                        if hasattr(response, "body_iterator"):
-                            async for chunk in response.body_iterator:
-                                body_bytes += chunk
-                        else:
-                            body_bytes = response.body
-                        
-                        # 解析 usage
+                    console.print(f"[dim]Response body size: {len(body_bytes)} bytes[/dim]")
+                    
+                    # 解析 usage
+                    try:
                         resp_data = json.loads(body_bytes)
                         usage = resp_data.get("usage", {})
+                        console.print(f"[dim]Usage field: {usage}[/dim]")
+                        
                         if usage:
                             prompt_tokens = usage.get("prompt_tokens", 0)
                             completion_tokens = usage.get("completion_tokens", 0)
                             total_tokens = usage.get("total_tokens", 0)
                             
+                            console.print(f"[green]✓ Recording tokens: {model_name} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens}[/green]")
+                            
                             token_stats = request.app.state.token_stats
                             await token_stats.record(
                                 model_name, prompt_tokens, completion_tokens, total_tokens
                             )
-                        
-                        # 重建 Response，确保下游正常消费
-                        from starlette.responses import Response
-                        response = Response(
-                            content=body_bytes,
-                            status_code=response.status_code,
-                            headers=dict(response.headers),
-                            media_type=response.media_type,
-                        )
-                except Exception as e:
-                    import logging
-                    logging.getLogger(__name__).warning(f"Token stats recording failed: {e}")
+                        else:
+                            console.print("[yellow]No usage data in response[/yellow]")
+                    except json.JSONDecodeError as e:
+                        console.print(f"[red]Failed to parse response JSON: {e}[/red]")
+                        console.print(f"[dim]Body preview: {body_bytes[:200]}[/dim]")
+                    except Exception as e:
+                        console.print(f"[yellow]Error parsing response: {e}[/yellow]")
+                else:
+                    console.print("[yellow]No model name resolved, skipping stats[/yellow]")
+                
+                # 重建 Response，确保下游正常消费
+                from starlette.responses import Response
+                response = Response(
+                    content=body_bytes,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    media_type=response.media_type,
+                )
+            except Exception as e:
+                import traceback
+                console.print(f"[red]Token stats error: {e}[/red]")
+                console.print(traceback.format_exc())
         
         return response
 
