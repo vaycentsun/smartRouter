@@ -86,6 +86,50 @@ class TestDryRun:
             data = response.json()
             assert "error" in data
 
+    def test_dry_run_returns_fallback_chain(self, client):
+        """dry-run 成功时应返回选中模型的 fallback 链"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            from smart_router.config.schema import Config, ProviderConfig, ModelConfig, ModelCapabilities
+            from smart_router.config.schema import RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig
+
+            cfg = Config(
+                providers={
+                    "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test"),
+                    "anthropic": ProviderConfig(api_base="https://api.anthropic.com/v1", api_key="sk-test"),
+                },
+                models={
+                    "gpt-4o": ModelConfig(
+                        provider="openai",
+                        litellm_model="openai/gpt-4o",
+                        capabilities=ModelCapabilities(quality=10, cost=3, context=128000),
+                        supported_tasks=["chat"],
+                        difficulty_support=["easy", "medium", "hard"],
+                    ),
+                    "claude-3-opus": ModelConfig(
+                        provider="anthropic",
+                        litellm_model="anthropic/claude-3-opus",
+                        capabilities=ModelCapabilities(quality=10, cost=2, context=200000),
+                        supported_tasks=["chat"],
+                        difficulty_support=["easy", "medium", "hard"],
+                    ),
+                },
+                routing=RoutingConfig(
+                    tasks={"chat": TaskConfig(name="聊天", description="日常对话", capability_weights={"quality": 0.5, "cost": 0.5})},
+                    difficulties={"easy": DifficultyConfig(description="简单", max_tokens=2000)},
+                    strategies={"auto": StrategyConfig(description="自动")},
+                    fallback=FallbackConfig(mode="auto", similarity_threshold=2),
+                ),
+            )
+            mock_loader.return_value.load.return_value = cfg
+
+            response = client.post("/api/dry-run", json={"prompt": "hello", "strategy": "cost"})
+            assert response.status_code == 200
+            data = response.json()
+            assert "error" not in data
+            assert "fallback_chain" in data
+            # gpt-4o (quality=10) 和 claude-3-opus (quality=10) 差异为 0 <= 2，应在 fallback 链中
+            assert "claude-3-opus" in data["fallback_chain"]
+
 
 class TestStop:
     def test_stop(self, client):

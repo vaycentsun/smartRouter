@@ -514,6 +514,7 @@ async def dry_run(request: DryRunRequest):
         "strategy": selection_result.strategy,
         "score": round(selection_result.score, 3),
         "reason": selection_result.reason,
+        "fallback_chain": cfg.get_fallback_chain(selection_result.model_name),
     }
 
 

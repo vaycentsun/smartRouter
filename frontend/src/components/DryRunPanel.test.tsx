@@ -89,4 +89,40 @@ describe('DryRunPanel', () => {
     render(<DryRunPanel />)
     expect(screen.queryByText('路由结果')).not.toBeInTheDocument()
   })
+
+  it('shows fallback chain when available', () => {
+    mockStoreState.dryRunResult = {
+      task_type: 'chat',
+      task_confidence: 0.95,
+      difficulty: 'easy',
+      difficulty_confidence: 0.9,
+      selected_model: 'gpt-4o',
+      strategy: 'cost',
+      score: 9.2,
+      reason: 'Highest cost (cheapest)',
+      fallback_chain: ['claude-3-opus', 'qwen-max'],
+    }
+    const { container } = render(<DryRunPanel />)
+    expect(screen.getByText('Fallback 链')).toBeInTheDocument()
+    // fallback 链文本可能被 span 分割，用 container 文本内容验证
+    expect(container.textContent).toContain('gpt-4o')
+    expect(container.textContent).toContain('claude-3-opus')
+    expect(container.textContent).toContain('qwen-max')
+  })
+
+  it('does not show fallback chain when empty', () => {
+    mockStoreState.dryRunResult = {
+      task_type: 'chat',
+      task_confidence: 0.95,
+      difficulty: 'easy',
+      difficulty_confidence: 0.9,
+      selected_model: 'gpt-4o',
+      strategy: 'cost',
+      score: 9.2,
+      reason: 'Highest cost (cheapest)',
+      fallback_chain: [],
+    }
+    render(<DryRunPanel />)
+    expect(screen.queryByText('Fallback 链')).not.toBeInTheDocument()
+  })
 })

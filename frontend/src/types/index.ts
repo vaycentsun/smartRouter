@@ -75,6 +75,7 @@ export interface DryRunResult {
   score: number
   reason: string
   error?: string
+  fallback_chain?: string[]
 }
 
 export type Strategy = 'auto' | 'quality' | 'cost' | 'speed' | 'balanced'

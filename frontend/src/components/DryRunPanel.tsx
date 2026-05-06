@@ -115,6 +115,16 @@ export function DryRunPanel() {
               <span className="text-[#86868b] text-xs font-mono uppercase">原因</span>
               <p className="text-sm text-[#1d1d1f] mt-1 leading-relaxed">{dryRunResult.reason}</p>
             </div>
+            {dryRunResult.fallback_chain && dryRunResult.fallback_chain.length > 0 && (
+              <div className="pt-2 border-t border-[rgba(0,0,0,0.06)]">
+                <span className="text-[#86868b] text-xs font-mono uppercase">Fallback 链</span>
+                <p className="text-sm text-[#1d1d1f] mt-1 leading-relaxed font-medium">
+                  {dryRunResult.selected_model}
+                  <span className="text-[#a1a1a6] mx-1">→</span>
+                  {dryRunResult.fallback_chain.join(' → ')}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
