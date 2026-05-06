@@ -111,7 +111,9 @@ providers:
     api_base: https://api.openai.com/v1
     api_key: sk-test
 """)
-        (config_dir / "models.yaml").write_text("""
+        models_dir = config_dir / "models"
+        models_dir.mkdir(exist_ok=True)
+        (models_dir / "default.yaml").write_text("""
 models:
   test-model:
     provider: openai

@@ -1,0 +1,11 @@
+# Models Configuration - MiniMax
+models:
+  minimax-text-01:
+    provider: minimax
+    litellm_model: openai/MiniMax-Text-01
+    capabilities:
+      quality: 7
+      cost: 7
+      context: 8000
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]

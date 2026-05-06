@@ -34,6 +34,9 @@ export const mockStoreState: Record<string, unknown> = {
   fetchAlertHistory: vi.fn().mockResolvedValue(undefined),
   testAlertRule: vi.fn().mockResolvedValue(null),
   clearAlertsError: vi.fn(),
+  // Health Check
+  isCheckingHealth: {},
+  checkProviderHealth: vi.fn().mockResolvedValue(undefined),
 }
 
 export const useDashboardStore = vi.fn(() => mockStoreState)

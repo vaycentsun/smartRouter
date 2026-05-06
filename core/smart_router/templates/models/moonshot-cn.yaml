@@ -1,0 +1,21 @@
+# Models Configuration - Moonshot (国内版)
+models:
+  kimi-k2-cn:
+    provider: moonshot-cn
+    litellm_model: openai/moonshot-v1-8k
+    capabilities:
+      quality: 7
+      cost: 7
+      context: 8000
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  kimi-k2-32k-cn:
+    provider: moonshot-cn
+    litellm_model: openai/moonshot-v1-32k
+    capabilities:
+      quality: 7
+      cost: 6
+      context: 32000
+    supported_tasks: [coding, code_review, writing, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]

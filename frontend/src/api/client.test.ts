@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { mockGet, mockPost, mockPut, mockUse } = vi.hoisted(() => ({
+const { mockGet, mockPost, mockPut, mockResUse, mockReqUse } = vi.hoisted(() => ({
   mockGet: vi.fn(),
   mockPost: vi.fn(),
   mockPut: vi.fn(),
-  mockUse: vi.fn(),
+  mockResUse: vi.fn(),
+  mockReqUse: vi.fn(),
 }))
 
 vi.mock('axios', () => ({
@@ -13,7 +14,10 @@ vi.mock('axios', () => ({
       get: mockGet,
       post: mockPost,
       put: mockPut,
-      interceptors: { response: { use: mockUse } },
+      interceptors: {
+        request: { use: mockReqUse },
+        response: { use: mockResUse },
+      },
     })),
     interceptors: { response: { use: vi.fn() } },
   },
@@ -28,9 +32,9 @@ describe('api client', () => {
     mockPut.mockClear()
   })
 
-  it('registers a response interceptor', () => {
-    expect(mockUse).toHaveBeenCalledTimes(1)
-    expect(mockUse).toHaveBeenCalledWith(expect.any(Function), expect.any(Function))
+  it('registers response interceptor', () => {
+    expect(mockResUse).toHaveBeenCalledTimes(1)
+    expect(mockResUse).toHaveBeenCalledWith(expect.any(Function), expect.any(Function))
   })
 
   describe('getStatus', () => {

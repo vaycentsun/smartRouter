@@ -1,0 +1,31 @@
+# Models Configuration - OpenAI
+models:
+  gpt-4o:
+    provider: openai
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9
+      cost: 3
+      context: 128000
+      reasoning: 9
+      creative: 8
+      vision: true
+      long_context: true
+      latest: true
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  gpt-4o-mini:
+    provider: openai
+    litellm_model: openai/gpt-4o-mini
+    capabilities:
+      quality: 6
+      cost: 9
+      context: 128000
+      reasoning: 6
+      creative: 6
+      vision: true
+      long_context: false
+      latest: false
+    supported_tasks: [writing, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium]

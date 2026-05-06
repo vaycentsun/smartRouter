@@ -19,6 +19,7 @@ import type {
   PlaygroundHistoryRecord,
   AlertRule,
   AlertHistoryItem,
+  HealthStatus,
 } from '../types'
 
 export interface AlertTestResult {
@@ -65,6 +66,14 @@ export const api = {
   getStatus: () => client.get<ServiceStatus>('/api/status').then((r) => r.data),
   getModels: () => client.get<ModelsResponse>('/api/models').then((r) => r.data),
   getProviders: () => client.get<ProvidersResponse>('/api/providers').then((r) => r.data),
+  checkProviderHealth: (providerName: string) =>
+    client.get<{
+      provider: string
+      status: HealthStatus
+      models: string[]
+      checked_at: number
+      error: string | null
+    }>(`/api/providers/${providerName}/health`).then((r) => r.data),
   getModelOverrides: () => client.get<ModelOverrideInfo>('/api/model-overrides').then((r) => r.data),
   getModelOverride: () => client.get<{ provider: string | null; model: string | null; enabled: boolean }>('/api/model-override').then((r) => r.data),
   setModelOverride: (provider: string, model: string) =>

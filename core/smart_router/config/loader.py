@@ -17,18 +17,60 @@ class ConfigLoader:
     def load(self) -> Config:
         """从三文件加载配置"""
         providers = self._load_yaml("providers.yaml")
-        models = self._load_yaml("models.yaml")
+        models = self._load_models()
         routing = self._load_yaml("routing.yaml")
         
         try:
             config = Config(
                 providers=providers.get("providers", {}),
-                models=models.get("models", {}),
+                models=models,
                 routing=routing
             )
             return config
         except ValidationError as e:
             raise ConfigError(f"Configuration validation failed: {e}") from e
+    
+    def _load_models(self) -> dict:
+        """从 models/ 目录加载所有 YAML 文件并合并
+        
+        Returns:
+            合并后的 models 字典
+        
+        Raises:
+            ConfigError: models/ 目录缺失、存在废弃的 models.yaml、
+                         或检测到模型键冲突
+        """
+        models_dir = self.config_dir / "models"
+        models_yaml = self.config_dir / "models.yaml"
+        
+        if not models_dir.exists():
+            if models_yaml.exists():
+                raise ConfigError(
+                    "models/ 目录不存在。models.yaml 单文件已废弃，"
+                    "请拆分到 models/ 目录。参考：`smr init` 生成新模板"
+                )
+            else:
+                raise ConfigError(
+                    f"Configuration directory not found: {models_dir}"
+                )
+        
+        merged_models = {}
+        yaml_files = sorted(models_dir.glob("*.yaml"))
+        
+        for filepath in yaml_files:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            
+            file_models = data.get("models", {})
+            for model_name, model_config in file_models.items():
+                if model_name in merged_models:
+                    raise ConfigError(
+                        f"模型 '{model_name}' 在多个文件中定义，"
+                        f"发生冲突：{filepath.name}"
+                    )
+                merged_models[model_name] = model_config
+        
+        return merged_models
     
     def _load_yaml(self, filename: str) -> dict:
         """加载单个 YAML 文件"""
@@ -43,10 +85,23 @@ class ConfigLoader:
         """验证配置，返回错误列表（空表示通过）"""
         errors = []
 
-        # 检查文件存在
-        for filename in ["providers.yaml", "models.yaml", "routing.yaml"]:
-            if not (self.config_dir / filename).exists():
-                errors.append(f"Missing configuration file: {filename}")
+        # 检查文件/目录存在
+        if not (self.config_dir / "providers.yaml").exists():
+            errors.append("Missing configuration file: providers.yaml")
+        
+        models_dir = self.config_dir / "models"
+        models_yaml = self.config_dir / "models.yaml"
+        if not models_dir.exists():
+            if models_yaml.exists():
+                errors.append(
+                    "models/ 目录不存在。models.yaml 单文件已废弃，"
+                    "请拆分到 models/ 目录。参考：`smr init` 生成新模板"
+                )
+            else:
+                errors.append("Missing configuration directory: models/")
+        
+        if not (self.config_dir / "routing.yaml").exists():
+            errors.append("Missing configuration file: routing.yaml")
 
         if errors:
             return errors

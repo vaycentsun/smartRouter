@@ -6,10 +6,27 @@ export interface ServiceStatus {
   version: string
 }
 
+export type HealthStatus =
+  | 'available'
+  | 'not_found'
+  | 'healthy'
+  | 'unconfigured'
+  | 'auth_error'
+  | 'rate_limited'
+  | 'network_error'
+  | 'unknown'
+  | 'checking'
+
+export interface ProviderHealth {
+  status: HealthStatus
+  checked_at: number | null
+}
+
 export interface ModelInfo {
   name: string
   provider: string
   available: boolean
+  health_status: HealthStatus
   quality: number
   cost: number
   context: number
@@ -30,6 +47,7 @@ export interface ProviderInfo {
   key_type: string
   has_key: boolean
   masked_key?: string
+  health?: ProviderHealth
 }
 
 export interface ProvidersResponse {

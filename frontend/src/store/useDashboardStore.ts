@@ -70,8 +70,12 @@ interface DashboardState {
   isLoadingAlerts: boolean
   alertsError: string | null
 
+  // Health Check
+  isCheckingHealth: Record<string, boolean>
+
   // Actions
   fetchAll: () => Promise<void>
+  checkProviderHealth: (providerName: string) => Promise<void>
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
   stopService: () => Promise<void>
   saveProviders: (providers: Record<string, ProviderUpdate>) => Promise<void>
@@ -164,6 +168,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   alertHistory: [],
   isLoadingAlerts: false,
   alertsError: null,
+
+  // Health Check
+  isCheckingHealth: {},
 
   fetchAll: async () => {
     set({ isLoading: true, error: null })
@@ -448,4 +455,32 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   clearAlertsError: () => set({ alertsError: null }),
+
+  checkProviderHealth: async (providerName: string) => {
+    set((state) => ({
+      isCheckingHealth: { ...state.isCheckingHealth, [providerName]: true },
+    }))
+    try {
+      const result = await api.checkProviderHealth(providerName)
+
+      // 更新 provider 的 health 字段
+      set((state) => ({
+        providers: state.providers.map((p) =>
+          p.name === providerName
+            ? { ...p, health: { status: result.status, checked_at: result.checked_at } }
+            : p
+        ),
+        isCheckingHealth: { ...state.isCheckingHealth, [providerName]: false },
+      }))
+
+      // 同步刷新 models 列表以获取最新的 health_status
+      const modelsRes = await api.getModels()
+      set({ models: modelsRes.models })
+    } catch (err) {
+      set((state) => ({
+        error: (err as Error).message,
+        isCheckingHealth: { ...state.isCheckingHealth, [providerName]: false },
+      }))
+    }
+  },
 }))

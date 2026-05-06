@@ -39,6 +39,8 @@ describe('App', () => {
     mockStoreState.fetchLogs = vi.fn().mockResolvedValue(undefined)
     mockStoreState.setLogSource = vi.fn()
     mockStoreState.clearLogError = vi.fn()
+    mockStoreState.isCheckingHealth = {}
+    mockStoreState.checkProviderHealth = vi.fn().mockResolvedValue(undefined)
   })
 
   it('calls fetchAll on mount', () => {

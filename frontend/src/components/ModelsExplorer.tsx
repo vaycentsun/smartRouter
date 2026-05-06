@@ -6,7 +6,7 @@ import { ProviderModelsPanel } from './ProviderModelsPanel'
 import { ProviderEditModal } from './ProviderEditModal'
 
 export function ModelsExplorer() {
-  const { providers, models, saveProviders, isSavingProviders, toast, clearToast } = useDashboardStore()
+  const { providers, models, saveProviders, isSavingProviders, toast, clearToast, checkProviderHealth, isCheckingHealth } = useDashboardStore()
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
   const [editModalOpen, setEditModalOpen] = useState(false)
 
@@ -79,6 +79,8 @@ export function ModelsExplorer() {
             onEdit={() => setEditModalOpen(true)}
             onSaveKey={handleSaveKey}
             isSaving={isSavingProviders}
+            onCheckHealth={checkProviderHealth}
+            isCheckingHealth={isCheckingHealth[currentProvider?.name || ''] || false}
           />
         </div>
       </div>

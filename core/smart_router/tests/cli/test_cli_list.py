@@ -38,7 +38,7 @@ def mock_config_dir():
             }
         }
         
-        # Create models.yaml
+        # Create models/
         models = {
             "models": {
                 "gpt-4o": {
@@ -79,7 +79,7 @@ def mock_config_dir():
                 }
             }
         }
-        
+
         # Create routing.yaml
         routing = {
             "tasks": {
@@ -97,9 +97,11 @@ def mock_config_dir():
             },
             "fallback": {"mode": "auto", "similarity_threshold": 2}
         }
-        
+
+        models_dir = config_dir / "models"
+        models_dir.mkdir(exist_ok=True)
         (config_dir / "providers.yaml").write_text(yaml.dump(providers))
-        (config_dir / "models.yaml").write_text(yaml.dump(models))
+        (models_dir / "default.yaml").write_text(yaml.dump(models))
         (config_dir / "routing.yaml").write_text(yaml.dump(routing))
         
         yield config_dir
