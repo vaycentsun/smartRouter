@@ -77,7 +77,7 @@ export interface DryRunResult {
   error?: string
 }
 
-export type Strategy = 'auto' | 'quality' | 'cost' | 'speed' | 'balanced'
+export type Strategy = 'auto' | 'cost'
 
 export interface ModelOverrideInfo {
   overrides: Record<string, string[]>

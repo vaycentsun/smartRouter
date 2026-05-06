@@ -37,11 +37,11 @@ describe('DryRunPanel', () => {
 
   it('switches strategy when button clicked', () => {
     render(<DryRunPanel />)
-    fireEvent.click(screen.getByText('Quality'))
+    fireEvent.click(screen.getByText('Cost'))
     const textarea = screen.getByPlaceholderText('例如：帮我写一个快速排序算法')
     fireEvent.change(textarea, { target: { value: 'test' } })
     fireEvent.click(screen.getByText('测试路由'))
-    expect(mockStoreState.runDryRun).toHaveBeenCalledWith('test', 'quality')
+    expect(mockStoreState.runDryRun).toHaveBeenCalledWith('test', 'cost')
   })
 
   it('shows loading state', () => {
@@ -63,14 +63,14 @@ describe('DryRunPanel', () => {
       difficulty: 'easy',
       difficulty_confidence: 0.9,
       selected_model: 'gpt-4',
-      strategy: 'quality',
+      strategy: 'cost',
       score: 9.2,
-      reason: 'Highest quality match',
+      reason: 'Cheapest model with acceptable quality',
     }
     render(<DryRunPanel />)
     expect(screen.getByText('chat')).toBeInTheDocument()
     expect(screen.getByText('gpt-4')).toBeInTheDocument()
-    expect(screen.getByText('Highest quality match')).toBeInTheDocument()
+    expect(screen.getByText('Cheapest model with acceptable quality')).toBeInTheDocument()
     expect(screen.getByText('9.2')).toBeInTheDocument()
   })
 
