@@ -363,10 +363,6 @@ async def provider_health(request: Request, provider_name: str):
 
     result = await checker.check(provider_name, force=True)
 
-    # 如果检查通过，自动将新发现的模型写入配置文件
-    if result.status == "healthy" and result.models:
-        checker.write_discovered_models(provider_name, result.models, config_dir)
-
     return {
         "provider": provider_name,
         "status": result.status,

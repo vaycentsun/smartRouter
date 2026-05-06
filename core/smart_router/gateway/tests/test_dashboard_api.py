@@ -505,8 +505,8 @@ class TestProviderHealthAPI:
                 data = response.json()
                 assert data["models"][0]["health_status"] == "auth_error"
 
-    def test_provider_health_triggers_write(self, client, tmp_path):
-        """healthy 状态时自动写入 models/{name}.yaml"""
+    def test_provider_health_does_not_trigger_write(self, client, tmp_path):
+        """检查连通性不再自动写入 models/{name}.yaml"""
         with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
             mock_cfg = MagicMock()
             provider = MagicMock()
@@ -527,35 +527,6 @@ class TestProviderHealthAPI:
                     checked_at=1714972800.0,
                     models=["gpt-4o"],
                     error=None,
-                )
-
-                with patch.object(client.app.state, "health_checker", checker):
-                    response = client.get("/api/providers/openai/health")
-                    assert response.status_code == 200
-                    mock_write.assert_called_once_with("openai", ["gpt-4o"], Path.home() / ".smart-router")
-
-    def test_provider_health_no_write_on_error(self, client):
-        """非 healthy 状态时不写入文件"""
-        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
-            mock_cfg = MagicMock()
-            provider = MagicMock()
-            provider.api_key = "sk-test"
-            provider.api_base = "https://api.openai.com/v1"
-            provider.timeout = 30
-            mock_cfg.providers = {"openai": provider}
-            mock_cfg.models = {}
-            mock_loader.return_value.load.return_value = mock_cfg
-
-            from smart_router.utils.health_checker import ProviderHealthChecker
-            checker = ProviderHealthChecker(mock_cfg)
-
-            with patch.object(checker, "check") as mock_check, \
-                 patch.object(checker, "write_discovered_models") as mock_write:
-                mock_check.return_value = MagicMock(
-                    status="auth_error",
-                    checked_at=1714972800.0,
-                    models=[],
-                    error="HTTP 401",
                 )
 
                 with patch.object(client.app.state, "health_checker", checker):
