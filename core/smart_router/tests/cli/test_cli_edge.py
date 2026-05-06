@@ -104,6 +104,22 @@ class TestInitCommandEdgeCases:
             assert "跳过生成" in result.stdout
             assert (Path(tmpdir) / "providers.yaml").read_text() == "existing"
 
+    def test_init_safe_skips_empty_models_dir(self):
+        """init --safe 在 models/ 目录存在但为空时不应覆盖"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "providers.yaml").write_text("dummy")
+            models_dir = Path(tmpdir) / "models"
+            models_dir.mkdir(exist_ok=True)
+            # models/ 为空，没有 yaml 文件
+            (Path(tmpdir) / "routing.yaml").write_text("dummy")
+
+            result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe"])
+
+            assert result.exit_code == 0
+            assert "跳过生成" in result.stdout
+            # models/ 应保持为空，不应被模板填充
+            assert not any(models_dir.glob("*.yaml"))
+
 
 class TestDoctorCommandEdgeCases:
     """doctor 命令边缘情况测试"""

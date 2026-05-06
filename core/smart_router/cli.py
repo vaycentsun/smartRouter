@@ -81,13 +81,14 @@ def init(
     all_items = top_level_files + [models_dir_name]
 
     if safe:
-        # 安全模式：只生成缺失的文件/目录
+        # 安全模式：只生成缺失的文件/目录，不覆盖已有内容
         missing_items = []
         for filename in top_level_files:
             if not (output_dir / filename).exists():
                 missing_items.append(filename)
         models_dir = output_dir / models_dir_name
-        if not models_dir.exists() or not any(models_dir.glob("*.yaml")):
+        # 只要 models/ 目录存在（即使为空），也不覆盖，避免删除用户可能存放的其他文件
+        if not models_dir.exists():
             missing_items.append(models_dir_name)
 
         if not missing_items:

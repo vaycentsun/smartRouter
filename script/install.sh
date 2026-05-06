@@ -45,6 +45,10 @@ if [ -d "$INSTALL_DIR" ]; then
     # 只复制用户配置和数据，跳过体积巨大的 venv
     cp -r "$INSTALL_DIR"/*.yaml "$BACKUP_DIR/" 2>/dev/null || true
     cp -r "$INSTALL_DIR"/*.json "$BACKUP_DIR/" 2>/dev/null || true
+    # 备份 models/ 目录（用户自定义模型配置）
+    if [ -d "$INSTALL_DIR/models" ]; then
+        cp -r "$INSTALL_DIR/models" "$BACKUP_DIR/" 2>/dev/null || true
+    fi
     # 直接删除旧环境，避免先复制整个目录再删除的低效操作
     rm -rf "$INSTALL_DIR/venv" "$INSTALL_DIR/bin"
 fi
