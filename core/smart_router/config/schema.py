@@ -77,17 +77,9 @@ class TaskConfig(BaseModel):
     """任务类型配置"""
     name: str
     description: str
-    capability_weights: Dict[str, float]  # quality/cost 权重
+    capability_weights: Optional[Dict[str, float]] = None
     keywords: List[str] = Field(default_factory=list)  # 任务关键词，用于分类器匹配
     examples: List[str] = Field(default_factory=list)  # 示例句子，用于 Embedding 相似度匹配
-    
-    @model_validator(mode='after')
-    def check_weights_sum(self):
-        """验证权重总和约为 1.0"""
-        total = sum(self.capability_weights.values())
-        if not 0.99 <= total <= 1.01:  # 允许浮点误差
-            raise ValueError(f"capability_weights must sum to 1.0, got {total}")
-        return self
 
 
 class DifficultyConfig(BaseModel):
@@ -116,14 +108,35 @@ class FallbackConfig(BaseModel):
     max_attempts: int = Field(default=3, ge=1, le=10, description="最大 fallback 尝试次数")
 
 
+class FormulaConfig(BaseModel):
+    """全局评分公式配置"""
+    weights: Dict[str, float] = Field(
+        default_factory=lambda: {"quality": 0.5, "cost": 0.5},
+        description="能力维度权重映射"
+    )
+    
+    @model_validator(mode='after')
+    def check_weights(self):
+        valid_dims = {"quality", "cost", "reasoning", "creative", "context"}
+        unknown = set(self.weights.keys()) - valid_dims
+        if unknown:
+            raise ValueError(f"Unknown dimensions: {unknown}. Valid: {valid_dims}")
+        if all(w == 0 for w in self.weights.values()):
+            raise ValueError("At least one weight must be non-zero")
+        for dim, weight in self.weights.items():
+            if not (0.0 <= weight <= 1.0):
+                raise ValueError(f"Weight for {dim} must be between 0.0 and 1.0, got {weight}")
+        return self
+
+
 class RoutingConfig(BaseModel):
     """路由层根配置"""
     tasks: Dict[str, TaskConfig]
     difficulties: Dict[str, DifficultyConfig]
     strategies: Dict[str, StrategyConfig]
+    formula: FormulaConfig = Field(default_factory=FormulaConfig)
     fallback: FallbackConfig
-    cost_quality_threshold: int = Field(default=5, ge=1, le=10,
-                                        description="cost 策略的最低质量门槛，低于此值的模型会被过滤")
+    # 移除 cost_quality_threshold
 
 
 class Config(BaseModel):

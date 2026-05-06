@@ -20,6 +20,10 @@ import type {
   AlertRule,
   AlertHistoryItem,
   HealthStatus,
+  FormulaResponse,
+  FormulaUpdateRequest,
+  FormulaPreviewRequest,
+  FormulaPreviewResponse,
 } from '../types'
 
 export interface AlertTestResult {
@@ -115,4 +119,11 @@ export const api = {
     client.get<{ history: AlertHistoryItem[] }>('/api/alerts/history', { params: { limit } }).then((r) => r.data),
   testAlertRule: (data: AlertRule) =>
     client.post<AlertTestResult>('/api/alerts/test', data).then((r) => r.data),
+  // Formula
+  getFormula: () =>
+    client.get<FormulaResponse>('/api/formula').then((r) => r.data),
+  updateFormula: (data: FormulaUpdateRequest) =>
+    client.put<{ success: boolean; errors?: string[] }>('/api/formula', data).then((r) => r.data),
+  previewFormula: (data: FormulaPreviewRequest) =>
+    client.post<FormulaPreviewResponse>('/api/formula/preview', data).then((r) => r.data),
 }

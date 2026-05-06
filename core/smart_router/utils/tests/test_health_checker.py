@@ -32,7 +32,6 @@ def sample_config():
                     "provider_isolation": False,
                     "max_attempts": 3,
                 },
-                "cost_quality_threshold": 5,
             },
         )
 

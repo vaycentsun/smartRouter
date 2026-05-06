@@ -1,17 +1,16 @@
-"""V3 Model Selector - Capability-based selection
+"""V3 Model Selector - Formula-based selection
 
-基于模型能力声明和任务权重动态计算最佳模型。
-
-策略说明：
-- auto: 使用任务配置的 capability_weights 计算加权得分
-- cost: 选择 cost 最高的模型（ cheapest ），但过滤 quality < threshold 的模型
+基于全局线性评分公式（FormulaEvaluator）动态计算最佳模型。
+所有策略统一使用 formula 权重计算得分，strategy 参数已废弃。
 """
 
+import warnings
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 from ..config.schema import Config
-from ..exceptions import NoModelAvailableError, UnknownStrategyError
+from ..exceptions import NoModelAvailableError
+from .formula_evaluator import FormulaEvaluator
 
 
 @dataclass
@@ -25,12 +24,11 @@ class SelectionResult:
 
 
 class V3ModelSelector:
-    SUPPORTED_STRATEGIES = {"auto", "cost"}
-    
     
     def __init__(self, config: Config, available_models: Optional[List[str]] = None):
         self.config = config
         self.available_models = available_models
+        self.evaluator = FormulaEvaluator(config.routing.formula)
     
     def select(
         self,
@@ -44,7 +42,7 @@ class V3ModelSelector:
         Args:
             task_type: 任务类型
             difficulty: 难度（easy/medium/hard/expert）
-            strategy: 策略（auto/cost）
+            strategy: 策略（已废弃，保留仅用于兼容）
             required_context: 所需的上下文窗口大小（token 数），为 0 时不做上下文过滤
             
         Returns:
@@ -57,12 +55,31 @@ class V3ModelSelector:
                 f"No model supports {task_type}/{difficulty}"
             )
         
-        if strategy == "auto":
-            return self._select_by_auto(candidates, task_type, difficulty)
-        elif strategy == "cost":
-            return self._select_by_cost(candidates, task_type, difficulty)
-        else:
-            raise UnknownStrategyError(f"Unknown strategy: {strategy}")
+        # Deprecated warning for non-auto strategies
+        if strategy != "auto":
+            warnings.warn(
+                f"strategy='{strategy}' is deprecated. Use routing.formula weights instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+        
+        # 统一使用公式评分
+        scored = []
+        for name, model in candidates:
+            score = self.evaluator.evaluate(model.capabilities)
+            scored.append((name, score, model))
+        
+        scored.sort(key=lambda x: x[1], reverse=True)
+        best_name, best_score, best_model = scored[0]
+        
+        return SelectionResult(
+            model_name=best_name,
+            task_type=task_type,
+            difficulty=difficulty,
+            strategy="auto",
+            score=best_score,
+            reason=f"Formula score: {best_score:.2f}"
+        )
     
     def _filter_candidates(
         self,
@@ -96,98 +113,6 @@ class V3ModelSelector:
             candidates.append((name, model))
         
         return candidates
-    
-    def _select_by_auto(
-        self,
-        candidates: List[Tuple[str, object]],
-        task_type: str,
-        difficulty: str
-    ) -> SelectionResult:
-        """auto 策略：综合评分（基于任务权重）"""
-        task_config = self.config.routing.tasks.get(task_type)
-        
-        if task_config is None:
-            weights = {"quality": 0.5, "cost": 0.5}
-        else:
-            weights = task_config.capability_weights
-        
-        scored = []
-        for name, model in candidates:
-            caps = model.capabilities
-            score = 0.0
-            weight_sum = 0.0
-            
-            if "quality" in weights:
-                score += caps.quality * weights["quality"]
-                weight_sum += weights["quality"]
-            if "cost" in weights:
-                score += caps.cost * weights["cost"]
-                weight_sum += weights["cost"]
-            if "reasoning" in weights and caps.reasoning is not None:
-                score += caps.reasoning * weights["reasoning"]
-                weight_sum += weights["reasoning"]
-            if "creative" in weights and caps.creative is not None:
-                score += caps.creative * weights["creative"]
-                weight_sum += weights["creative"]
-            
-            # 如果权重总和不等于 1，进行归一化
-            if weight_sum > 0 and weight_sum != 1.0:
-                score = score / weight_sum
-            
-            scored.append((name, score, model))
-        
-        scored.sort(key=lambda x: x[1], reverse=True)
-        
-        best_name, best_score, best_model = scored[0]
-        
-        return SelectionResult(
-            model_name=best_name,
-            task_type=task_type,
-            difficulty=difficulty,
-            strategy="auto",
-            score=best_score,
-            reason=f"Highest weighted score: {best_score:.2f}"
-        )
-    
-    def _select_by_cost(
-        self,
-        candidates: List[Tuple[str, object]],
-        task_type: str,
-        difficulty: str
-    ) -> SelectionResult:
-        """cost 策略：选择最便宜的模型，但过滤掉低质量模型
-        
-        质量门槛从 routing.cost_quality_threshold 读取（默认 5）。
-        如果过滤后没有候选，回退到不过滤（避免无模型可用）。
-        """
-        threshold = self.config.routing.cost_quality_threshold
-        filtered = [
-            (name, model)
-            for name, model in candidates
-            if model.capabilities.quality >= threshold
-        ]
-        
-        # 如果过滤后没有候选，回退到原始列表
-        if not filtered:
-            filtered = candidates
-        
-        # 按 cost 降序排列（cost 越高 = 越便宜）
-        scored = [(name, model.capabilities.cost) for name, model in filtered]
-        scored.sort(key=lambda x: x[1], reverse=True)
-        
-        best_name, best_value = scored[0]
-        
-        was_filtered = len(filtered) < len(candidates)
-        filter_note = " (after quality filter)" if was_filtered else ""
-        
-        return SelectionResult(
-            model_name=best_name,
-            task_type=task_type,
-            difficulty=difficulty,
-            strategy="cost",
-            score=float(best_value),
-            reason=f"Highest cost (cheapest){filter_note}: {best_value}"
-        )
     
     def get_available_models(
         self,
@@ -224,6 +149,3 @@ class V3ModelSelector:
         if diff_config is not None:
             return diff_config.max_tokens
         return 4000  # 默认回退值
-
-
-

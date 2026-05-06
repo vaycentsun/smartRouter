@@ -44,7 +44,6 @@ fallback:
   similarity_threshold: 2
   provider_isolation: false
   max_attempts: 3
-cost_quality_threshold: 5
 """)
         # 创建 models/ 目录和文件
         models_dir = tmp_path / "models"
@@ -114,7 +113,6 @@ fallback:
   similarity_threshold: 2
   provider_isolation: false
   max_attempts: 3
-cost_quality_threshold: 5
 """)
         models_dir = tmp_path / "models"
         models_dir.mkdir()
@@ -154,7 +152,7 @@ models:
     def test_deprecated_models_yaml(self, tmp_path):
         """models/ 不存在但 models.yaml 存在时提示废弃"""
         (tmp_path / "providers.yaml").write_text("providers:\n  openai:\n    api_base: https://api.openai.com\n    api_key: sk-test\n    timeout: 30\n")
-        (tmp_path / "routing.yaml").write_text("tasks: {}\ndifficulties: {}\nstrategies: {}\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\ncost_quality_threshold: 5\n")
+        (tmp_path / "routing.yaml").write_text("tasks: {}\ndifficulties: {}\nstrategies: {}\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\n\n")
         (tmp_path / "models.yaml").write_text("models: {}\n")
 
         loader = ConfigLoader(tmp_path)
@@ -166,7 +164,7 @@ models:
     def test_missing_models_directory(self, tmp_path):
         """models/ 和 models.yaml 都不存在时提示缺失"""
         (tmp_path / "providers.yaml").write_text("providers:\n  openai:\n    api_base: https://api.openai.com\n    api_key: sk-test\n    timeout: 30\n")
-        (tmp_path / "routing.yaml").write_text("tasks: {}\ndifficulties: {}\nstrategies: {}\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\ncost_quality_threshold: 5\n")
+        (tmp_path / "routing.yaml").write_text("tasks: {}\ndifficulties: {}\nstrategies: {}\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\n\n")
 
         loader = ConfigLoader(tmp_path)
         with pytest.raises(ConfigError) as exc_info:
@@ -176,7 +174,7 @@ models:
     def test_validate_with_models_dir(self, tmp_path):
         """validate() 正确检查 models/ 目录存在"""
         (tmp_path / "providers.yaml").write_text("providers:\n  openai:\n    api_base: https://api.openai.com\n    api_key: sk-test\n    timeout: 30\n")
-        (tmp_path / "routing.yaml").write_text("tasks: {}\ndifficulties: {}\nstrategies: {}\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\ncost_quality_threshold: 5\n")
+        (tmp_path / "routing.yaml").write_text("tasks: {}\ndifficulties: {}\nstrategies: {}\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\n\n")
         models_dir = tmp_path / "models"
         models_dir.mkdir()
         (models_dir / "openai.yaml").write_text("models: {}\n")
@@ -188,7 +186,7 @@ models:
     def test_validate_missing_models_dir(self, tmp_path):
         """validate() 检测到 models/ 缺失"""
         (tmp_path / "providers.yaml").write_text("providers:\n  openai:\n    api_base: https://api.openai.com\n    api_key: sk-test\n    timeout: 30\n")
-        (tmp_path / "routing.yaml").write_text("tasks: {}\ndifficulties: {}\nstrategies: {}\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\ncost_quality_threshold: 5\n")
+        (tmp_path / "routing.yaml").write_text("tasks: {}\ndifficulties: {}\nstrategies: {}\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\n\n")
 
         loader = ConfigLoader(tmp_path)
         errors = loader.validate()
@@ -223,7 +221,6 @@ fallback:
   similarity_threshold: 2
   provider_isolation: false
   max_attempts: 3
-cost_quality_threshold: 5
 """)
         models_dir = tmp_path / "models"
         models_dir.mkdir()
@@ -281,7 +278,6 @@ fallback:
   similarity_threshold: 2
   provider_isolation: false
   max_attempts: 3
-cost_quality_threshold: 5
 """)
         models_dir = tmp_path / "models"
         models_dir.mkdir()

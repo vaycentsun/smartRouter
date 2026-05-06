@@ -1,5 +1,6 @@
 """V3 Configuration Loader"""
 
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 import yaml
@@ -19,6 +20,9 @@ class ConfigLoader:
         providers = self._load_yaml("providers.yaml")
         models = self._load_models()
         routing = self._load_yaml("routing.yaml")
+        
+        # 迁移旧配置：capability_weights -> formula.weights
+        routing = self._migrate_legacy_weights(routing)
         
         providers_dict = providers.get("providers", {})
         
@@ -40,6 +44,40 @@ class ConfigLoader:
             return config
         except ValidationError as e:
             raise ConfigError(f"Configuration validation failed: {e}") from e
+    
+    def _migrate_legacy_weights(self, data: dict) -> dict:
+        """将旧 capability_weights 迁移为全局 formula
+        
+        算法：按维度分别算术平均
+        avg_weights[dim] = sum(task_weights[dim]) / task_count
+        """
+        if "formula" in data:
+            return data
+        
+        valid_dims = {"quality", "cost", "reasoning", "creative", "context"}
+        weights_sum = defaultdict(float)
+        task_count = 0
+        
+        for task_config in data.get("tasks", {}).values():
+            cw = task_config.get("capability_weights")
+            if cw:
+                for dim, weight in cw.items():
+                    if dim in valid_dims:
+                        weights_sum[dim] += weight
+                task_count += 1
+        
+        if task_count > 0:
+            avg_weights = {
+                dim: round(total / task_count, 4)
+                for dim, total in weights_sum.items()
+                if dim in valid_dims
+            }
+            if avg_weights:
+                data["formula"] = {
+                    "weights": avg_weights
+                }
+        
+        return data
     
     def _load_models(self) -> dict:
         """从 models/ 目录加载所有 YAML 文件并合并
@@ -162,6 +200,67 @@ class ConfigLoader:
         errors = self.validate()
         if errors:
             # 验证失败，尝试恢复备份
+            if backup_path.exists():
+                try:
+                    filepath.write_text(backup_path.read_text(), encoding="utf-8")
+                except IOError:
+                    pass
+            raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
+
+    def save_routing(self, routing_raw: dict) -> None:
+        """保存 routing 配置到 YAML 文件
+
+        Args:
+            routing_raw: 原始 routing 字典，直接序列化写入
+
+        Raises:
+            ConfigError: 写入或验证失败时抛出
+        """
+        filepath = self.config_dir / "routing.yaml"
+
+        # 备份原文件
+        if filepath.exists():
+            backup_path = filepath.with_suffix(".yaml.bak")
+            try:
+                backup_path.write_text(filepath.read_text(), encoding="utf-8")
+            except IOError:
+                pass
+
+        try:
+            # 尝试使用 ruamel.yaml 保留注释
+            try:
+                from ruamel.yaml import YAML
+                yaml_inst = YAML()
+                yaml_inst.preserve_quotes = True
+                yaml_inst.default_flow_style = False
+
+                # 读取现有文件以保留注释
+                if filepath.exists():
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        existing = yaml_inst.load(f)
+                    # 合并新数据
+                    existing.update(routing_raw)
+                else:
+                    existing = routing_raw
+
+                with open(filepath, "w", encoding="utf-8") as f:
+                    yaml_inst.dump(existing, f)
+            except ImportError:
+                # 回退到标准 yaml
+                with open(filepath, "w", encoding="utf-8") as f:
+                    yaml.safe_dump(
+                        routing_raw,
+                        f,
+                        allow_unicode=True,
+                        sort_keys=False,
+                        default_flow_style=False,
+                    )
+        except Exception as e:
+            raise ConfigError(f"Failed to write routing.yaml: {e}") from e
+
+        # 写入后验证
+        errors = self.validate()
+        if errors:
             if backup_path.exists():
                 try:
                     filepath.write_text(backup_path.read_text(), encoding="utf-8")

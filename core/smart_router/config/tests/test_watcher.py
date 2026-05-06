@@ -22,7 +22,7 @@ class TestConfigWatcherSubdirectory:
 
         # 创建基础文件
         (tmp_path / "providers.yaml").write_text("providers:\n  openai:\n    api_base: https://api.openai.com\n    api_key: sk-test\n    timeout: 30\n")
-        (tmp_path / "routing.yaml").write_text("tasks:\n  chat:\n    name: \"聊天\"\n    description: \"日常对话\"\n    capability_weights:\n      quality: 0.5\n      cost: 0.5\ndifficulties:\n  easy:\n    description: \"简单\"\n    max_tokens: 2000\nstrategies:\n  auto:\n    description: \"自动\"\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\ncost_quality_threshold: 5\n")
+        (tmp_path / "routing.yaml").write_text("tasks:\n  chat:\n    name: \"聊天\"\n    description: \"日常对话\"\n    capability_weights:\n      quality: 0.5\n      cost: 0.5\ndifficulties:\n  easy:\n    description: \"简单\"\n    max_tokens: 2000\nstrategies:\n  auto:\n    description: \"自动\"\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\n\n")
         (models_dir / "openai.yaml").write_text("models:\n  gpt-4o:\n    provider: openai\n    litellm_model: openai/gpt-4o\n    capabilities:\n      quality: 9\n      cost: 3\n      context: 128000\n    supported_tasks: [chat]\n    difficulty_support: [easy]\n")
 
         mock_reload = MagicMock()
@@ -46,7 +46,7 @@ class TestConfigWatcherSubdirectory:
         models_dir.mkdir()
 
         (tmp_path / "providers.yaml").write_text("providers:\n  openai:\n    api_base: https://api.openai.com\n    api_key: sk-test\n    timeout: 30\n")
-        (tmp_path / "routing.yaml").write_text("tasks:\n  chat:\n    name: \"聊天\"\n    description: \"日常对话\"\n    capability_weights:\n      quality: 0.5\n      cost: 0.5\ndifficulties:\n  easy:\n    description: \"简单\"\n    max_tokens: 2000\nstrategies:\n  auto:\n    description: \"自动\"\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\ncost_quality_threshold: 5\n")
+        (tmp_path / "routing.yaml").write_text("tasks:\n  chat:\n    name: \"聊天\"\n    description: \"日常对话\"\n    capability_weights:\n      quality: 0.5\n      cost: 0.5\ndifficulties:\n  easy:\n    description: \"简单\"\n    max_tokens: 2000\nstrategies:\n  auto:\n    description: \"自动\"\nfallback:\n  mode: auto\n  similarity_threshold: 2\n  provider_isolation: false\n  max_attempts: 3\n\n")
         (models_dir / "test.yaml").write_text("models: {}\n")
 
         mock_reload = MagicMock()

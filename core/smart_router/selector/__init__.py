@@ -1,7 +1,8 @@
 """模型选择器模块"""
 
 from .model_selector import ModelSelector, ModelSelectionResult
-from .v3_selector import V3ModelSelector, SelectionResult, NoModelAvailableError, UnknownStrategyError
+from .v3_selector import V3ModelSelector, SelectionResult, NoModelAvailableError
+from ..exceptions import UnknownStrategyError
 
 __all__ = [
     "ModelSelector",

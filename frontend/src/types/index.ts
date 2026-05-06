@@ -80,6 +80,38 @@ export interface DryRunResult {
 
 export type Strategy = 'auto' | 'cost'
 
+export interface FormulaWeights {
+  quality: number
+  cost: number
+  reasoning: number
+  creative: number
+  context: number
+}
+
+export interface FormulaResponse {
+  weights: Record<string, number>
+}
+
+export interface FormulaUpdateRequest {
+  weights: Record<string, number>
+}
+
+export interface FormulaPreviewRequest {
+  weights: Record<string, number>
+  prompt: string
+}
+
+export interface FormulaPreviewModel {
+  name: string
+  score: number
+}
+
+export interface FormulaPreviewResponse {
+  task_type: string
+  difficulty: string
+  models: FormulaPreviewModel[]
+}
+
 export interface ModelOverrideInfo {
   overrides: Record<string, string[]>
 }

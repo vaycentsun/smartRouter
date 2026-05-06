@@ -98,6 +98,11 @@ strategies:
   cost:
     description: "Cost"
 
+formula:
+  weights:
+    quality: 0.7
+    cost: 0.3
+
 fallback:
   mode: auto
   similarity_threshold: 2

@@ -120,6 +120,15 @@ class DryRunRequest(BaseModel):
     strategy: str = "auto"
 
 
+class FormulaUpdate(BaseModel):
+    weights: dict[str, float]
+
+
+class FormulaPreviewRequest(BaseModel):
+    weights: dict[str, float]
+    prompt: str = ""
+
+
 class LogsResponse(BaseModel):
     lines: list[str]
     offset: int
@@ -516,6 +525,85 @@ async def dry_run(request: DryRunRequest):
         "reason": selection_result.reason,
         "fallback_chain": cfg.get_fallback_chain(selection_result.model_name),
     }
+
+
+async def get_formula(request: Request):
+    """获取当前公式配置"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        cfg = loader.load()
+        return {"weights": cfg.routing.formula.weights}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def update_formula(request: Request, body: FormulaUpdate):
+    """更新公式配置并保存到 routing.yaml"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        
+        # 验证权重
+        from ..config.schema import FormulaConfig
+        from pydantic import ValidationError
+        try:
+            FormulaConfig(weights=body.weights)
+        except (ValueError, ValidationError) as e:
+            return {"success": False, "errors": [str(e)]}
+        
+        # 加载当前 routing.yaml
+        current = loader._load_yaml("routing.yaml")
+        current["formula"] = {"weights": body.weights}
+        
+        # 保存
+        try:
+            loader.save_routing(current)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "errors": [str(e)]}
+    except Exception as e:
+        return {"success": False, "errors": [str(e)]}
+
+
+async def preview_formula(request: Request, body: FormulaPreviewRequest):
+    """预览公式效果：按传入的 weights 计算所有可用模型的得分"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        cfg = loader.load()
+        
+        # 验证权重
+        from ..config.schema import FormulaConfig
+        from pydantic import ValidationError
+        try:
+            FormulaConfig(weights=body.weights)
+        except (ValueError, ValidationError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        
+        # 使用临时 evaluator
+        temp_formula = FormulaConfig(weights=body.weights)
+        from ..selector.formula_evaluator import FormulaEvaluator
+        evaluator = FormulaEvaluator(temp_formula)
+        
+        # 计算所有可用模型的得分
+        models = []
+        for name, model in cfg.models.items():
+            if cfg.is_model_available(name):
+                score = evaluator.evaluate(model.capabilities)
+                models.append({"name": name, "score": round(score, 2)})
+        
+        models.sort(key=lambda x: x["score"], reverse=True)
+        
+        return {
+            "task_type": "chat",
+            "difficulty": "medium",
+            "models": models
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 async def model_overrides():
@@ -974,6 +1062,9 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.post("/api/model-override")(set_model_override)
     app.delete("/api/model-override")(delete_model_override)
     app.post("/api/dry-run")(dry_run)
+    app.get("/api/formula")(get_formula)
+    app.put("/api/formula")(update_formula)
+    app.post("/api/formula/preview")(preview_formula)
     app.post("/api/stop")(stop)
     app.get("/api/logs")(get_logs)
     app.get("/api/token-stats")(token_stats)
