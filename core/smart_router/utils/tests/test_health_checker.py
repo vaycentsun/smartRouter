@@ -306,3 +306,33 @@ models:
         content = filepath.read_text(encoding="utf-8")
         assert "quality: 9" in content
         assert "gpt-3.5" not in content
+
+    def test_skip_cross_file_conflict(self, checker, tmp_path):
+        """已存在于其他文件中的模型不重复写入，避免配置加载冲突"""
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+
+        # 在 openai.yaml 中定义 gpt-4o
+        openai_file = models_dir / "openai.yaml"
+        openai_file.write_text("""
+models:
+  gpt-4o:
+    provider: openai
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9
+      cost: 3
+      context: 128000
+    supported_tasks: [coding]
+    difficulty_support: [easy]
+""", encoding="utf-8")
+
+        # 尝试向 aliyun.yaml 写入相同的模型名（跨文件冲突）
+        checker.write_discovered_models("aliyun", ["gpt-4o", "qwen-max"], tmp_path)
+
+        aliyun_file = models_dir / "aliyun.yaml"
+        content = aliyun_file.read_text(encoding="utf-8")
+        # gpt-4o 已存在于 openai.yaml，不应被写入 aliyun.yaml
+        assert "gpt-4o:" not in content
+        # qwen-max 是新模型，应被写入
+        assert "qwen-max:" in content

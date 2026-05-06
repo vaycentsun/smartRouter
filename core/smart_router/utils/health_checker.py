@@ -70,6 +70,8 @@ class ProviderHealthChecker:
     ) -> None:
         """将新发现的模型写入对应 Provider 的 YAML 文件
 
+        自动跳过已在其他文件中定义的模型，避免跨文件冲突。
+
         Args:
             provider_name: Provider 名称
             discovered_models: Provider 返回的模型 ID 列表
@@ -82,16 +84,28 @@ class ProviderHealthChecker:
         models_dir.mkdir(exist_ok=True)
         filepath = models_dir / f"{provider_name}.yaml"
 
-        # 读取现有配置
-        existing_models = {}
+        # 扫描所有现有模型文件，收集已定义的模型名（防止跨文件冲突）
+        all_existing_ids: set[str] = set()
+        if models_dir.exists():
+            for other_file in models_dir.glob("*.yaml"):
+                with open(other_file, "r", encoding="utf-8") as f:
+                    data = yaml.safe_load(f) or {}
+                all_existing_ids.update(data.get("models", {}).keys())
+
+        # 读取当前 Provider 文件的现有配置
+        existing_models: dict = {}
         if filepath.exists():
             with open(filepath, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
             existing_models = data.get("models", {})
 
-        # 添加新发现的模型（保留已有配置）
+        # 添加新发现的模型（保留已有配置，跳过跨文件冲突）
+        added_any = False
         for model_id in discovered_models:
             if model_id in existing_models:
+                continue
+            if model_id in all_existing_ids:
+                # 该模型名已在其他文件中定义，跳过以避免配置加载冲突
                 continue
             existing_models[model_id] = {
                 "provider": provider_name,
@@ -104,6 +118,11 @@ class ProviderHealthChecker:
                 "supported_tasks": ["chat"],
                 "difficulty_support": ["easy", "medium"],
             }
+            all_existing_ids.add(model_id)
+            added_any = True
+
+        if not added_any:
+            return
 
         # 写回文件
         with open(filepath, "w", encoding="utf-8") as f:
