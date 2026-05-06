@@ -20,9 +20,20 @@ class ConfigLoader:
         models = self._load_models()
         routing = self._load_yaml("routing.yaml")
         
+        providers_dict = providers.get("providers", {})
+        
+        # 自动注入 _virtual provider（如果缺失），确保虚拟模型（auto/smart-router 等）
+        # 在旧版 providers.yaml（未包含 _virtual）下也能正常加载
+        if "_virtual" not in providers_dict:
+            providers_dict["_virtual"] = {
+                "api_base": "",
+                "api_key": "",
+                "timeout": 30,
+            }
+        
         try:
             config = Config(
-                providers=providers.get("providers", {}),
+                providers=providers_dict,
                 models=models,
                 routing=routing
             )
