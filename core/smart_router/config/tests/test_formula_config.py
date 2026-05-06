@@ -20,10 +20,9 @@ class TestFormulaConfigCustomWeights:
 
     def test_custom_valid_weights_pass(self):
         """自定义有效权重通过验证"""
-        formula = FormulaConfig(weights={"quality": 0.3, "cost": 0.3, "reasoning": 0.4})
-        assert formula.weights["quality"] == 0.3
+        formula = FormulaConfig(weights={"quality": 0.7, "cost": 0.3})
+        assert formula.weights["quality"] == 0.7
         assert formula.weights["cost"] == 0.3
-        assert formula.weights["reasoning"] == 0.4
 
 
 class TestFormulaConfigValidation:
@@ -33,6 +32,24 @@ class TestFormulaConfigValidation:
         """未知维度抛出 ValueError"""
         with pytest.raises(ValidationError) as exc_info:
             FormulaConfig(weights={"quality": 0.5, "speed": 0.5})
+        assert "Unknown dimensions" in str(exc_info.value)
+
+    def test_reasoning_dimension_rejected(self):
+        """reasoning 维度已废弃，应抛出 ValueError"""
+        with pytest.raises(ValidationError) as exc_info:
+            FormulaConfig(weights={"quality": 0.5, "cost": 0.3, "reasoning": 0.2})
+        assert "Unknown dimensions" in str(exc_info.value)
+
+    def test_creative_dimension_rejected(self):
+        """creative 维度已废弃，应抛出 ValueError"""
+        with pytest.raises(ValidationError) as exc_info:
+            FormulaConfig(weights={"quality": 0.5, "cost": 0.3, "creative": 0.2})
+        assert "Unknown dimensions" in str(exc_info.value)
+
+    def test_context_dimension_rejected(self):
+        """context 维度已废弃，应抛出 ValueError"""
+        with pytest.raises(ValidationError) as exc_info:
+            FormulaConfig(weights={"quality": 0.5, "cost": 0.3, "context": 0.2})
         assert "Unknown dimensions" in str(exc_info.value)
 
     def test_all_zero_weights_raises(self):

@@ -34,11 +34,11 @@ class TestFormulaEvaluatorMissingDimensions:
     """测试缺失维度处理"""
 
     def test_missing_dimension_treated_as_zero(self):
-        """缺失维度（reasoning=None）时视为 0"""
+        """未配置权重维度时只计算已配置维度"""
         evaluator = FormulaEvaluator(
-            FormulaConfig(weights={"quality": 0.5, "reasoning": 0.5})
+            FormulaConfig(weights={"quality": 0.5})
         )
-        caps = ModelCapabilities(quality=10, cost=5, context=128000, reasoning=None)
+        caps = ModelCapabilities(quality=10, cost=5, context=128000)
         score = evaluator.evaluate(caps)
         assert score == pytest.approx(5.0)
 

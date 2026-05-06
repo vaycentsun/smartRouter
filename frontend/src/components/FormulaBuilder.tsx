@@ -13,42 +13,30 @@ const FORMULA_TEMPLATES: FormulaTemplate[] = [
     id: 'quality_first',
     name: '质量优先',
     description: '优先选择高质量模型',
-    weights: { quality: 0.9, cost: 0.1, reasoning: 0, creative: 0, context: 0 },
+    weights: { quality: 0.9, cost: 0.1 },
   },
   {
     id: 'cost_first',
     name: '成本优先',
     description: '优先选择便宜模型',
-    weights: { quality: 0.1, cost: 0.9, reasoning: 0, creative: 0, context: 0 },
+    weights: { quality: 0.1, cost: 0.9 },
   },
   {
     id: 'balanced',
     name: '均衡',
     description: '质量与成本兼顾',
-    weights: { quality: 0.5, cost: 0.5, reasoning: 0, creative: 0, context: 0 },
-  },
-  {
-    id: 'reasoning_first',
-    name: '推理优先',
-    description: '优先选择推理能力强的模型',
-    weights: { quality: 0.3, cost: 0.1, reasoning: 0.6, creative: 0, context: 0 },
+    weights: { quality: 0.5, cost: 0.5 },
   },
 ]
 
 const DIMENSIONS = [
   { key: 'quality', name: '质量', description: '代码质量、推理能力' },
   { key: 'cost', name: '成本', description: '成本效率（越高越便宜）' },
-  { key: 'reasoning', name: '推理', description: '数学、逻辑、代码推理' },
-  { key: 'creative', name: '创意', description: '写作、广告、头脑风暴' },
-  { key: 'context', name: '上下文', description: '上下文窗口处理能力' },
 ]
 
 const DEFAULT_WEIGHTS: Record<string, number> = {
   quality: 0.5,
   cost: 0.5,
-  reasoning: 0,
-  creative: 0,
-  context: 0,
 }
 
 export function FormulaBuilder() {

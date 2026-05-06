@@ -197,21 +197,18 @@ tasks:
     capability_weights:
       quality: 0.2
       cost: 0.8
-      reasoning: 0.1
   code:
     name: "编程"
     description: "代码生成"
     capability_weights:
       quality: 0.4
       cost: 0.6
-      reasoning: 0.3
   creative:
     name: "创意"
     description: "创意写作"
     capability_weights:
       quality: 0.6
       cost: 0.4
-      reasoning: 0.5
 difficulties:
   easy:
     description: "简单"
@@ -243,11 +240,10 @@ models:
         loader = ConfigLoader(tmp_path)
         config = loader.load()
 
-        # 验证按维度算术平均：(0.2+0.4+0.6)/3=0.4, (0.8+0.6+0.4)/3=0.6, (0.1+0.3+0.5)/3=0.3
+        # 验证按维度算术平均：(0.2+0.4+0.6)/3=0.4, (0.8+0.6+0.4)/3=0.6
         assert config.routing.formula.weights == {
             "quality": 0.4,
             "cost": 0.6,
-            "reasoning": 0.3,
         }
 
     def test_migrated_data_passes_pydantic_validation(self, tmp_path):
