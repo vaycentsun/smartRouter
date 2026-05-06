@@ -562,3 +562,44 @@ class TestProviderHealthAPI:
                     response = client.get("/api/providers/openai/health")
                     assert response.status_code == 200
                     mock_write.assert_not_called()
+
+    def test_provider_health_uses_latest_config(self, client):
+        """health_checker 持有旧配置时，API 应使用最新加载的配置"""
+        from smart_router.utils.health_checker import ProviderHealthChecker
+
+        # 1. 模拟启动时的旧配置（api_key 为空）
+        old_cfg = MagicMock()
+        old_provider = MagicMock()
+        old_provider.api_key = ""
+        old_provider.api_base = "https://api.openai.com/v1"
+        old_cfg.providers = {"openai": old_provider}
+        old_cfg.models = {}
+
+        checker = ProviderHealthChecker(old_cfg)
+
+        # 2. 模拟用户更新后的新配置（api_key 已设置）
+        new_cfg = MagicMock()
+        new_provider = MagicMock()
+        new_provider.api_key = "sk-new-key"
+        new_provider.api_base = "https://api.openai.com/v1"
+        new_cfg.providers = {"openai": new_provider}
+        new_cfg.models = {}
+
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_loader.return_value.load.return_value = new_cfg
+
+            with patch.object(checker, "check") as mock_check:
+                mock_check.return_value = MagicMock(
+                    status="healthy",
+                    checked_at=1714972800.0,
+                    models=["gpt-4o"],
+                    error=None,
+                )
+
+                with patch.object(client.app.state, "health_checker", checker):
+                    response = client.get("/api/providers/openai/health")
+                    assert response.status_code == 200
+                    # 关键断言：checker.config 被更新为新配置
+                    assert checker.config is new_cfg
+                    # 由于 config 已更新，check 被调用时使用的是新配置
+                    mock_check.assert_called_once_with("openai", force=True)
