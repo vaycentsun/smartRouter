@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ModelInfo, ProviderInfo, HealthStatus } from '../types'
+import type { ModelInfo, ProviderInfo } from '../types'
 
 function TaskBadge({ task }: { task: string }) {
   return (
