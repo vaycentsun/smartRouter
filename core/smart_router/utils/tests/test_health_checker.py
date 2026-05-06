@@ -79,12 +79,32 @@ class TestProviderHealthChecker:
             ]
         }
 
-        with patch("httpx.AsyncClient.get", return_value=mock_response):
+        with patch("httpx.AsyncClient.get", return_value=mock_response) as mock_get:
             result = await checker.check("openai")
 
         assert result.status == "healthy"
         assert result.models == ["gpt-4o", "gpt-4o-mini"]
         assert result.error is None
+        # 验证 URL 正确：api_base 已包含 /v1，不应重复
+        mock_get.assert_called_once()
+        call_args = mock_get.call_args
+        assert call_args[0][0] == "https://api.openai.com/v1/models"
+
+    @pytest.mark.asyncio
+    async def test_check_healthy_url_without_v1_suffix(self, checker):
+        """api_base 不包含 /v1 时正确追加 /v1/models"""
+        # 修改 anthropic 的 api_key 使检查通过
+        checker.config.providers["aliyun"].api_key = "sk-test"
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": [{"id": "claude-3"}]}
+
+        with patch("httpx.AsyncClient.get", return_value=mock_response) as mock_get:
+            result = await checker.check("aliyun")
+
+        assert result.status == "healthy"
+        call_args = mock_get.call_args
+        assert call_args[0][0] == "https://dashscope.aliyuncs.com/compatible-mode/v1/models"
 
     @pytest.mark.asyncio
     async def test_check_auth_error_401(self, checker):

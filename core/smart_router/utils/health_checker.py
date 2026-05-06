@@ -148,7 +148,11 @@ class ProviderHealthChecker:
 
         # 3. 调用 /v1/models
         api_base = provider.api_base.rstrip("/")
-        url = f"{api_base}/v1/models"
+        # 兼容 api_base 已包含 /v1 的情况（如 https://api.openai.com/v1）
+        if api_base.endswith("/v1"):
+            url = f"{api_base}/models"
+        else:
+            url = f"{api_base}/v1/models"
         headers = {"Authorization": f"Bearer {api_key}"}
 
         try:
