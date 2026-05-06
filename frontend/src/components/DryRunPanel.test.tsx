@@ -35,14 +35,7 @@ describe('DryRunPanel', () => {
     expect(mockStoreState.runDryRun).toHaveBeenCalledWith('hello world', 'auto')
   })
 
-  it('switches strategy when button clicked', () => {
-    render(<DryRunPanel />)
-    fireEvent.click(screen.getByText('Cost'))
-    const textarea = screen.getByPlaceholderText('例如：帮我写一个快速排序算法')
-    fireEvent.change(textarea, { target: { value: 'test' } })
-    fireEvent.click(screen.getByText('测试路由'))
-    expect(mockStoreState.runDryRun).toHaveBeenCalledWith('test', 'cost')
-  })
+  // Strategy switching is removed; only Auto strategy remains.
 
   it('shows loading state', () => {
     mockStoreState.isLoading = true

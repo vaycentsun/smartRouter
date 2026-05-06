@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useDashboardStore } from '../store/useDashboardStore'
 import type { Strategy } from '../types'
 
+// Simplify to a single auto strategy.
 const STRATEGIES: { key: Strategy; label: string }[] = [
   { key: 'auto', label: 'Auto' },
-  { key: 'cost', label: 'Cost' },
 ]
 
 export function DryRunPanel() {
