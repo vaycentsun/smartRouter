@@ -358,6 +358,9 @@ async def provider_health(request: Request, provider_name: str):
     if not checker:
         raise HTTPException(status_code=500, detail="Health checker not initialized")
 
+    # 更新 checker 的配置为最新，避免用户修改 providers.yaml 后仍使用旧配置
+    checker.config = cfg
+
     result = await checker.check(provider_name, force=True)
 
     # 如果检查通过，自动将新发现的模型写入配置文件
@@ -388,6 +391,9 @@ async def provider_models(request: Request, provider_name: str):
     checker = getattr(request.app.state, "health_checker", None)
     if not checker:
         raise HTTPException(status_code=500, detail="Health checker not initialized")
+
+    # 更新 checker 的配置为最新，避免用户修改 providers.yaml 后仍使用旧配置
+    checker.config = cfg
 
     result = checker.get_cached(provider_name)
     if not result:
