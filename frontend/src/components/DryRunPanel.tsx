@@ -1,22 +1,15 @@
 import { useState } from 'react'
 import { useDashboardStore } from '../store/useDashboardStore'
-import type { Strategy } from '../types'
-
-// Simplify to a single auto strategy.
-const STRATEGIES: { key: Strategy; label: string }[] = [
-  { key: 'auto', label: 'Auto' },
-]
 
 export function DryRunPanel() {
   const [prompt, setPrompt] = useState('')
-  const [strategy, setStrategy] = useState<Strategy>('auto')
   const { runDryRun, dryRunResult, isLoading, error, clearError } =
     useDashboardStore()
 
   const handleSubmit = async () => {
     if (!prompt.trim()) return
     clearError()
-    await runDryRun(prompt.trim(), strategy)
+    await runDryRun(prompt.trim(), 'auto')
   }
 
   return (
@@ -38,28 +31,6 @@ export function DryRunPanel() {
             rows={3}
             className="w-full px-3 py-2 rounded-xl text-sm input-glow resize-none"
           />
-        </div>
-
-        {/* Strategy Buttons */}
-        <div>
-          <label className="block text-xs font-mono text-[#86868b] uppercase tracking-wider mb-2">
-            路由策略
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {STRATEGIES.map((s) => (
-              <button
-                key={s.key}
-                onClick={() => setStrategy(s.key)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  strategy === s.key
-                    ? 'strategy-btn-active'
-                    : 'strategy-btn text-[#86868b] hover:text-[#1d1d1f]'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Submit */}
