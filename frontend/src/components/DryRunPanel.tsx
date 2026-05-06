@@ -4,10 +4,7 @@ import type { Strategy } from '../types'
 
 const STRATEGIES: { key: Strategy; label: string }[] = [
   { key: 'auto', label: 'Auto' },
-  { key: 'quality', label: 'Quality' },
   { key: 'cost', label: 'Cost' },
-  { key: 'speed', label: 'Speed' },
-  { key: 'balanced', label: 'Balanced' },
 ]
 
 export function DryRunPanel() {

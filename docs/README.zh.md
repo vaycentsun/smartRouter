@@ -99,7 +99,7 @@ vim ~/.smart-router/routing.yaml    # 任务定义和路由策略
 
 Smart Router 采用三文件解耦架构：
 - **providers.yaml** - 服务商的 API Key 和基础 URL
-- **models.yaml** - 模型能力声明（quality/speed/cost 评分）
+- **models.yaml** - 模型能力声明（quality/cost 评分）
 - **routing.yaml** - 任务定义和路由策略
 
 详见 [配置说明](#配置说明)。
@@ -133,7 +133,7 @@ smart-router start --foreground
 smart-router dry-run "帮我审查这段 Python 代码"
 
 # 使用阶段标记
-smart-router dry-run "[stage:writing] 写一封商务邮件" --strategy quality
+smart-router dry-run "[stage:writing] 写一封商务邮件" --strategy cost
 ```
 
 ### 5. 客户端使用
@@ -251,7 +251,7 @@ providers:
 
 #### models.yaml
 
-声明模型能力（quality/speed/cost 评分 1-10）：
+声明模型能力（quality/cost 评分 1-10）：
 
 ```yaml
 models:
@@ -260,7 +260,6 @@ models:
     litellm_model: openai/gpt-4o
     capabilities:
       quality: 9                  # 质量评分（1-10）
-      speed: 8                    # 响应速度（1-10）
       cost: 3                     # 成本效率（10=最便宜）
       context: 128000             # 上下文窗口
     supported_tasks: [chat, code_review, writing]
@@ -278,14 +277,11 @@ tasks:
     description: "审查代码质量"
     capability_weights:           # 能力权重配置
       quality: 0.6                # 质量占 60%
-      speed: 0.2                  # 速度占 20%
-      cost: 0.2                   # 成本占 20%
+      cost: 0.4                   # 成本占 40%
 
 strategies:
   auto:     # 使用任务权重计算综合得分
-  quality:  # 选择质量最高的模型
-  speed:    # 选择最快的模型
-  cost:     # 选择最经济的模型
+  cost:     # 选择最经济的模型（带质量门槛过滤）
 
 fallback:
   mode: auto
@@ -300,10 +296,8 @@ fallback:
 
 ### 路由策略
 
-- `auto`：使用加权能力评分选择最佳模型
-- `speed`：选择响应速度最快的模型
-- `cost`：选择成本最低的模型
-- `quality`：选择质量最高的模型
+- `auto`：基于任务权重自动计算最佳模型
+- `cost`：选择成本最低的模型（带质量门槛过滤）
 
 更多配置说明见 [配置详解](GUIDE.md#配置详解)。
 
@@ -375,7 +369,7 @@ curl http://localhost:4000/v1/models \
 用户请求 → LiteLLM Proxy → SmartRouter 插件
                               ├── 阶段标记解析
                               ├── 任务分类 (L1规则 + L2相似度)
-                              ├── 模型选择 (auto/speed/cost/quality)
+                              ├── 模型选择 (auto/cost)
                               └── Fallback 管理
                 ↓
          目标模型服务商

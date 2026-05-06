@@ -99,7 +99,7 @@ vim ~/.smart-router/routing.yaml    # Task definitions and routing strategies
 
 Smart Router uses a three-file decoupled architecture:
 - **providers.yaml** - API keys and base URLs per provider
-- **models.yaml** - Model capabilities (quality/speed/cost scores)
+- **models.yaml** - Model capabilities (quality/cost scores)
 - **routing.yaml** - Task definitions and routing strategies
 
 See [Configuration Guide](#configuration) for details.
@@ -133,7 +133,7 @@ smart-router start --foreground
 smart-router dry-run "Review this Python code"
 
 # Use stage marker
-smart-router dry-run "[stage:writing] Write a business email" --strategy quality
+smart-router dry-run "[stage:writing] Write a business email" --strategy cost
 ```
 
 ### 5. Client Usage
@@ -251,7 +251,7 @@ providers:
 
 #### models.yaml
 
-Declare model capabilities (quality/speed/cost scores 1-10):
+Declare model capabilities (quality/cost scores 1-10):
 
 ```yaml
 models:
@@ -260,7 +260,6 @@ models:
     litellm_model: openai/gpt-4o
     capabilities:
       quality: 9                  # Quality score (1-10)
-      speed: 8                    # Response speed (1-10)
       cost: 3                     # Cost efficiency (10=cheapest)
       context: 128000             # Context window
     supported_tasks: [chat, code_review, writing]
@@ -278,14 +277,11 @@ tasks:
     description: "Review code quality"
     capability_weights:           # How to weight capabilities
       quality: 0.6                # 60% weight on quality
-      speed: 0.2                  # 20% weight on speed
-      cost: 0.2                   # 20% weight on cost
+      cost: 0.4                   # 40% weight on cost
 
 strategies:
   auto:     # Uses task weights to calculate composite score
-  quality:  # Selects highest quality model
-  speed:    # Selects fastest model
-  cost:     # Selects most cost-effective model
+  cost:     # Selects cheapest model (with quality threshold filter)
 
 fallback:
   mode: auto
@@ -300,10 +296,8 @@ fallback:
 
 ### Routing Strategies
 
-- `auto`: Use weighted capability scores to select best model
-- `speed`: Select fastest responding model
-- `cost`: Select most cost-effective model
-- `quality`: Select highest quality model
+- `auto`: Automatically calculate best model based on task weights
+- `cost`: Select cheapest model (with quality threshold filter)
 
 More configuration details: [Configuration Guide](docs/GUIDE.md#configuration)
 
@@ -375,7 +369,7 @@ More troubleshooting: [Troubleshooting Guide](docs/GUIDE.md#troubleshooting)
 User Request → LiteLLM Proxy → SmartRouter Plugin
                                   ├── Stage Marker Parsing
                                   ├── Task Classification (L1 Rules + L2 Similarity)
-                                  ├── Model Selection (auto/speed/cost/quality)
+                                  ├── Model Selection (auto/cost)
                                   └── Fallback Management
                     ↓
             Target Model Provider

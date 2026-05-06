@@ -32,7 +32,7 @@ smr start --foreground
 smr doctor
 
 # 测试路由决策（不调用模型）
-smr dry-run "Review this Python code" --strategy quality
+smr dry-run "Review this Python code" --strategy cost
 ```
 
 > 等价短命令：`smr` = `smart-router`
