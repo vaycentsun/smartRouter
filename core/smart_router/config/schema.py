@@ -117,7 +117,7 @@ class FormulaConfig(BaseModel):
     
     @model_validator(mode='after')
     def check_weights(self):
-        valid_dims = {"quality", "cost", "reasoning", "creative", "context"}
+        valid_dims = {"quality", "cost"}
         unknown = set(self.weights.keys()) - valid_dims
         if unknown:
             raise ValueError(f"Unknown dimensions: {unknown}. Valid: {valid_dims}")

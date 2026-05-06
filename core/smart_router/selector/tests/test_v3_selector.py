@@ -191,8 +191,8 @@ class TestV3ModelSelector:
         result2 = selector.get_available_models("chat", "easy")
         assert result1 == result2
 
-    def test_select_with_formula_reasoning_weight(self):
-        """formula 包含 reasoning 权重时正确计算"""
+    def test_select_with_quality_heavy_formula(self):
+        """quality 权重较高时应选择高质量模型"""
         config = Config(
             providers={
                 "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
@@ -201,14 +201,14 @@ class TestV3ModelSelector:
                 "model-a": ModelConfig(
                     provider="openai",
                     litellm_model="openai/a",
-                    capabilities=ModelCapabilities(quality=8, cost=5, context=128000, reasoning=9),
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
                     supported_tasks=["chat"],
                     difficulty_support=["easy"]
                 ),
                 "model-b": ModelConfig(
                     provider="openai",
                     litellm_model="openai/b",
-                    capabilities=ModelCapabilities(quality=6, cost=8, context=128000, reasoning=5),
+                    capabilities=ModelCapabilities(quality=6, cost=8, context=128000),
                     supported_tasks=["chat"],
                     difficulty_support=["easy"]
                 )
@@ -218,27 +218,27 @@ class TestV3ModelSelector:
                     "chat": TaskConfig(
                         name="Chat",
                         description="General chat",
-                        capability_weights={"quality": 0.3, "cost": 0.3, "reasoning": 0.4}
+                        capability_weights={"quality": 0.8, "cost": 0.2}
                     )
                 },
                 difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
                 strategies={"auto": StrategyConfig(description="Auto")},
-                formula=FormulaConfig(weights={"quality": 0.3, "cost": 0.3, "reasoning": 0.4}),
+                formula=FormulaConfig(weights={"quality": 0.8, "cost": 0.2}),
                 fallback=FallbackConfig()
             )
         )
-        
+
         selector = V3ModelSelector(config)
         result = selector.select("chat", "easy", "auto")
-        
-        # model-a: 8*0.3 + 5*0.3 + 9*0.4 = 2.4 + 1.5 + 3.6 = 7.5
-        # model-b: 6*0.3 + 8*0.3 + 5*0.4 = 1.8 + 2.4 + 2.0 = 6.2
+
+        # model-a: 9*0.8 + 3*0.2 = 7.2 + 0.6 = 7.8
+        # model-b: 6*0.8 + 8*0.2 = 4.8 + 1.6 = 6.4
         assert result.model_name == "model-a"
-        assert result.score == 7.5
+        assert result.score == pytest.approx(7.8)
         assert "Formula score" in result.reason
 
-    def test_select_with_formula_creative_weight(self):
-        """formula 包含 creative 权重时正确计算"""
+    def test_select_with_cost_heavy_formula(self):
+        """cost 权重较高时应选择低成本模型"""
         config = Config(
             providers={
                 "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
@@ -247,32 +247,40 @@ class TestV3ModelSelector:
                 "model-a": ModelConfig(
                     provider="openai",
                     litellm_model="openai/a",
-                    capabilities=ModelCapabilities(quality=8, cost=5, context=128000, creative=9),
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
                     supported_tasks=["chat"],
                     difficulty_support=["easy"]
                 ),
+                "model-b": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/b",
+                    capabilities=ModelCapabilities(quality=6, cost=9, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                )
             },
             routing=RoutingConfig(
                 tasks={
                     "chat": TaskConfig(
                         name="Chat",
                         description="General chat",
-                        capability_weights={"quality": 0.3, "cost": 0.3, "creative": 0.4}
+                        capability_weights={"quality": 0.2, "cost": 0.8}
                     )
                 },
                 difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
                 strategies={"auto": StrategyConfig(description="Auto")},
-                formula=FormulaConfig(weights={"quality": 0.3, "cost": 0.3, "creative": 0.4}),
+                formula=FormulaConfig(weights={"quality": 0.2, "cost": 0.8}),
                 fallback=FallbackConfig()
             )
         )
-        
+
         selector = V3ModelSelector(config)
         result = selector.select("chat", "easy", "auto")
-        
-        # model-a: 8*0.3 + 5*0.3 + 9*0.4 = 2.4 + 1.5 + 3.6 = 7.5
-        assert result.model_name == "model-a"
-        assert result.score == 7.5
+
+        # model-a: 9*0.2 + 3*0.8 = 1.8 + 2.4 = 4.2
+        # model-b: 6*0.2 + 9*0.8 = 1.2 + 7.2 = 8.4
+        assert result.model_name == "model-b"
+        assert result.score == 8.4
         assert "Formula score" in result.reason
 
     def test_formula_score_no_normalization(self):

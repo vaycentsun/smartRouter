@@ -3,7 +3,7 @@ from ..config.schema import FormulaConfig, ModelCapabilities
 
 
 class FormulaEvaluator:
-    VALID_DIMENSIONS = {"quality", "cost", "reasoning", "creative", "context"}
+    VALID_DIMENSIONS = {"quality", "cost"}
     
     def __init__(self, formula: FormulaConfig):
         self.formula = formula
