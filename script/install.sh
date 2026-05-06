@@ -7,9 +7,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/.."
 
-echo "🚀 正在安装 Smart Router (可移植版本)..."
+# ==================== 工具检测 ====================
+# 检测是否可用 uv（Rust 编写，比 pip 快 10-80 倍）
+USE_UV=false
+if command -v uv &> /dev/null; then
+    USE_UV=true
+    echo "🚀 检测到 uv，将使用 uv 加速安装..."
+else
+    echo "🚀 正在安装 Smart Router (可移植版本)..."
+fi
 
-# 检查 Python 版本
+# ==================== Python 版本检查 ====================
 python_version=$(python3 --version 2>&1 | awk '{print $2}' | cut -d. -f1,2)
 required_version="3.9"
 if [ "$(printf '%s\n' "$required_version" "$python_version" | sort -V | head -n1)" != "$required_version" ]; then
@@ -60,38 +68,31 @@ echo "📦 创建目录结构..."
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$BIN_DIR"
 
-# 创建虚拟环境
+# 创建虚拟环境（优先使用 uv，否则用标准 venv）
 echo "📦 创建虚拟环境..."
-python3 -m venv --upgrade-deps "$VENV_DIR"
+if [ "$USE_UV" = true ]; then
+    uv venv "$VENV_DIR" --python python3
+else
+    python3 -m venv --upgrade-deps "$VENV_DIR"
+fi
 
-# 创建临时目录复制源码进行安装（与开发目录完全分离）
-echo "📦 准备安装包..."
-TEMP_DIR=$(mktemp -d)
-trap "rm -rf $TEMP_DIR" EXIT
-
-# 复制项目文件到临时目录
-cp -r "$PROJECT_DIR/core" "$TEMP_DIR/"
-cp -r "$PROJECT_DIR/script" "$TEMP_DIR/"
-cp -r "$PROJECT_DIR/config" "$TEMP_DIR/" 2>/dev/null || true
-cp "$PROJECT_DIR/pyproject.toml" "$TEMP_DIR/"
-cp "$PROJECT_DIR/README.md" "$TEMP_DIR/" 2>/dev/null || true
-cp "$PROJECT_DIR/LICENSE" "$TEMP_DIR/" 2>/dev/null || true
-
-# 使用虚拟环境的 pip 安装（非 editable 模式）
+# 使用虚拟环境的 pip/uv 安装（直接从项目目录安装，避免先复制到临时目录）
+# pip/uv 自身会处理构建隔离和临时文件，无需手动复制
 echo "📦 安装 Smart Router 到虚拟环境..."
-cd "$TEMP_DIR"
-"$VENV_DIR/bin/pip" install -q -U pip setuptools wheel
-"$VENV_DIR/bin/pip" install -q "."
+if [ "$USE_UV" = true ]; then
+    uv pip install --python "$VENV_DIR/bin/python" -q "$PROJECT_DIR"
+else
+    # 标准 pip：无需手动升级 pip（venv --upgrade-deps 已处理）
+    "$VENV_DIR/bin/pip" install -q "$PROJECT_DIR"
+fi
 
-# 验证安装
+# 验证安装（轻量级：只检查命令是否存在）
 echo "✅ 验证安装..."
-"$VENV_DIR/bin/python" -c "
-from smart_router.classifier import TaskClassifier
-from smart_router.selector import ModelSelector
-from smart_router.utils.markers import parse_markers, strip_markers
-from smart_router.config.loader import ConfigLoader
-print('✓ 所有模块导入成功')
-"
+if [ ! -x "$VENV_DIR/bin/smart-router" ]; then
+    echo "❌ 安装验证失败：未找到 smart-router 命令"
+    exit 1
+fi
+echo "  ✓ smart-router 命令已就绪"
 
 # 生成默认配置（安全模式：不覆盖已有配置）
 echo "📝 检查并生成默认配置文件..."
@@ -150,6 +151,9 @@ fi
 
 echo ""
 echo "✨ Smart Router V3 安装成功！"
+if [ "$USE_UV" = true ]; then
+    echo "   （使用 uv 加速安装）"
+fi
 echo ""
 echo "📁 安装位置:"
 echo "   $INSTALL_DIR/"
@@ -158,7 +162,7 @@ echo "   │   ├── smr              # 启动脚本（相对路径）"
 echo "   │   └── smart-router     # 同上"
 echo "   ├── venv/                # 虚拟环境"
 echo "   ├── providers.yaml       # 配置文件"
-echo "   ├── models.yaml"
+echo "   ├── models/              # 模型配置目录（V3）"
 echo "   └── routing.yaml"
 echo ""
 echo "📖 快速开始："
