@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api/client'
+import { useDashboardStore } from '../store/useDashboardStore'
+import { PlaygroundModelCard } from './PlaygroundModelCard'
 
 interface FormulaTemplate {
   id: string
@@ -40,6 +42,15 @@ const DEFAULT_WEIGHTS: Record<string, number> = {
 }
 
 export function FormulaBuilder() {
+  const {
+    models,
+    runPlayground,
+    playgroundResults,
+    isLoadingPlayground,
+    playgroundError,
+    clearPlaygroundError,
+  } = useDashboardStore()
+
   const [weights, setWeights] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS })
   const [originalWeights, setOriginalWeights] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS })
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
@@ -49,6 +60,11 @@ export function FormulaBuilder() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
+
+  // Playground 嵌入状态
+  const [showPlayground, setShowPlayground] = useState(false)
+  const [pgPrompt, setPgPrompt] = useState('')
+  const [pgModels, setPgModels] = useState<string[]>([])
 
   // 加载当前公式
   useEffect(() => {
@@ -120,6 +136,32 @@ export function FormulaBuilder() {
     setPreviewModels([])
     setMessage(null)
   }, [originalWeights])
+
+  // 打开 Playground 并预填充模型
+  const openPlayground = useCallback((modelName: string) => {
+    setPgPrompt(testPrompt)
+    setPgModels([modelName])
+    setShowPlayground(true)
+    clearPlaygroundError()
+  }, [testPrompt, clearPlaygroundError])
+
+  const togglePgModel = useCallback((modelName: string) => {
+    setPgModels((prev) => {
+      if (prev.includes(modelName)) {
+        return prev.filter((m) => m !== modelName)
+      }
+      if (prev.length >= 3) return prev
+      return [...prev, modelName]
+    })
+  }, [])
+
+  const handlePgRun = useCallback(() => {
+    if (!pgPrompt.trim() || pgModels.length === 0) return
+    clearPlaygroundError()
+    runPlayground({ mode: pgModels.length > 1 ? 'compare' : 'single', prompt: pgPrompt.trim(), models: pgModels })
+  }, [pgPrompt, pgModels, runPlayground, clearPlaygroundError])
+
+  const availableModels = models.filter((m) => m.available)
 
   // 构建公式文本
   const formulaText = DIMENSIONS
@@ -292,7 +334,15 @@ export function FormulaBuilder() {
                         <span className="text-xs text-[#007AFF] font-medium">★ 最佳</span>
                       )}
                     </div>
-                    <span className="text-sm font-mono text-[#007AFF]">{model.score.toFixed(2)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono text-[#007AFF]">{model.score.toFixed(2)}</span>
+                      <button
+                        onClick={() => openPlayground(model.name)}
+                        className="px-2 py-1 text-xs font-medium text-[#007AFF] bg-[rgba(0,122,255,0.08)] border border-[rgba(0,122,255,0.15)] rounded-lg hover:bg-[rgba(0,122,255,0.12)] transition-all"
+                      >
+                        测试
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -300,6 +350,84 @@ export function FormulaBuilder() {
           </div>
         </div>
       </div>
+
+      {/* Playground 验证区域 */}
+      {showPlayground && (
+        <div className="glass-card rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium text-[#1d1d1f]">Playground 验证</h3>
+            <button
+              onClick={() => setShowPlayground(false)}
+              className="text-sm text-[#86868b] hover:text-[#1d1d1f] transition-colors"
+            >
+              收起
+            </button>
+          </div>
+
+          {/* Prompt */}
+          <div>
+            <label className="block text-xs font-mono text-[#86868b] uppercase tracking-wider mb-2">
+              输入提示词
+            </label>
+            <textarea
+              value={pgPrompt}
+              onChange={(e) => setPgPrompt(e.target.value)}
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-[#d2d2d7] bg-white/50 text-sm text-[#1d1d1f] placeholder-[#a1a1a6] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] resize-none"
+            />
+          </div>
+
+          {/* Model Selection */}
+          <div>
+            <label className="block text-xs font-mono text-[#86868b] uppercase tracking-wider mb-2">
+              选择模型（最多3个）
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {availableModels.map((m) => (
+                <button
+                  key={m.name}
+                  onClick={() => togglePgModel(m.name)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                    pgModels.includes(m.name)
+                      ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] border-[rgba(0,122,255,0.15)]'
+                      : 'text-[#86868b] border-transparent hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+                  }`}
+                >
+                  {m.name}
+                </button>
+              ))}
+              {availableModels.length === 0 && (
+                <span className="text-sm text-[#86868b]">暂无可用模型</span>
+              )}
+            </div>
+          </div>
+
+          {/* Run */}
+          <button
+            onClick={handlePgRun}
+            disabled={isLoadingPlayground || !pgPrompt.trim() || pgModels.length === 0}
+            className="w-full px-4 py-2.5 bg-[rgba(0,122,255,0.08)] text-[#007AFF] border border-[rgba(0,122,255,0.15)] rounded-xl hover:bg-[rgba(0,122,255,0.12)] hover:border-[rgba(0,122,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium backdrop-blur-sm"
+          >
+            {isLoadingPlayground ? '请求中...' : '运行测试'}
+          </button>
+
+          {/* Error */}
+          {playgroundError && (
+            <div className="p-3 bg-[rgba(255,59,48,0.04)] border border-[rgba(255,59,48,0.12)] rounded-xl">
+              <p className="text-sm text-[#FF3B30]">{playgroundError}</p>
+            </div>
+          )}
+
+          {/* Results */}
+          {playgroundResults.length > 0 && (
+            <div className="space-y-4 pt-2">
+              {playgroundResults.map((result) => (
+                <PlaygroundModelCard key={result.model} result={result} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

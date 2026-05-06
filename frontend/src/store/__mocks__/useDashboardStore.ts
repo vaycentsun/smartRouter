@@ -1,6 +1,7 @@
 import { vi } from 'vitest'
 
 export const mockStoreState: Record<string, unknown> = {
+  models: [],
   modelOverrides: {},
   modelOverride: { provider: null, model: null, enabled: false },
   setModelOverride: vi.fn(),
