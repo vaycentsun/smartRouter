@@ -1,22 +1,16 @@
 import { useState } from 'react'
 import type { ModelInfo, ProviderInfo } from '../types'
 
+function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
+  if (!active) return <span className="text-[rgba(0,0,0,0.12)] ml-1 text-xs">↕</span>
+  return <span className="text-[#007AFF] ml-1 text-xs">{asc ? '↑' : '↓'}</span>
+}
+
 function TaskBadge({ task }: { task: string }) {
   return (
     <span className="inline-block px-2 py-0.5 bg-[rgba(0,122,255,0.06)] text-[#007AFF]/80 text-xs rounded border border-[rgba(0,122,255,0.12)] mr-1">
       {task}
     </span>
-  )
-}
-
-function StarRating({ value, colorClass }: { value: number; colorClass: string }) {
-  const filled = Math.floor(value / 2)
-  return (
-    <div className="flex items-center gap-0.5">
-      {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} className={`text-xs ${i < filled ? colorClass : 'text-[rgba(0,0,0,0.08)]'}`}>★</span>
-      ))}
-    </div>
   )
 }
 
@@ -77,6 +71,15 @@ export function ProviderModelsPanel({
 }: ProviderModelsPanelProps) {
   const [keyInput, setKeyInput] = useState('')
   const [showKey, setShowKey] = useState(false)
+  const [sortConfig, setSortConfig] = useState<{ key: string; asc: boolean }>({ key: 'name', asc: true })
+
+  const handleSort = (key: string) => {
+    setSortConfig((prev) => ({
+      key,
+      asc: prev.key === key ? !prev.asc : true,
+    }))
+  }
+
   if (!provider) {
     return (
       <div className="glass-card rounded-2xl p-8 flex items-center justify-center min-h-[300px]">
@@ -87,6 +90,29 @@ export function ProviderModelsPanel({
 
   const providerModels = models.filter((m) => m.provider === provider.name)
   const providerHealth = provider.health
+
+  const sortedModels = [...providerModels].sort((a, b) => {
+    let aVal: any
+    let bVal: any
+    if (sortConfig.key === 'status') {
+      aVal = getModelHealthDisplay(a, providerHealth).label
+      bVal = getModelHealthDisplay(b, providerHealth).label
+    } else if (sortConfig.key === 'context') {
+      aVal = a.context
+      bVal = b.context
+    } else if (sortConfig.key === 'tasks') {
+      aVal = a.supported_tasks.length
+      bVal = b.supported_tasks.length
+    } else {
+      aVal = a.name
+      bVal = b.name
+    }
+    const mult = sortConfig.asc ? 1 : -1
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
+      return aVal.localeCompare(bVal) * mult
+    }
+    return (aVal - bVal) * mult
+  })
 
   return (
     <div className="glass-card rounded-2xl overflow-hidden">
@@ -181,16 +207,22 @@ export function ProviderModelsPanel({
           <table className="w-full text-sm text-left">
             <thead className="bg-[rgba(0,0,0,0.02)] text-[#86868b]">
               <tr>
-                <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">模型名称</th>
-                <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">状态</th>
-                <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">Quality</th>
-                <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">Cost</th>
-                <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">Context</th>
+                <th onClick={() => handleSort('name')} className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-[#007AFF] select-none transition-colors">
+                  模型名称<SortIcon active={sortConfig.key === 'name'} asc={sortConfig.asc} />
+                </th>
+                <th onClick={() => handleSort('status')} className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-[#007AFF] select-none transition-colors">
+                  状态<SortIcon active={sortConfig.key === 'status'} asc={sortConfig.asc} />
+                </th>
+                {/* <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">Quality</th> */}
+                {/* <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">Cost</th> */}
+                <th onClick={() => handleSort('context')} className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-[#007AFF] select-none transition-colors">
+                  Context<SortIcon active={sortConfig.key === 'context'} asc={sortConfig.asc} />
+                </th>
                 <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">支持任务</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[rgba(0,0,0,0.04)]">
-              {providerModels.map((model) => {
+              {sortedModels.map((model) => {
                 const display = getModelHealthDisplay(model, providerHealth)
                 return (
                   <tr key={model.name} className="table-row-hover">
@@ -204,8 +236,8 @@ export function ProviderModelsPanel({
                         {display.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3"><StarRating value={model.quality} colorClass="text-[#FF9500]" /></td>
-                    <td className="px-4 py-3"><StarRating value={model.cost} colorClass="text-[#FF9500]" /></td>
+                    {/* <td className="px-4 py-3"><StarRating value={model.quality} colorClass="text-[#FF9500]" /></td> */}
+                    {/* <td className="px-4 py-3"><StarRating value={model.cost} colorClass="text-[#FF9500]" /></td> */}
                     <td className="px-4 py-3 text-[#86868b] font-mono text-xs">
                       {model.context >= 1000 ? `${Math.floor(model.context / 1000)}k` : model.context}
                     </td>

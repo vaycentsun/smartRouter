@@ -63,8 +63,8 @@ export function ModelsExplorer() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
+      <div className="grid grid-cols-1 lg:grid-cols-[0.7fr_2.3fr] gap-6">
+        <div>
           <ProviderSidebar
             providers={providers}
             selectedProvider={selectedProvider}
@@ -72,7 +72,7 @@ export function ModelsExplorer() {
             onSelect={setSelectedProvider}
           />
         </div>
-        <div className="lg:col-span-2">
+        <div>
           <ProviderModelsPanel
             provider={currentProvider}
             models={models}
