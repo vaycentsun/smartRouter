@@ -6,8 +6,8 @@ models:
     provider: _virtual
     litellm_model: openai/virtual-model
     capabilities:
-      quality: 0
-      cost: 0
+      quality: 1
+      cost: 1
       context: 2560000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
@@ -16,8 +16,8 @@ models:
     provider: _virtual
     litellm_model: openai/virtual-model
     capabilities:
-      quality: 0
-      cost: 0
+      quality: 1
+      cost: 1
       context: 2560000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
@@ -26,8 +26,8 @@ models:
     provider: _virtual
     litellm_model: openai/virtual-model
     capabilities:
-      quality: 0
-      cost: 0
+      quality: 1
+      cost: 1
       context: 2560000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
