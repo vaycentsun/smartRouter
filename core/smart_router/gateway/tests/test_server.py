@@ -866,6 +866,8 @@ class TestTokenStatsMiddleware:
         assert all_stats["gpt-4o"]["prompt_tokens"] == 50
         assert all_stats["gpt-4o"]["completion_tokens"] == 25
         assert all_stats["gpt-4o"]["total_tokens"] == 75
+        assert all_stats["gpt-4o"]["reasoning_tokens"] == 0
+        assert all_stats["gpt-4o"]["cached_tokens"] == 0
         assert all_stats["gpt-4o"]["request_count"] == 1
         
         # 验证返回的是 StreamingResponse
@@ -1276,6 +1278,8 @@ class TestRoutingHistoryMiddleware:
         assert record["prompt_tokens"] == 10
         assert record["completion_tokens"] == 5
         assert record["total_tokens"] == 15
+        assert record["reasoning_tokens"] == 0
+        assert record["cached_tokens"] == 0
         assert "request_id" in record
         assert "timestamp" in record
 

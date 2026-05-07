@@ -333,11 +333,23 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         completion_tokens = usage.get("completion_tokens", 0)
                         total_tokens = usage.get("total_tokens", 0)
                         
-                        console.print(f"[green]✓ Recording tokens: {model_name} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens}[/green]")
+                        # 提取 reasoning_tokens 和 cached_tokens（OpenAI 等格式）
+                        reasoning_tokens = 0
+                        completion_details = usage.get("completion_tokens_details", {})
+                        if completion_details:
+                            reasoning_tokens = completion_details.get("reasoning_tokens", 0)
+                        
+                        cached_tokens = 0
+                        prompt_details = usage.get("prompt_tokens_details", {})
+                        if prompt_details:
+                            cached_tokens = prompt_details.get("cached_tokens", 0)
+                        
+                        console.print(f"[green]✓ Recording tokens: {model_name} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens} reasoning:{reasoning_tokens} cached:{cached_tokens}[/green]")
                         
                         token_stats = request.app.state.token_stats
                         await token_stats.record(
-                            model_name, prompt_tokens, completion_tokens, total_tokens
+                            model_name, prompt_tokens, completion_tokens, total_tokens,
+                            reasoning_tokens=reasoning_tokens, cached_tokens=cached_tokens
                         )
                     else:
                         console.print("[yellow]No usage data in response[/yellow]")
@@ -399,6 +411,8 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             prompt_tokens=usage.get("prompt_tokens", 0) if usage else 0,
                             completion_tokens=usage.get("completion_tokens", 0) if usage else 0,
                             total_tokens=usage.get("total_tokens", 0) if usage else 0,
+                            reasoning_tokens=reasoning_tokens if usage else 0,
+                            cached_tokens=cached_tokens if usage else 0,
                         )
 
                         history = getattr(request.app.state, 'request_routing_history', None)
