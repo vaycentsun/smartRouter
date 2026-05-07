@@ -219,6 +219,8 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
     # 构建启动命令 - 使用虚拟环境的 Python
     python_exe = _get_python_executable()
     cmd = [python_exe, "-m", "smart_router.gateway.server_main"]
+    cmd.extend(["--log-file", str(log_file)])
+    cmd.extend(["--log-level", "INFO"])
     if config_path:
         cmd.extend(["--config", str(config_path)])
     
@@ -338,19 +340,31 @@ def check_status():
         return False
 
 
-def view_logs(lines: int = 50, follow: bool = False):
+def view_logs(lines: int = 50, follow: bool = False, level: str = "ALL"):
     """
     查看服务日志
 
     Args:
         lines: 显示最后 N 行
         follow: 是否持续跟踪（类似 tail -f）
+        level: 日志等级筛选（ALL/DEBUG/INFO/WARNING/ERROR/CRITICAL）
     """
+    import logging
+    from smart_router.utils.log_parser import parse_log_line
+    
     log_file = DEFAULT_PID_DIR / "smart-router.log"
 
     if not log_file.exists():
         console.print("[yellow]日志文件不存在[/yellow]")
         return
+
+    # 解析等级参数
+    level_filter = None
+    if level.upper() != "ALL":
+        level_filter = getattr(logging, level.upper(), None)
+        if level_filter is None:
+            console.print(f"[red]无效的日志等级: {level}[/red]")
+            return
 
     if follow:
         # 持续跟踪模式
@@ -364,6 +378,11 @@ def view_logs(lines: int = 50, follow: bool = False):
                 while True:
                     line = f.readline()
                     if line:
+                        # 如果设置了等级筛选，则只显示符合等级的日志
+                        if level_filter is not None:
+                            parsed = parse_log_line(line)
+                            if parsed.levelno < level_filter:
+                                continue
                         console.print(line.rstrip())
                     else:
                         time.sleep(0.1)
@@ -372,14 +391,30 @@ def view_logs(lines: int = 50, follow: bool = False):
     else:
         # 显示最后 N 行
         try:
-            with open(log_file, "r") as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 all_lines = f.readlines()
-
-            console.print(f"[dim]显示最后 {min(lines, len(all_lines))} 行日志:[/dim]\n")
-
-            for line in all_lines[-lines:]:
-                console.print(line.rstrip())
-
+            
+            # 解析并筛选
+            filtered_lines = []
+            for line in all_lines:
+                parsed = parse_log_line(line)
+                if level_filter is None:
+                    filtered_lines.append(line.rstrip())
+                elif parsed.levelno >= level_filter:
+                    filtered_lines.append(line.rstrip())
+                elif parsed.timestamp is None:
+                    # 无法解析的行视为 INFO
+                    if level_filter <= logging.INFO:
+                        filtered_lines.append(line.rstrip())
+            
+            # 取最后 N 行
+            display_lines = filtered_lines[-lines:] if lines > 0 else filtered_lines
+            
+            level_display = level if level_filter is None else logging.getLevelName(level_filter)
+            console.print(f"[dim]显示最后 {len(display_lines)} 行日志 (level>={level_display}):[/dim]\n")
+            for line in display_lines:
+                console.print(line)
+                
         except IOError as e:
             console.print(f"[red]读取日志失败: {e}[/red]")
 
@@ -474,6 +509,10 @@ def start_dashboard_daemon(
     if foreground:
         # 前台模式：直接运行 uvicorn
         import uvicorn
+        from smart_router.utils.logging_config import get_uvicorn_log_config
+
+        # 配置 uvicorn 日志
+        log_config = get_uvicorn_log_config(DASHBOARD_LOG_FILE)
 
         _write_pid_to_file(DASHBOARD_PID_FILE, os.getpid())
 
@@ -497,7 +536,7 @@ def start_dashboard_daemon(
             # 内联创建 ASGI app，避免依赖 smart_router.web.server 子模块
             # （旧版本 pip 安装的包中不存在该子目录）
             _dashboard_app = _build_dashboard_app()
-            uvicorn.run(_dashboard_app, host=host, port=port)
+            uvicorn.run(_dashboard_app, host=host, port=port, log_config=log_config)
         finally:
             _cleanup()
     else:
