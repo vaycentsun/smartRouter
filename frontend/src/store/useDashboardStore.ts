@@ -225,8 +225,17 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       await api.stopService()
-      await get().fetchAll()
-      set({ isLoading: false })
+      // 服务已停止，手动更新状态（fetchAll 会因 API 不可用而失败）
+      set({
+        status: {
+          running: false,
+          pid: null,
+          uptime_seconds: null,
+          service_url: null,
+          version: get().status?.version || '',
+        },
+        isLoading: false,
+      })
     } catch (err) {
       set({ error: (err as Error).message, isLoading: false })
     }
