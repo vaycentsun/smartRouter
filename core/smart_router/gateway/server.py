@@ -1,6 +1,8 @@
 import os
 import sys
 import json
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -54,10 +56,24 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                 data["model"] = model_name
                                 
                                 # 保存到 request.state 供后续使用
+                                request.state.smart_router_selected = model_name
                                 request.state.smart_router_override = True
                                 request.state.smart_router_override_provider = override_provider
                                 request.state.smart_router_override_model = model_name
                                 request.state.smart_router_original = original_model
+                                request.state.smart_router_task = "override"
+                                
+                                request_id = str(uuid.uuid4())[:8]
+                                request.state.smart_router_request_id = request_id
+                                request.state.smart_router_routing_info = {
+                                    "request_id": request_id,
+                                    "original_model": original_model,
+                                    "selected_model": model_name,
+                                    "task_type": "override",
+                                    "difficulty": None,
+                                    "strategy": "override",
+                                    "fallback_chain": [],
+                                }
                                 
                                 console.print(f"[cyan]模型覆盖: {original_model} -> {model_name} (provider: {override_provider})[/cyan]")
                                 
@@ -95,6 +111,18 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                     request.state.smart_router_override = True
                                     request.state.smart_router_override_provider = go_provider
                                     request.state.smart_router_override_model = go_model
+                                    
+                                    request_id = str(uuid.uuid4())[:8]
+                                    request.state.smart_router_request_id = request_id
+                                    request.state.smart_router_routing_info = {
+                                        "request_id": request_id,
+                                        "original_model": original_model,
+                                        "selected_model": go_model,
+                                        "task_type": "override",
+                                        "difficulty": None,
+                                        "strategy": "override",
+                                        "fallback_chain": [],
+                                    }
                                     
                                     console.print(f"[cyan]全局模型覆盖: {original_model} -> {go_model} (provider: {go_provider})[/cyan]")
                                     
@@ -136,7 +164,6 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                     request.state.smart_router_difficulty = result.difficulty
                                     request.state.smart_router_strategy = result.strategy
 
-                                    import uuid
                                     request_id = str(uuid.uuid4())[:8]
                                     request.state.smart_router_request_id = request_id
 
@@ -178,6 +205,18 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                                 request.state.smart_router_selected = fallback_model
                                                 request.state.smart_router_original = original_model
                                                 request.state.smart_router_task = "fallback"
+                                                
+                                                request_id = str(uuid.uuid4())[:8]
+                                                request.state.smart_router_request_id = request_id
+                                                request.state.smart_router_routing_info = {
+                                                    "request_id": request_id,
+                                                    "original_model": original_model,
+                                                    "selected_model": fallback_model,
+                                                    "task_type": "fallback",
+                                                    "difficulty": None,
+                                                    "strategy": "fallback",
+                                                    "fallback_chain": [],
+                                                }
                                                 
                                                 modified_body = json.dumps(data).encode("utf-8")
 
@@ -342,7 +381,6 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             except ValueError:
                                 pass
 
-                        from datetime import datetime, timezone
                         from smart_router.utils.request_routing_history import RequestRoutingEntry
                         
                         entry = RequestRoutingEntry(

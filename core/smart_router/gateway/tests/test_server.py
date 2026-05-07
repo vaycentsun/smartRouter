@@ -1416,3 +1416,144 @@ class TestRoutingHistoryMiddleware:
         assert records[0]["selected_model"] == "gpt-4o"
         assert records[0]["actual_model"] == "gpt-4o"
         assert records[0]["did_fallback"] is False
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_routing_info_for_header_override(self, mock_router):
+        """验证请求头覆盖时也能记录路由信息到 RequestRoutingHistory"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
+
+        mock_router.sr_config.models = {
+            "gpt-4o": MagicMock(provider="openai"),
+        }
+        mock_router.sr_config.is_model_available.return_value = True
+
+        history = RequestRoutingHistory(max_size=50)
+
+        async def mock_call_next(request):
+            return Response(
+                content=json.dumps({
+                    "model": "gpt-4o",
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+                }).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        app.state.token_stats = AsyncMock()
+        app.state.request_routing_history = history
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [
+                (b"x-smart-router-override-provider", b"openai"),
+                (b"x-smart-router-override-model", b"gpt-4o"),
+            ],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "Hello"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+
+        records = history.get_recent()
+        assert len(records) == 1
+
+        record = records[0]
+        assert record["original_model"] == "auto"
+        assert record["selected_model"] == "gpt-4o"
+        assert record["actual_model"] == "gpt-4o"
+        assert record["task_type"] == "override"
+        assert record["strategy"] == "override"
+        assert record["did_fallback"] is False
+        assert record["fallback_chain"] == []
+        assert record["status_code"] == 200
+        assert "request_id" in record
+        assert "timestamp" in record
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_routing_info_for_global_override(self, mock_router):
+        """验证全局覆盖时也能记录路由信息到 RequestRoutingHistory"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
+
+        mock_router.sr_config.models = {
+            "gui-plus-2026-02-26": MagicMock(provider="aliyun"),
+        }
+        mock_router.sr_config.is_model_available.return_value = True
+
+        history = RequestRoutingHistory(max_size=50)
+
+        async def mock_call_next(request):
+            return Response(
+                content=json.dumps({
+                    "model": "gui-plus-2026-02-26",
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+                }).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = {
+            "provider": "aliyun",
+            "model": "gui-plus-2026-02-26",
+            "enabled": True,
+        }
+        app.state.token_stats = AsyncMock()
+        app.state.request_routing_history = history
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "Hello"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+
+        records = history.get_recent()
+        assert len(records) == 1
+
+        record = records[0]
+        assert record["original_model"] == "auto"
+        assert record["selected_model"] == "gui-plus-2026-02-26"
+        assert record["actual_model"] == "gui-plus-2026-02-26"
+        assert record["task_type"] == "override"
+        assert record["strategy"] == "override"
+        assert record["did_fallback"] is False
+        assert record["fallback_chain"] == []
+        assert record["status_code"] == 200
+        assert "request_id" in record
+        assert "timestamp" in record
