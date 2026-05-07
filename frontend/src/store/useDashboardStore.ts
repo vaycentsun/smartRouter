@@ -87,8 +87,9 @@ interface DashboardState {
   clearToast: () => void
   setModelOverride: (provider: string | null, model: string | null) => Promise<void>
   clearModelOverride: () => Promise<void>
-  fetchLogs: (source?: LogSource) => Promise<void>
+  fetchLogs: (source?: LogSource, level?: string) => Promise<void>
   setLogSource: (source: LogSource) => void
+  setLogLevel: (level: string) => void
   clearLogError: () => void
   fetchTokenStats: () => Promise<void>
   fetchAnalytics: (days?: number) => Promise<void>
@@ -147,7 +148,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   modelsFilter: '',
   modelsSort: { key: 'name', asc: true },
   modelOverride: loadOverrideFromStorage(),
-  logs: { lines: [], offset: 0, total_size: 0, source: 'service' as LogSource },
+  logs: { lines: [], offset: 0, total_size: 0, source: 'service' as LogSource, level: 'ALL' },
   isLoadingLogs: false,
   logError: null,
   tokenStats: [],
@@ -301,20 +302,22 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
   },
 
-  fetchLogs: async (source?: LogSource) => {
+  fetchLogs: async (source?: LogSource, level?: string) => {
     const currentSource = source || get().logs.source
-    const currentOffset = source ? 0 : get().logs.offset
+    const currentLevel = level || get().logs.level
+    const currentOffset = source || level ? 0 : get().logs.offset
 
     set({ isLoadingLogs: true, logError: null })
     try {
-      const result = await api.getLogs(currentSource, currentOffset, 500)
-      const existingLines = source ? [] : get().logs.lines
+      const result = await api.getLogs(currentSource, currentOffset, 500, currentLevel)
+      const existingLines = source || level ? [] : get().logs.lines
       set({
         logs: {
           lines: [...existingLines, ...result.lines],
           offset: result.offset,
           total_size: result.total_size,
           source: currentSource,
+          level: currentLevel,
         },
         isLoadingLogs: false,
       })
@@ -325,7 +328,14 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   setLogSource: (source: LogSource) => {
     set({
-      logs: { lines: [], offset: 0, total_size: 0, source },
+      logs: { lines: [], offset: 0, total_size: 0, source, level: 'ALL' },
+      logError: null,
+    })
+  },
+
+  setLogLevel: (level: string) => {
+    set({
+      logs: { ...get().logs, lines: [], offset: 0, total_size: 0, level },
       logError: null,
     })
   },

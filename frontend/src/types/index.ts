@@ -135,6 +135,7 @@ export interface LogState {
   offset: number
   total_size: number
   source: LogSource
+  level: string
 }
 
 export interface TokenStatsItem {

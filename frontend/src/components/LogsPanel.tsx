@@ -7,6 +7,14 @@ const LOG_SOURCES: { key: LogSource; label: string }[] = [
   { key: 'dashboard', label: 'Dashboard 日志' },
 ]
 
+const LOG_LEVELS = [
+  { key: 'ALL', label: '全部' },
+  { key: 'DEBUG', label: 'DEBUG' },
+  { key: 'INFO', label: 'INFO' },
+  { key: 'WARNING', label: 'WARNING' },
+  { key: 'ERROR', label: 'ERROR' },
+]
+
 function getLineColor(line: string): string {
   const upper = line.toUpperCase()
   if (upper.includes('ERROR') || upper.includes('CRITICAL') || upper.includes('FATAL')) {
@@ -22,17 +30,19 @@ function getLineColor(line: string): string {
 }
 
 export function LogsPanel() {
-  const { logs, fetchLogs, setLogSource, logError, clearLogError } = useDashboardStore()
+  const { logs, fetchLogs, setLogSource, setLogLevel, logError, clearLogError } = useDashboardStore()
   const [activeSource, setActiveSource] = useState<LogSource>('service')
+  const [activeLevel, setActiveLevel] = useState('ALL')
   const [autoScroll, setAutoScroll] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
   const prevLinesLength = useRef(0)
 
-  // 初始加载和切换源
+  // 初始加载和切换源/等级
   useEffect(() => {
     setLogSource(activeSource)
-    fetchLogs(activeSource)
-  }, [activeSource])
+    setLogLevel(activeLevel)
+    fetchLogs(activeSource, activeLevel)
+  }, [activeSource, activeLevel])
 
   // 轮询：每 10 秒获取新日志
   useEffect(() => {
@@ -62,6 +72,11 @@ export function LogsPanel() {
     setActiveSource(source)
   }
 
+  const handleLevelSwitch = (level: string) => {
+    if (level === activeLevel) return
+    setActiveLevel(level)
+  }
+
   return (
     <div className="space-y-4">
       {/* Error Alert */}
@@ -78,7 +93,7 @@ export function LogsPanel() {
       )}
 
       <div className="glass-card rounded-2xl overflow-hidden">
-        {/* Header with source tabs */}
+        {/* Header with source tabs and level filter */}
         <div className="p-4 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-1 h-5 bg-[#007AFF] rounded-full" />
@@ -95,6 +110,21 @@ export function LogsPanel() {
                   }`}
                 >
                   {s.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1">
+              {LOG_LEVELS.map((l) => (
+                <button
+                  key={l.key}
+                  onClick={() => handleLevelSwitch(l.key)}
+                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                    activeLevel === l.key
+                      ? 'bg-[rgba(255,149,0,0.08)] text-[#FF9500]'
+                      : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+                  }`}
+                >
+                  {l.label}
                 </button>
               ))}
             </div>
