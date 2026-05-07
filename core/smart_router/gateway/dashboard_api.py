@@ -442,7 +442,7 @@ async def update_providers(request: ProvidersUpdateRequest):
 
         for name, update in request.providers.items():
             if name not in providers_node:
-                return {"success": False, "errors": [f"Provider not found: {name}"]}
+                raise HTTPException(status_code=404, detail=f"Provider not found: {name}")
 
             existing = providers_node[name]
             if update.api_base is not None:
@@ -454,8 +454,10 @@ async def update_providers(request: ProvidersUpdateRequest):
 
         loader.save_providers(providers_node)
         return {"success": True}
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"success": False, "errors": [str(e)]}
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 async def dry_run(request: DryRunRequest):
@@ -550,7 +552,7 @@ async def update_formula(request: Request, body: FormulaUpdate):
         try:
             FormulaConfig(weights=body.weights)
         except (ValueError, ValidationError) as e:
-            return {"success": False, "errors": [str(e)]}
+            raise HTTPException(status_code=400, detail=str(e))
         
         # 加载当前 routing.yaml
         current = loader._load_yaml("routing.yaml")
@@ -561,9 +563,11 @@ async def update_formula(request: Request, body: FormulaUpdate):
             loader.save_routing(current)
             return {"success": True}
         except Exception as e:
-            return {"success": False, "errors": [str(e)]}
+            raise HTTPException(status_code=500, detail=str(e))
+    except (HTTPException, ValidationError):
+        raise
     except Exception as e:
-        return {"success": False, "errors": [str(e)]}
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 async def preview_formula(request: Request, body: FormulaPreviewRequest):

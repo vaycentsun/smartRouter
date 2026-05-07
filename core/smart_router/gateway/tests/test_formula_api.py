@@ -131,10 +131,9 @@ class TestFormulaAPI:
             "/api/formula",
             json={"weights": {"quality": 1.5, "cost": 0.2}}
         )
-        assert response.status_code == 200
+        assert response.status_code == 400
         data = response.json()
-        assert data["success"] is False
-        assert len(data["errors"]) > 0
+        assert "detail" in data
 
     def test_update_formula_unknown_dimension(self, client):
         """PUT /api/formula 传入未知维度返回错误"""
@@ -142,9 +141,9 @@ class TestFormulaAPI:
             "/api/formula",
             json={"weights": {"quality": 0.5, "unknown_dim": 0.5}}
         )
-        assert response.status_code == 200
+        assert response.status_code == 400
         data = response.json()
-        assert data["success"] is False
+        assert "detail" in data
 
     def test_preview_formula(self, client):
         """POST /api/formula/preview 返回模型得分排序"""

@@ -148,9 +148,9 @@ class TestUpdateProviders:
             mock_instance._load_yaml.return_value = {"providers": {}}
             mock_loader.return_value = mock_instance
             response = client.put("/api/providers", json={"providers": {"unknown": {"api_base": "http://test"}}})
-            assert response.status_code == 200
+            assert response.status_code == 404
             data = response.json()
-            assert data["success"] is False
+            assert "detail" in data
 
 
 class TestStaticFiles:

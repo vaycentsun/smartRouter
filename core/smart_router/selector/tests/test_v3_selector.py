@@ -349,3 +349,87 @@ class TestV3ModelSelector:
         assert result.model_name == "model-a"
         assert result.score == 6.5
         assert "Formula score" in result.reason
+
+    def test_filter_candidates_requires_vision(self):
+        """测试 _filter_candidates 正确过滤 vision 模型"""
+        # 创建包含 vision 模型的配置
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy", "medium"]
+                ),
+                "gpt-4o-vision": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000, vision=True),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy", "medium"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=1000), "medium": DifficultyConfig(description="Medium", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                formula=FormulaConfig(weights={"quality": 1.0, "cost": 0.0}),
+                fallback=FallbackConfig()
+            )
+        )
+        
+        selector = V3ModelSelector(config)
+        
+        # 不需要 vision 时，两个模型都应该出现
+        candidates = selector._filter_candidates("chat", "medium", requires_vision=False)
+        model_names = [name for name, _ in candidates]
+        assert "gpt-4o" in model_names
+        assert "gpt-4o-vision" in model_names
+        
+        # 需要 vision 时，只有 vision=True 的模型应该出现
+        candidates = selector._filter_candidates("chat", "medium", requires_vision=True)
+        model_names = [name for name, _ in candidates]
+        assert "gpt-4o" not in model_names
+        assert "gpt-4o-vision" in model_names
+
+    def test_select_passes_requires_vision(self):
+        """测试 select 方法正确传递 requires_vision 参数"""
+        # 创建包含 vision 模型的配置
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy", "medium"]
+                ),
+                "gpt-4o-vision": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000, vision=True),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy", "medium"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=1000), "medium": DifficultyConfig(description="Medium", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                formula=FormulaConfig(weights={"quality": 1.0, "cost": 0.0}),
+                fallback=FallbackConfig()
+            )
+        )
+        
+        selector = V3ModelSelector(config)
+        
+        # 需要 vision 时，应该选中 vision 模型
+        result = selector.select("chat", "medium", requires_vision=True)
+        assert result.model_name == "gpt-4o-vision"
+        
+        # 不需要 vision 时，可能选中任一模型（根据评分）
+        result = selector.select("chat", "medium", requires_vision=False)
+        assert result.model_name in ["gpt-4o", "gpt-4o-vision"]

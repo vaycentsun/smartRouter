@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import patch, AsyncMock
 
-from smart_router.router.plugin import SmartRouter
+from smart_router.router.plugin import SmartRouter, _message_contains_image
 from smart_router.config.schema import (
     Config,
     ProviderConfig,
@@ -395,3 +395,128 @@ class TestSmartRouterGetAvailableDeployment:
                 # 验证 super 被调用时传入选中的模型名
                 call_kwargs = mock_super.call_args.kwargs
                 assert call_kwargs.get('model') == 'gpt-4o'
+
+
+class TestMessageContainsImage:
+    """测试 _message_contains_image 函数"""
+    
+    def test_text_only_returns_false(self):
+        """纯文本消息应返回 False"""
+        messages = [
+            {"role": "user", "content": "Hello, how are you?"},
+            {"role": "assistant", "content": "I'm fine, thank you!"}
+        ]
+        assert _message_contains_image(messages) is False
+    
+    def test_single_image_url_returns_true(self):
+        """包含 image_url 的消息应返回 True"""
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What's in this image?"},
+                    {"type": "image_url", "image_url": {"url": "https://example.com/image.jpg"}}
+                ]
+            }
+        ]
+        assert _message_contains_image(messages) is True
+    
+    def test_multiple_messages_with_image(self):
+        """多消息中有一张图片应返回 True"""
+        messages = [
+            {"role": "user", "content": "Hello"},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
+                ]
+            }
+        ]
+        assert _message_contains_image(messages) is True
+    
+    def test_empty_messages_returns_false(self):
+        """空消息列表应返回 False"""
+        assert _message_contains_image([]) is False
+    
+    def test_text_only_multimodal_content(self):
+        """多模态内容但只有文本应返回 False"""
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Hello"}
+                ]
+            }
+        ]
+        assert _message_contains_image(messages) is False
+
+
+class TestSelectModelVision:
+    """测试 select_model 正确传递 requires_vision"""
+    
+    def test_select_model_with_image_sets_requires_vision(self, smart_router):
+        """包含图片的消息应将 requires_vision=True 传递给 selector"""
+        messages_with_image = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What's this?"},
+                    {"type": "image_url", "image_url": {"url": "https://example.com/img.jpg"}}
+                ]
+            }
+        ]
+        
+        # Mock classification to avoid processing multimodal content
+        with patch.object(smart_router, '_get_classification') as mock_classify:
+            mock_classify.return_value = type('ClassificationResult', (), {
+                'task_type': 'chat',
+                'estimated_difficulty': 'medium',
+                'confidence': 1.0,
+                'source': 'test'
+            })()
+            
+            with patch.object(smart_router.selector, 'select') as mock_select:
+                mock_select.return_value = type('Result', (), {
+                    'model_name': 'gpt-4o',
+                    'task_type': 'chat',
+                    'difficulty': 'medium',
+                    'strategy': 'auto',
+                    'score': 0.9,
+                    'reason': 'test'
+                })()
+                
+                smart_router.select_model("auto", messages_with_image)
+                
+                # 验证 requires_vision=True 被传递
+                call_kwargs = mock_select.call_args.kwargs
+                assert call_kwargs.get('requires_vision') is True
+    
+    def test_select_model_without_image_requires_vision_false(self, smart_router):
+        """不包含图片的消息应将 requires_vision=False 传递给 selector"""
+        messages_without_image = [
+            {"role": "user", "content": "Hello, how are you?"}
+        ]
+        
+        with patch.object(smart_router, '_get_classification') as mock_classify:
+            mock_classify.return_value = type('ClassificationResult', (), {
+                'task_type': 'chat',
+                'estimated_difficulty': 'medium',
+                'confidence': 1.0,
+                'source': 'test'
+            })()
+            
+            with patch.object(smart_router.selector, 'select') as mock_select:
+                mock_select.return_value = type('Result', (), {
+                    'model_name': 'gpt-4o',
+                    'task_type': 'chat',
+                    'difficulty': 'medium',
+                    'strategy': 'auto',
+                    'score': 0.9,
+                    'reason': 'test'
+                })()
+                
+                smart_router.select_model("auto", messages_without_image)
+                
+                # 验证 requires_vision=False 被传递
+                call_kwargs = mock_select.call_args.kwargs
+                assert call_kwargs.get('requires_vision') is False
