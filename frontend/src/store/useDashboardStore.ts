@@ -19,6 +19,7 @@ import type {
   PlaygroundRequest,
   AlertRule,
   AlertHistoryItem,
+  RequestRoutingRecord,
 } from '../types'
 import { api } from '../api/client'
 
@@ -55,6 +56,7 @@ interface DashboardState {
   analyticsDaily: AnalyticsDailyItem[]
   analyticsByModel: AnalyticsByModelItem[]
   analyticsTopModels: AnalyticsTopModelItem[]
+  recentRequests: RequestRoutingRecord[]
   isLoadingAnalytics: boolean
   analyticsError: string | null
 
@@ -154,6 +156,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   analyticsDaily: [],
   analyticsByModel: [],
   analyticsTopModels: [],
+  recentRequests: [],
   isLoadingAnalytics: false,
   analyticsError: null,
 
@@ -342,17 +345,19 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   fetchAnalytics: async (days = 7) => {
     set({ isLoadingAnalytics: true, analyticsError: null })
     try {
-      const [summary, daily, byModel, topModels] = await Promise.all([
+      const [summary, daily, byModel, topModels, recentReqs] = await Promise.all([
         api.getAnalyticsSummary(days),
         api.getAnalyticsDaily(days),
         api.getAnalyticsByModel(days),
         api.getAnalyticsTopModels(10, days),
+        api.getRecentRequests(50),
       ])
       set({
         analyticsSummary: summary,
         analyticsDaily: daily,
         analyticsByModel: byModel,
         analyticsTopModels: topModels,
+        recentRequests: recentReqs.requests,
         isLoadingAnalytics: false,
       })
     } catch (err) {

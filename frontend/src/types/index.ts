@@ -241,3 +241,22 @@ export interface AlertHistoryItem {
   timestamp: number
   message: string
 }
+
+export interface RequestRoutingRecord {
+  request_id: string
+  timestamp: string
+  original_model: string
+  selected_model: string
+  actual_model: string | null
+  task_type: string | null
+  difficulty: string | null
+  strategy: string | null
+  fallback_chain: string[]
+  attempted_fallbacks: number | null
+  did_fallback: boolean
+  status_code: number
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  error_info: string | null
+}

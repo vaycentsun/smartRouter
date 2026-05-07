@@ -900,6 +900,14 @@ async def analytics_top_models(limit: int = 10, days: int = 7):
     return items[:limit]
 
 
+async def analytics_recent_requests(request: Request, limit: int = 50):
+    """获取最近 N 条请求路由记录"""
+    history = getattr(request.app.state, 'request_routing_history', None)
+    if not history:
+        return {"requests": []}
+    return {"requests": history.get_recent(limit)}
+
+
 # ==================== Alerts API ====================
 
 ALERTS_CONFIG_PATH = DEFAULT_PID_DIR / "alerts.yaml"
@@ -1074,6 +1082,7 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.get("/api/analytics/daily")(analytics_daily)
     app.get("/api/analytics/by-model")(analytics_by_model)
     app.get("/api/analytics/top-models")(analytics_top_models)
+    app.get("/api/analytics/recent-requests")(analytics_recent_requests)
 
     # Alerts API
     app.get("/api/alerts/rules")(get_alert_rules)

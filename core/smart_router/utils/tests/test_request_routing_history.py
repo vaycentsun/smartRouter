@@ -1,0 +1,146 @@
+"""RequestRoutingHistory 单元测试"""
+
+import asyncio
+import pytest
+
+from smart_router.utils.request_routing_history import (
+    RequestRoutingEntry,
+    RequestRoutingHistory,
+)
+
+
+class TestRequestRoutingHistory:
+    """RequestRoutingHistory 单元测试"""
+
+    @pytest.fixture
+    def history(self):
+        return RequestRoutingHistory(max_size=50)
+
+    @pytest.fixture
+    def sample_entry(self):
+        return RequestRoutingEntry(
+            request_id="req-001",
+            timestamp="2025-01-01T00:00:00Z",
+            original_model="gpt-4o",
+            selected_model="gpt-4o-mini",
+            actual_model="gpt-4o-mini",
+            task_type="coding",
+            difficulty="medium",
+            strategy="cost",
+            fallback_chain=["gpt-4o", "gpt-3.5-turbo"],
+            attempted_fallbacks=1,
+            did_fallback=True,
+            status_code=200,
+            prompt_tokens=100,
+            completion_tokens=50,
+            total_tokens=150,
+            error_info=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_record_and_get_recent(self, history, sample_entry):
+        """记录单条记录后正确读取，验证返回的字典包含所有字段"""
+        await history.record(sample_entry)
+
+        recent = history.get_recent()
+        assert len(recent) == 1
+
+        result = recent[0]
+        assert result["request_id"] == "req-001"
+        assert result["timestamp"] == "2025-01-01T00:00:00Z"
+        assert result["original_model"] == "gpt-4o"
+        assert result["selected_model"] == "gpt-4o-mini"
+        assert result["actual_model"] == "gpt-4o-mini"
+        assert result["task_type"] == "coding"
+        assert result["difficulty"] == "medium"
+        assert result["strategy"] == "cost"
+        assert result["fallback_chain"] == ["gpt-4o", "gpt-3.5-turbo"]
+        assert result["attempted_fallbacks"] == 1
+        assert result["did_fallback"] is True
+        assert result["status_code"] == 200
+        assert result["prompt_tokens"] == 100
+        assert result["completion_tokens"] == 50
+        assert result["total_tokens"] == 150
+        assert result["error_info"] is None
+
+    @pytest.mark.asyncio
+    async def test_max_size_limit(self, history):
+        """写入 60 条记录，验证只保留后 50 条（最旧的被丢弃）"""
+        for i in range(60):
+            entry = RequestRoutingEntry(
+                request_id=f"req-{i:03d}",
+                timestamp="2025-01-01T00:00:00Z",
+                original_model="gpt-4o",
+                selected_model="gpt-4o-mini",
+            )
+            await history.record(entry)
+
+        recent = history.get_recent()
+        assert len(recent) == 50
+
+        # 最旧的是 req-010，最新的是 req-059
+        assert recent[-1]["request_id"] == "req-010"
+        assert recent[0]["request_id"] == "req-059"
+
+    @pytest.mark.asyncio
+    async def test_concurrent_writes(self, history):
+        """使用 asyncio.gather 并发写入 100 条，验证无数据丢失、无异常"""
+
+        async def write_entry(i: int):
+            entry = RequestRoutingEntry(
+                request_id=f"req-{i:03d}",
+                timestamp="2025-01-01T00:00:00Z",
+                original_model="gpt-4o",
+                selected_model="gpt-4o-mini",
+            )
+            await history.record(entry)
+
+        await asyncio.gather(*[write_entry(i) for i in range(100)])
+
+        recent = history.get_recent()
+        assert len(recent) == 50
+        request_ids = {r["request_id"] for r in recent}
+        # 由于并发，顺序不确定，但应保留最后的 50 条（某一时刻）
+        # 只验证数量和无重复即可
+        assert len(request_ids) == 50
+
+    def test_entry_to_dict(self, history, sample_entry):
+        """验证字典转换包含所有字段"""
+        result = history._entry_to_dict(sample_entry)
+
+        expected_keys = {
+            "request_id",
+            "timestamp",
+            "original_model",
+            "selected_model",
+            "actual_model",
+            "task_type",
+            "difficulty",
+            "strategy",
+            "fallback_chain",
+            "attempted_fallbacks",
+            "did_fallback",
+            "status_code",
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
+            "error_info",
+        }
+        assert set(result.keys()) == expected_keys
+
+        assert result["request_id"] == "req-001"
+        assert result["timestamp"] == "2025-01-01T00:00:00Z"
+        assert result["original_model"] == "gpt-4o"
+        assert result["selected_model"] == "gpt-4o-mini"
+        assert result["actual_model"] == "gpt-4o-mini"
+        assert result["task_type"] == "coding"
+        assert result["difficulty"] == "medium"
+        assert result["strategy"] == "cost"
+        assert result["fallback_chain"] == ["gpt-4o", "gpt-3.5-turbo"]
+        assert result["attempted_fallbacks"] == 1
+        assert result["did_fallback"] is True
+        assert result["status_code"] == 200
+        assert result["prompt_tokens"] == 100
+        assert result["completion_tokens"] == 50
+        assert result["total_tokens"] == 150
+        assert result["error_info"] is None

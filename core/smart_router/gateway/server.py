@@ -138,6 +138,29 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                     request.state.smart_router_selected = selected
                                     request.state.smart_router_original = original_model
                                     request.state.smart_router_task = result.task_type
+                                    request.state.smart_router_difficulty = result.difficulty
+                                    request.state.smart_router_strategy = result.strategy
+
+                                    import uuid
+                                    request_id = str(uuid.uuid4())[:8]
+                                    request.state.smart_router_request_id = request_id
+
+                                    fallback_chain = []
+                                    if hasattr(self.router, 'get_fallback_chain') and selected:
+                                        try:
+                                            fallback_chain = self.router.get_fallback_chain(selected)
+                                        except Exception:
+                                            pass
+
+                                    request.state.smart_router_routing_info = {
+                                        "request_id": request_id,
+                                        "original_model": original_model,
+                                        "selected_model": selected,
+                                        "task_type": result.task_type,
+                                        "difficulty": result.difficulty,
+                                        "strategy": result.strategy,
+                                        "fallback_chain": fallback_chain,
+                                    }
                                     
                                     # 重新构建请求体
                                     modified_body = json.dumps(data).encode("utf-8")
@@ -254,6 +277,71 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         )
                     else:
                         console.print("[yellow]No usage data in response[/yellow]")
+                    
+                    # 在解析 usage 后，增加 actual_model 解析
+                    actual_model = None
+
+                    if is_sse:
+                        text = body_bytes.decode("utf-8", errors="replace")
+                        for line in text.splitlines():
+                            line = line.strip()
+                            if line.startswith("data: "):
+                                data = line[6:]
+                                if data == "[DONE]":
+                                    continue
+                                try:
+                                    chunk = json.loads(data)
+                                    if chunk.get("model"):
+                                        actual_model = chunk["model"]
+                                        break
+                                except json.JSONDecodeError:
+                                    continue
+                    else:
+                        try:
+                            resp_data = json.loads(body_bytes)
+                            actual_model = resp_data.get("model")
+                        except json.JSONDecodeError:
+                            pass
+
+                    # 组装并写入 RequestRoutingHistory
+                    routing_info = getattr(request.state, 'smart_router_routing_info', None)
+                    selected_model = getattr(request.state, 'smart_router_selected', None)
+
+                    if routing_info and selected_model:
+                        did_fallback = actual_model is not None and actual_model != selected_model
+                        attempted_fallbacks = None
+                        fallback_header = response.headers.get("x-litellm-attempted-fallbacks")
+                        if fallback_header is not None:
+                            try:
+                                attempted_fallbacks = int(fallback_header)
+                            except ValueError:
+                                pass
+
+                        from datetime import datetime, timezone
+                        from smart_router.utils.request_routing_history import RequestRoutingEntry
+                        
+                        entry = RequestRoutingEntry(
+                            request_id=routing_info["request_id"],
+                            timestamp=datetime.now(timezone.utc).isoformat(),
+                            original_model=routing_info["original_model"],
+                            selected_model=selected_model,
+                            actual_model=actual_model,
+                            task_type=routing_info.get("task_type"),
+                            difficulty=routing_info.get("difficulty"),
+                            strategy=routing_info.get("strategy"),
+                            fallback_chain=routing_info.get("fallback_chain", []),
+                            attempted_fallbacks=attempted_fallbacks,
+                            did_fallback=did_fallback,
+                            status_code=response.status_code,
+                            prompt_tokens=usage.get("prompt_tokens", 0) if usage else 0,
+                            completion_tokens=usage.get("completion_tokens", 0) if usage else 0,
+                            total_tokens=usage.get("total_tokens", 0) if usage else 0,
+                        )
+
+                        history = getattr(request.app.state, 'request_routing_history', None)
+                        if history:
+                            await history.record(entry)
+                
                 else:
                     console.print("[yellow]No model name resolved, skipping stats[/yellow]")
                 
@@ -400,6 +488,10 @@ def start_server(config_path: Optional[Path] = None):
         # 初始化 Token 统计
         from ..utils.token_stats import TokenStats
         app.state.token_stats = TokenStats()
+
+        # 初始化请求路由历史
+        from ..utils.request_routing_history import RequestRoutingHistory
+        app.state.request_routing_history = RequestRoutingHistory(max_size=50)
 
         # 初始化错误计数器
         from .error_counter import ErrorCounter
