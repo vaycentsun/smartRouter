@@ -296,20 +296,134 @@ class TestMiddlewareLogic:
         )
         assert should_route is False
 
-    def test_middleware_select_model_exception_handling(self):
-        """测试中间件 select_model 异常时的降级处理"""
-        # 验证异常处理逻辑：当 select_model 失败时应保留原始 model
-        original_model = "auto"
-        data = {"model": original_model, "messages": [{"role": "user", "content": "test"}]}
-        
-        # 模拟 select_model 抛出异常
-        try:
-            # 这个测试验证的是中间件逻辑中的 try/except 块
-            # 当异常发生时，model 应保持不变
-            raise Exception("Simulated routing failure")
-        except Exception:
-            # 异常被捕获后，model 应该还是原来的值
-            assert data["model"] == "auto"
+    @pytest.mark.asyncio
+    async def test_middleware_select_model_exception_fallback(self):
+        """select_model 异常时，保留模型名应 fallback 到第一个可用模型"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        mock_router = MagicMock()
+        mock_router.select_model.side_effect = Exception("Simulated routing failure")
+        mock_router.sr_config = MagicMock()
+        mock_router.sr_config.get_available_models.return_value = ["gpt-4o"]
+
+        async def mock_call_next(request):
+            body = await request.body()
+            data = json.loads(body)
+            assert data["model"] == "gpt-4o"
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert request.state.smart_router_selected == "gpt-4o"
+        assert request.state.smart_router_original == "auto"
+
+    @pytest.mark.asyncio
+    async def test_middleware_select_model_exception_no_available_models(self):
+        """select_model 异常且没有可用模型时，应返回 400"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from starlette.requests import Request
+
+        mock_router = MagicMock()
+        mock_router.select_model.side_effect = Exception("Simulated routing failure")
+        mock_router.sr_config = MagicMock()
+        mock_router.sr_config.get_available_models.return_value = []
+
+        async def mock_call_next(request):
+            return None  # should not be called
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_middleware_select_model_exception_for_stage_prefix(self):
+        """stage: 前缀在 select_model 异常时不应 fallback（保留原始值继续向下游传递）"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        mock_router = MagicMock()
+        mock_router.select_model.side_effect = Exception("Simulated routing failure")
+
+        async def mock_call_next(request):
+            # stage: 前缀不是保留名，异常时不应 fallback，保持原始值
+            body = await request.body()
+            data = json.loads(body)
+            assert data["model"] == "stage:code_review"
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "stage:code_review", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
 
     def test_middleware_json_parse_failure(self):
         """测试请求体 JSON 解析失败时的降级"""

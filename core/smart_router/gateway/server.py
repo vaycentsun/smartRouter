@@ -171,7 +171,42 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                     
                                     request = Request(request.scope, receive, request._send)
                                 except Exception as e:
-                                    console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
+                                    console.print(f"[yellow]智能路由失败: {e}[/yellow]")
+                                    import traceback
+                                    console.print(traceback.format_exc())
+                                    
+                                    # 对于保留模型名（auto/smart-router/default），不应直接透传给下游，
+                                    # 因为 LiteLLM 不认识这些名称。尝试 fallback 到第一个可用模型。
+                                    if original_model in ("auto", "smart-router", "default"):
+                                        try:
+                                            available = self.router.sr_config.get_available_models()
+                                            if available:
+                                                fallback_model = available[0]
+                                                data["model"] = fallback_model
+                                                request.state.smart_router_selected = fallback_model
+                                                request.state.smart_router_original = original_model
+                                                request.state.smart_router_task = "fallback"
+                                                
+                                                modified_body = json.dumps(data).encode("utf-8")
+                                                
+                                                async def receive():
+                                                    return {"type": "http.request", "body": modified_body, "more_body": False}
+                                                
+                                                request = Request(request.scope, receive, request._send)
+                                                
+                                                console.print(f"[yellow]智能路由异常降级: {original_model} -> {fallback_model}[/yellow]")
+                                            else:
+                                                from starlette.responses import JSONResponse
+                                                return JSONResponse(
+                                                    status_code=400,
+                                                    content={"error": {"message": "No model available for routing", "type": "invalid_request_error", "code": "400"}}
+                                                )
+                                        except Exception as fallback_e:
+                                            from starlette.responses import JSONResponse
+                                            return JSONResponse(
+                                                status_code=400,
+                                                content={"error": {"message": f"Routing failed: {fallback_e}", "type": "invalid_request_error", "code": "400"}}
+                                            )
             except Exception as e:
                 console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                 import traceback
