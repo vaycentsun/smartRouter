@@ -23,6 +23,7 @@ from ..classifier.task_classifier import TaskTypeClassifier
 from ..classifier.difficulty_classifier import DifficultyClassifier
 from ..selector.v3_selector import V3ModelSelector
 from ..utils.markers import parse_markers
+from ..utils.health_checker import ProviderHealthChecker
 from .playground_api import playground_router
 from ..alerts.config import AlertConfig, AlertRule, AlertCondition, AlertChannel
 
@@ -117,6 +118,15 @@ class ProvidersUpdateRequest(BaseModel):
 class DryRunRequest(BaseModel):
     prompt: str
     strategy: str = "auto"
+
+
+class FormulaUpdate(BaseModel):
+    weights: dict[str, float]
+
+
+class FormulaPreviewRequest(BaseModel):
+    weights: dict[str, float]
+    prompt: str = ""
 
 
 class LogsResponse(BaseModel):
@@ -224,7 +234,7 @@ async def status():
     }
 
 
-async def models():
+async def models(request: Request):
     config_dir = Path.home() / ".smart-router"
     try:
         loader = ConfigLoader(config_dir)
@@ -241,6 +251,27 @@ async def models():
             return os.environ.get(env_var) is not None
         return True
 
+    def get_health_status(model) -> str:
+        """根据缓存的健康检查结果计算模型健康状态"""
+        checker = getattr(request.app.state, "health_checker", None)
+        if not checker:
+            return "unknown"
+        
+        health = checker.get_cached(model.provider)
+        if not health:
+            return "unknown"
+        
+        if health.status != "healthy":
+            return health.status
+        
+        # 提取 litellm_model 后半部分进行匹配
+        litellm_model = model.litellm_model
+        model_id = litellm_model.split("/")[-1] if "/" in litellm_model else litellm_model
+        
+        if model_id in health.models:
+            return "available"
+        return "not_found"
+
     result = []
     for name, model in cfg.models.items():
         caps = model.capabilities
@@ -249,6 +280,7 @@ async def models():
             "name": name,
             "provider": model.provider,
             "available": provider_available,
+            "health_status": get_health_status(model),
             "quality": caps.quality,
             "cost": caps.cost,
             "context": caps.context,
@@ -271,13 +303,15 @@ def mask_key(key: str) -> str:
     return key[:4] + "..." + key[-4:]
 
 
-async def providers():
+async def providers(request: Request):
     config_dir = Path.home() / ".smart-router"
     try:
         loader = ConfigLoader(config_dir)
         cfg = loader.load()
     except Exception:
         return {"providers": []}
+
+    checker = getattr(request.app.state, "health_checker", None)
 
     result = []
     for name, provider in cfg.providers.items():
@@ -295,6 +329,15 @@ async def providers():
             key_type = "direct"
             masked_key = ""
 
+        health_data = None
+        if checker:
+            health = checker.get_cached(name)
+            if health:
+                health_data = {
+                    "status": health.status,
+                    "checked_at": health.checked_at,
+                }
+
         result.append({
             "name": name,
             "api_base": provider.api_base,
@@ -302,9 +345,91 @@ async def providers():
             "key_type": key_type,
             "has_key": has_key,
             "masked_key": masked_key,
+            "health": health_data,
         })
 
     return {"providers": result}
+
+
+async def provider_health(request: Request, provider_name: str):
+    """触发 Provider 健康检查（跳过缓存）"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        cfg = loader.load()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"配置加载失败: {e}")
+
+    if provider_name not in cfg.providers:
+        raise HTTPException(status_code=404, detail=f"Provider not found: {provider_name}")
+
+    checker = getattr(request.app.state, "health_checker", None)
+    if not checker:
+        raise HTTPException(status_code=500, detail="Health checker not initialized")
+
+    # 更新 checker 的配置为最新，避免用户修改 providers.yaml 后仍使用旧配置
+    checker.config = cfg
+
+    result = await checker.check(provider_name, force=True)
+
+    return {
+        "provider": provider_name,
+        "status": result.status,
+        "models": result.models,
+        "checked_at": result.checked_at,
+        "error": result.error,
+    }
+
+
+async def provider_models(request: Request, provider_name: str):
+    """获取 Provider 上次健康检查结果（含模型清单）"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        cfg = loader.load()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"配置加载失败: {e}")
+
+    if provider_name not in cfg.providers:
+        raise HTTPException(status_code=404, detail=f"Provider not found: {provider_name}")
+
+    checker = getattr(request.app.state, "health_checker", None)
+    if not checker:
+        raise HTTPException(status_code=500, detail="Health checker not initialized")
+
+    # 更新 checker 的配置为最新，避免用户修改 providers.yaml 后仍使用旧配置
+    checker.config = cfg
+
+    result = checker.get_cached(provider_name)
+    if not result:
+        return {
+            "provider": provider_name,
+            "status": None,
+            "configured_models": [],
+            "provider_models": [],
+            "checked_at": None,
+        }
+
+    # 构建配置的模型列表（带匹配状态）
+    configured_models = []
+    for name, model in cfg.models.items():
+        if model.provider == provider_name:
+            litellm_model = model.litellm_model
+            model_id = litellm_model.split("/")[-1] if "/" in litellm_model else litellm_model
+            configured_models.append({
+                "name": name,
+                "litellm_model": litellm_model,
+                "found": model_id in result.models if result.status == "healthy" else None,
+            })
+
+    return {
+        "provider": provider_name,
+        "status": result.status,
+        "configured_models": configured_models,
+        "provider_models": result.models,
+        "checked_at": result.checked_at,
+        "error": result.error,
+    }
 
 
 async def update_providers(request: ProvidersUpdateRequest):
@@ -398,7 +523,87 @@ async def dry_run(request: DryRunRequest):
         "strategy": selection_result.strategy,
         "score": round(selection_result.score, 3),
         "reason": selection_result.reason,
+        "fallback_chain": cfg.get_fallback_chain(selection_result.model_name),
     }
+
+
+async def get_formula(request: Request):
+    """获取当前公式配置"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        cfg = loader.load()
+        return {"weights": cfg.routing.formula.weights}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def update_formula(request: Request, body: FormulaUpdate):
+    """更新公式配置并保存到 routing.yaml"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        
+        # 验证权重
+        from ..config.schema import FormulaConfig
+        from pydantic import ValidationError
+        try:
+            FormulaConfig(weights=body.weights)
+        except (ValueError, ValidationError) as e:
+            return {"success": False, "errors": [str(e)]}
+        
+        # 加载当前 routing.yaml
+        current = loader._load_yaml("routing.yaml")
+        current["formula"] = {"weights": body.weights}
+        
+        # 保存
+        try:
+            loader.save_routing(current)
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "errors": [str(e)]}
+    except Exception as e:
+        return {"success": False, "errors": [str(e)]}
+
+
+async def preview_formula(request: Request, body: FormulaPreviewRequest):
+    """预览公式效果：按传入的 weights 计算所有可用模型的得分"""
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        cfg = loader.load()
+        
+        # 验证权重
+        from ..config.schema import FormulaConfig
+        from pydantic import ValidationError
+        try:
+            FormulaConfig(weights=body.weights)
+        except (ValueError, ValidationError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        
+        # 使用临时 evaluator
+        temp_formula = FormulaConfig(weights=body.weights)
+        from ..selector.formula_evaluator import FormulaEvaluator
+        evaluator = FormulaEvaluator(temp_formula)
+        
+        # 计算所有可用模型的得分
+        models = []
+        for name, model in cfg.models.items():
+            if cfg.is_model_available(name):
+                score = evaluator.evaluate(model.capabilities)
+                models.append({"name": name, "score": round(score, 2)})
+        
+        models.sort(key=lambda x: x["score"], reverse=True)
+        
+        return {
+            "task_type": "chat",
+            "difficulty": "medium",
+            "models": models
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 async def model_overrides():
@@ -836,16 +1041,30 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     """
     app = FastAPI()
 
+    # 初始化 Health Checker
+    config_dir = Path.home() / ".smart-router"
+    try:
+        loader = ConfigLoader(config_dir)
+        cfg = loader.load()
+        app.state.health_checker = ProviderHealthChecker(cfg)
+    except Exception:
+        app.state.health_checker = None
+
     app.get("/api/health")(health)
     app.get("/api/status")(status)
     app.get("/api/models")(models)
     app.get("/api/providers")(providers)
+    app.get("/api/providers/{provider_name}/health")(provider_health)
+    app.get("/api/providers/{provider_name}/models")(provider_models)
     app.put("/api/providers")(update_providers)
     app.get("/api/model-overrides")(model_overrides)
     app.get("/api/model-override")(get_model_override)
     app.post("/api/model-override")(set_model_override)
     app.delete("/api/model-override")(delete_model_override)
     app.post("/api/dry-run")(dry_run)
+    app.get("/api/formula")(get_formula)
+    app.put("/api/formula")(update_formula)
+    app.post("/api/formula/preview")(preview_formula)
     app.post("/api/stop")(stop)
     app.get("/api/logs")(get_logs)
     app.get("/api/token-stats")(token_stats)

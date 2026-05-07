@@ -34,8 +34,10 @@ providers:
     timeout: 30
 """)
             
-            # models.yaml
-            (config_dir / "models.yaml").write_text("""
+            # models/
+            models_dir = config_dir / "models"
+            models_dir.mkdir(exist_ok=True)
+            (models_dir / "default.yaml").write_text("""
 models:
   gpt-4o:
     provider: openai
@@ -47,7 +49,7 @@ models:
       context: 128000
     supported_tasks: [chat, code_review]
     difficulty_support: [easy, medium, hard]
-    
+
   claude-3-opus:
     provider: anthropic
     litellm_model: anthropic/claude-3-opus-20240229
@@ -95,6 +97,11 @@ strategies:
     description: "Auto"
   cost:
     description: "Cost"
+
+formula:
+  weights:
+    quality: 0.7
+    cost: 0.3
 
 fallback:
   mode: auto

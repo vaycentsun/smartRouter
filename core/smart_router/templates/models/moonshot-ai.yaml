@@ -1,0 +1,61 @@
+# Models Configuration - Moonshot (国际版)
+models:
+  kimi-k2.5:
+    provider: moonshot-ai
+    litellm_model: moonshot/kimi-k2.5
+    capabilities:
+      quality: 10
+      cost: 5
+      context: 256000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  kimi-k2-0905:
+    provider: moonshot-ai
+    litellm_model: moonshot/kimi-k2-0905-preview
+    capabilities:
+      quality: 9
+      cost: 6
+      context: 256000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  kimi-k2-0711:
+    provider: moonshot-ai
+    litellm_model: moonshot/kimi-k2-0711-preview
+    capabilities:
+      quality: 9
+      cost: 7
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  kimi-k2-turbo:
+    provider: moonshot-ai
+    litellm_model: moonshot/kimi-k2-turbo-preview
+    capabilities:
+      quality: 8
+      cost: 8
+      context: 256000
+    supported_tasks: [coding, writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]
+    
+  kimi-k2-thinking:
+    provider: moonshot-ai
+    litellm_model: moonshot/kimi-k2-thinking
+    capabilities:
+      quality: 10
+      cost: 5
+      context: 256000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
+    difficulty_support: [medium, hard, expert]
+    
+  kimi-k2-thinking-turbo:
+    provider: moonshot-ai
+    litellm_model: moonshot/kimi-k2-thinking-turbo
+    capabilities:
+      quality: 9
+      cost: 6
+      context: 256000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, chat]
+    difficulty_support: [medium, hard]

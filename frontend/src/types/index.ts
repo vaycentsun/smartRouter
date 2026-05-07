@@ -6,10 +6,27 @@ export interface ServiceStatus {
   version: string
 }
 
+export type HealthStatus =
+  | 'available'
+  | 'not_found'
+  | 'healthy'
+  | 'unconfigured'
+  | 'auth_error'
+  | 'rate_limited'
+  | 'network_error'
+  | 'unknown'
+  | 'checking'
+
+export interface ProviderHealth {
+  status: HealthStatus
+  checked_at: number | null
+}
+
 export interface ModelInfo {
   name: string
   provider: string
   available: boolean
+  health_status: HealthStatus
   quality: number
   cost: number
   context: number
@@ -30,6 +47,7 @@ export interface ProviderInfo {
   key_type: string
   has_key: boolean
   masked_key?: string
+  health?: ProviderHealth
 }
 
 export interface ProvidersResponse {
@@ -57,9 +75,42 @@ export interface DryRunResult {
   score: number
   reason: string
   error?: string
+  fallback_chain?: string[]
 }
 
-export type Strategy = 'auto' | 'quality' | 'cost' | 'speed' | 'balanced'
+export type Strategy = 'auto' | 'cost'
+
+export interface FormulaWeights {
+  quality: number
+  cost: number
+  reasoning: number
+  creative: number
+  context: number
+}
+
+export interface FormulaResponse {
+  weights: Record<string, number>
+}
+
+export interface FormulaUpdateRequest {
+  weights: Record<string, number>
+}
+
+export interface FormulaPreviewRequest {
+  weights: Record<string, number>
+  prompt: string
+}
+
+export interface FormulaPreviewModel {
+  name: string
+  score: number
+}
+
+export interface FormulaPreviewResponse {
+  task_type: string
+  difficulty: string
+  models: FormulaPreviewModel[]
+}
 
 export interface ModelOverrideInfo {
   overrides: Record<string, string[]>

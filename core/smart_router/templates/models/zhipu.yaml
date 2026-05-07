@@ -1,0 +1,21 @@
+# Models Configuration - Zhipu (智谱 GLM 官方部署)
+models:
+  glm-4-plus:
+    provider: zhipu
+    litellm_model: openai/glm-4-plus
+    capabilities:
+      quality: 8
+      cost: 5
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+    
+  glm-4-flash:
+    provider: zhipu
+    litellm_model: openai/glm-4-flash
+    capabilities:
+      quality: 6
+      cost: 9
+      context: 128000
+    supported_tasks: [writing, explanation, chat, brainstorming]
+    difficulty_support: [easy, medium]

@@ -100,7 +100,7 @@ Smart Router 接收请求
     ↓ (无标记)
 任务分类器 (L1规则 + L2相似度)
     ↓
-模型选择器 (auto/speed/cost/quality)
+模型选择器 (auto/cost)
     ↓
 调用目标模型服务商
     ↓
@@ -372,7 +372,7 @@ smart-router start --foreground --config ~/.smart-router
 smart-router dry-run "帮我审查这段代码"
 
 # 指定策略
-smart-router dry-run "写一篇文章" --strategy quality
+smart-router dry-run "写一篇文章" --strategy cost
 
 # 指定配置
 smart-router dry-run "解释量子计算" --config ~/my-config.yaml
@@ -480,16 +480,14 @@ messages = [
 
 | 策略 | 说明 | 适用场景 |
 |------|------|----------|
-| `auto` | 使用配置中的默认推荐 | 大多数场景 |
-| `speed` | 选择响应最快的模型 | 实时交互 |
-| `cost` | 选择成本最低的模型 | 批量处理 |
-| `quality` | 选择质量最高的模型 | 重要任务 |
+| `auto` | 基于任务权重自动计算最佳模型 | 平衡质量与成本 |
+| `cost` | 选择最便宜的模型（带质量门槛过滤） | 节省成本 |
 
 ### 使用策略
 
 ```bash
 # CLI 中使用
-smart-router dry-run "写一篇文章" --strategy quality
+smart-router dry-run "写一篇文章" --strategy cost
 
 # 客户端中使用（通过 HTTP 头，需要扩展支持）
 ```
@@ -919,7 +917,7 @@ fallback_chain:
 - 支持 6 家模型服务商
 - 实现 L1 规则引擎 + L2 Embedding 匹配
 - 支持阶段标记系统
-- 4 种路由策略
+- 2 种路由策略
 - 完整的 CLI 工具
 - 27 个单元测试
 

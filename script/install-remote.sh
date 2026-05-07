@@ -167,17 +167,22 @@ download_config() {
 }
 
 download_config "providers.yaml"
-download_config "models.yaml"
 download_config "routing.yaml"
 
+# V3 使用 models/ 目录而非 models.yaml 单文件，通过 init --safe 处理
+if [ -d "${CONFIG_DIR}/models" ]; then
+    echo "  ⏭️  已存在，跳过: models/"
+fi
+
 # 如果 GitHub 下载不完整，回退到 smart-router init --safe 补全缺失配置
+# V3: 检查 providers.yaml、routing.yaml 和 models/ 目录
 github_failed=false
-for file in providers.yaml models.yaml routing.yaml; do
-    if [ ! -f "${CONFIG_DIR}/${file}" ]; then
-        github_failed=true
-        break
-    fi
-done
+if [ ! -f "${CONFIG_DIR}/providers.yaml" ] || [ ! -f "${CONFIG_DIR}/routing.yaml" ]; then
+    github_failed=true
+fi
+if [ ! -d "${CONFIG_DIR}/models" ]; then
+    github_failed=true
+fi
 
 if [ "$github_failed" = true ] && command -v smart-router &> /dev/null; then
     echo ""
@@ -196,12 +201,17 @@ else
     echo "⚠️  smart-router 命令未找到，可能需要手动添加 PATH"
 fi
 
+# V3 验证：检查 providers.yaml、routing.yaml 和 models/ 目录
 config_count=0
-for file in providers.yaml models.yaml routing.yaml; do
-    if [ -f "${CONFIG_DIR}/${file}" ]; then
-        ((config_count++))
-    fi
-done
+if [ -f "${CONFIG_DIR}/providers.yaml" ]; then
+    ((config_count++))
+fi
+if [ -f "${CONFIG_DIR}/routing.yaml" ]; then
+    ((config_count++))
+fi
+if [ -d "${CONFIG_DIR}/models" ]; then
+    ((config_count++))
+fi
 
 if [ $config_count -eq 3 ]; then
     echo "✓ 配置文件完整 (${config_count}/3)"
@@ -216,7 +226,7 @@ echo "✨ 安装完成！"
 echo ""
 echo "📁 配置文件位置: ${CONFIG_DIR}"
 echo "   - providers.yaml   # API Key 配置"
-echo "   - models.yaml      # 模型能力配置"
+echo "   - models/          # 模型能力配置（V3 目录格式）"
 echo "   - routing.yaml     # 路由策略配置"
 echo ""
 echo "📝 下一步:"

@@ -1,6 +1,7 @@
 import { vi } from 'vitest'
 
 export const mockStoreState: Record<string, unknown> = {
+  models: [],
   modelOverrides: {},
   modelOverride: { provider: null, model: null, enabled: false },
   setModelOverride: vi.fn(),
@@ -34,6 +35,9 @@ export const mockStoreState: Record<string, unknown> = {
   fetchAlertHistory: vi.fn().mockResolvedValue(undefined),
   testAlertRule: vi.fn().mockResolvedValue(null),
   clearAlertsError: vi.fn(),
+  // Health Check
+  isCheckingHealth: {},
+  checkProviderHealth: vi.fn().mockResolvedValue(undefined),
 }
 
 export const useDashboardStore = vi.fn(() => mockStoreState)

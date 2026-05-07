@@ -110,7 +110,10 @@ strategies:
     description: "选择 capability.cost 最高的模型（最便宜），低于 quality 门槛的模型会被过滤"
 
 # ==================== 全局路由参数 ====================
-cost_quality_threshold: 5  # cost 策略的最低质量门槛（1-10），低于此值的模型会被过滤
+formula:
+  weights:
+    quality: 0.5
+    cost: 0.5
 
 # ==================== Fallback 配置 ====================
 fallback:

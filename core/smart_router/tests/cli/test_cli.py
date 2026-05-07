@@ -29,9 +29,12 @@ class TestVersionCommand:
 
     def test_version_matches_package_metadata(self):
         """版本号应与 package metadata 一致（单源）"""
-        from importlib.metadata import version
+        from importlib.metadata import version, PackageNotFoundError
 
-        assert __version__ == version("smartrouter")
+        try:
+            assert __version__ == version("smartrouter")
+        except PackageNotFoundError:
+            pytest.skip("smartrouter package not installed in test environment")
 
 
 class TestInitCommand:
@@ -44,7 +47,8 @@ class TestInitCommand:
             
             assert result.exit_code == 0
             assert (Path(tmpdir) / "providers.yaml").exists()
-            assert (Path(tmpdir) / "models.yaml").exists()
+            assert (Path(tmpdir) / "models").exists()
+            assert any((Path(tmpdir) / "models").glob("*.yaml"))
             assert (Path(tmpdir) / "routing.yaml").exists()
             assert "配置文件已生成" in result.stdout
     
@@ -90,7 +94,9 @@ providers:
     api_base: http://test.com
     api_key: test-key
 """)
-            (config_dir / "models.yaml").write_text("""
+            models_dir = config_dir / "models"
+            models_dir.mkdir(exist_ok=True)
+            (models_dir / "default.yaml").write_text("""
 models:
   test-model:
     provider: test
@@ -148,8 +154,10 @@ providers:
     api_key: sk-test
 """)
         
-        # models.yaml
-        (config_dir / "models.yaml").write_text("""
+        # models/
+        models_dir = config_dir / "models"
+        models_dir.mkdir(exist_ok=True)
+        (models_dir / "default.yaml").write_text("""
 models:
   gpt-4o:
     provider: openai
@@ -160,7 +168,7 @@ models:
       context: 128000
     supported_tasks: [writing, chat]
     difficulty_support: [easy, medium, hard]
-  
+
   qwen3-122b:
     provider: openai
     litellm_model: dashscope/qwen3-122b

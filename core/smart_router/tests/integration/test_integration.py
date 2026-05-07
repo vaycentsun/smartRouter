@@ -8,7 +8,7 @@ import yaml
 from smart_router.config.loader import ConfigLoader
 from smart_router.config.schema import (
     Config, ProviderConfig, ModelConfig, ModelCapabilities,
-    TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, RoutingConfig
+    TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, RoutingConfig, FormulaConfig
 )
 from smart_router.utils.markers import parse_markers
 from smart_router.classifier.task_classifier import TaskTypeClassifier
@@ -62,6 +62,7 @@ def test_config():
                 "auto": StrategyConfig(description="Auto"),
                 "cost": StrategyConfig(description="Cost")
             },
+            formula=FormulaConfig(weights={"quality": 0.6, "cost": 0.4}),
             fallback=FallbackConfig(similarity_threshold=2)
         )
     )
@@ -111,7 +112,9 @@ providers:
     api_base: https://api.openai.com/v1
     api_key: sk-test
 """)
-        (config_dir / "models.yaml").write_text("""
+        models_dir = config_dir / "models"
+        models_dir.mkdir(exist_ok=True)
+        (models_dir / "default.yaml").write_text("""
 models:
   test-model:
     provider: openai

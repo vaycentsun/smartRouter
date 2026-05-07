@@ -19,6 +19,11 @@ import type {
   PlaygroundHistoryRecord,
   AlertRule,
   AlertHistoryItem,
+  HealthStatus,
+  FormulaResponse,
+  FormulaUpdateRequest,
+  FormulaPreviewRequest,
+  FormulaPreviewResponse,
 } from '../types'
 
 export interface AlertTestResult {
@@ -65,6 +70,14 @@ export const api = {
   getStatus: () => client.get<ServiceStatus>('/api/status').then((r) => r.data),
   getModels: () => client.get<ModelsResponse>('/api/models').then((r) => r.data),
   getProviders: () => client.get<ProvidersResponse>('/api/providers').then((r) => r.data),
+  checkProviderHealth: (providerName: string) =>
+    client.get<{
+      provider: string
+      status: HealthStatus
+      models: string[]
+      checked_at: number
+      error: string | null
+    }>(`/api/providers/${providerName}/health`).then((r) => r.data),
   getModelOverrides: () => client.get<ModelOverrideInfo>('/api/model-overrides').then((r) => r.data),
   getModelOverride: () => client.get<{ provider: string | null; model: string | null; enabled: boolean }>('/api/model-override').then((r) => r.data),
   setModelOverride: (provider: string, model: string) =>
@@ -106,4 +119,11 @@ export const api = {
     client.get<{ history: AlertHistoryItem[] }>('/api/alerts/history', { params: { limit } }).then((r) => r.data),
   testAlertRule: (data: AlertRule) =>
     client.post<AlertTestResult>('/api/alerts/test', data).then((r) => r.data),
+  // Formula
+  getFormula: () =>
+    client.get<FormulaResponse>('/api/formula').then((r) => r.data),
+  updateFormula: (data: FormulaUpdateRequest) =>
+    client.put<{ success: boolean; errors?: string[] }>('/api/formula', data).then((r) => r.data),
+  previewFormula: (data: FormulaPreviewRequest) =>
+    client.post<FormulaPreviewResponse>('/api/formula/preview', data).then((r) => r.data),
 }

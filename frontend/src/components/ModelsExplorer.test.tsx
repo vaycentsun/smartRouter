@@ -19,6 +19,8 @@ describe('ModelsExplorer', () => {
     mockStoreState.isSavingProviders = false
     mockStoreState.toast = null
     mockStoreState.clearToast = vi.fn()
+    mockStoreState.isCheckingHealth = {}
+    mockStoreState.checkProviderHealth = vi.fn().mockResolvedValue(undefined)
   })
 
   it('renders sidebar and models panel', () => {

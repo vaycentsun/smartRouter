@@ -18,11 +18,13 @@ class TestInitCommandEdgeCases:
         with tempfile.TemporaryDirectory() as tmpdir:
             # 创建已存在的文件
             (Path(tmpdir) / "providers.yaml").write_text("dummy")
-            (Path(tmpdir) / "models.yaml").write_text("dummy")
+            models_dir = Path(tmpdir) / "models"
+            models_dir.mkdir(exist_ok=True)
+            (models_dir / "dummy.yaml").write_text("dummy")
             (Path(tmpdir) / "routing.yaml").write_text("dummy")
-            
+
             result = runner.invoke(app, ["init", "--output", str(tmpdir), "--force"])
-            
+
             assert result.exit_code == 0
             assert "配置文件已生成" in result.stdout
             # 验证文件被覆盖（不再是 dummy）
@@ -35,20 +37,22 @@ class TestInitCommandEdgeCases:
             # 由于 pip install 后模板通常存在，我们通过强制条件触发回退较困难
             # 这里验证默认配置写入的格式
             result = runner.invoke(app, ["init", "--output", str(tmpdir)])
-            
+
             assert result.exit_code == 0
             assert (Path(tmpdir) / "providers.yaml").exists()
-            assert (Path(tmpdir) / "models.yaml").exists()
+            assert (Path(tmpdir) / "models").exists()
+            assert any((Path(tmpdir) / "models").glob("*.yaml"))
             assert (Path(tmpdir) / "routing.yaml").exists()
 
     def test_init_safe_all_missing(self):
-        """init --safe 在全新目录下正常生成三文件"""
+        """init --safe 在全新目录下正常生成配置文件"""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe"])
-            
+
             assert result.exit_code == 0
             assert (Path(tmpdir) / "providers.yaml").exists()
-            assert (Path(tmpdir) / "models.yaml").exists()
+            assert (Path(tmpdir) / "models").exists()
+            assert any((Path(tmpdir) / "models").glob("*.yaml"))
             assert (Path(tmpdir) / "routing.yaml").exists()
             assert "配置文件已生成" in result.stdout
 
@@ -57,26 +61,29 @@ class TestInitCommandEdgeCases:
         with tempfile.TemporaryDirectory() as tmpdir:
             # 预先创建 providers.yaml
             (Path(tmpdir) / "providers.yaml").write_text("existing-provider")
-            
+
             result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe"])
-            
+
             assert result.exit_code == 0
             # providers.yaml 应保持不变
             assert (Path(tmpdir) / "providers.yaml").read_text() == "existing-provider"
             # 缺失的应被生成
-            assert (Path(tmpdir) / "models.yaml").exists()
+            assert (Path(tmpdir) / "models").exists()
+            assert any((Path(tmpdir) / "models").glob("*.yaml"))
             assert (Path(tmpdir) / "routing.yaml").exists()
             assert "配置文件已生成" in result.stdout
 
     def test_init_safe_skips_existing(self):
-        """init --safe 在三文件全存在时直接跳过"""
+        """init --safe 在所有配置存在时直接跳过"""
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "providers.yaml").write_text("dummy")
-            (Path(tmpdir) / "models.yaml").write_text("dummy")
+            models_dir = Path(tmpdir) / "models"
+            models_dir.mkdir(exist_ok=True)
+            (models_dir / "dummy.yaml").write_text("dummy")
             (Path(tmpdir) / "routing.yaml").write_text("dummy")
-            
+
             result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe"])
-            
+
             assert result.exit_code == 0
             assert "跳过生成" in result.stdout
             # 文件内容应不变
@@ -86,14 +93,32 @@ class TestInitCommandEdgeCases:
         """--safe 优先于 --force，不覆盖已有文件"""
         with tempfile.TemporaryDirectory() as tmpdir:
             (Path(tmpdir) / "providers.yaml").write_text("existing")
-            (Path(tmpdir) / "models.yaml").write_text("existing")
+            models_dir = Path(tmpdir) / "models"
+            models_dir.mkdir(exist_ok=True)
+            (models_dir / "existing.yaml").write_text("existing")
             (Path(tmpdir) / "routing.yaml").write_text("existing")
-            
+
             result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe", "--force"])
-            
+
             assert result.exit_code == 0
             assert "跳过生成" in result.stdout
             assert (Path(tmpdir) / "providers.yaml").read_text() == "existing"
+
+    def test_init_safe_skips_empty_models_dir(self):
+        """init --safe 在 models/ 目录存在但为空时不应覆盖"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "providers.yaml").write_text("dummy")
+            models_dir = Path(tmpdir) / "models"
+            models_dir.mkdir(exist_ok=True)
+            # models/ 为空，没有 yaml 文件
+            (Path(tmpdir) / "routing.yaml").write_text("dummy")
+
+            result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe"])
+
+            assert result.exit_code == 0
+            assert "跳过生成" in result.stdout
+            # models/ 应保持为空，不应被模板填充
+            assert not any(models_dir.glob("*.yaml"))
 
 
 class TestDoctorCommandEdgeCases:
@@ -112,7 +137,9 @@ class TestDoctorCommandEdgeCases:
         with tempfile.TemporaryDirectory() as tmpdir:
             # 创建存在问题的配置文件（provider 引用不存在）
             (Path(tmpdir) / "providers.yaml").write_text("providers: {}\n")
-            (Path(tmpdir) / "models.yaml").write_text("""
+            models_dir = Path(tmpdir) / "models"
+            models_dir.mkdir(exist_ok=True)
+            (models_dir / "default.yaml").write_text("""
 models:
   test-model:
     provider: nonexistent

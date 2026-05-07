@@ -1,0 +1,31 @@
+# Models Configuration - Anthropic
+models:
+  claude-3-5-sonnet:
+    provider: anthropic
+    litellm_model: anthropic/claude-3-5-sonnet-20241022
+    capabilities:
+      quality: 9
+      cost: 4
+      context: 200000
+      reasoning: 9
+      creative: 9
+      vision: true
+      long_context: true
+      latest: true
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+  claude-3-opus:
+    provider: anthropic
+    litellm_model: anthropic/claude-3-opus-20240229
+    capabilities:
+      quality: 10
+      cost: 2
+      context: 200000
+      reasoning: 10
+      creative: 10
+      vision: true
+      long_context: true
+      latest: false
+    supported_tasks: [code_review, writing, creative, reasoning, analysis]
+    difficulty_support: [hard, expert]

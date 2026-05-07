@@ -10,6 +10,7 @@ vi.mock('../api/client', async (importOriginal) => {
       getModels: vi.fn(),
       getProviders: vi.fn(),
       getModelOverrides: vi.fn(),
+      getModelOverride: vi.fn(),
       getTokenStats: vi.fn(),
       dryRun: vi.fn(),
       stopService: vi.fn(),
@@ -62,6 +63,7 @@ describe('useDashboardStore', () => {
       ;(api.getModels as Mock).mockResolvedValue(modelsRes)
       ;(api.getProviders as Mock).mockResolvedValue(providersRes)
       ;(api.getModelOverrides as Mock).mockResolvedValue({ overrides: {} })
+      ;(api.getModelOverride as Mock).mockResolvedValue({ provider: null, model: null, enabled: false })
       ;(api.getTokenStats as Mock).mockResolvedValue({ stats: [], total_prompt_tokens: 0, total_completion_tokens: 0, total_requests: 0 })
 
       await useDashboardStore.getState().fetchAll()
@@ -116,6 +118,7 @@ describe('useDashboardStore', () => {
       ;(api.getModels as Mock).mockResolvedValue({ models: [], total: 0, available: 0, unavailable: 0 })
       ;(api.getProviders as Mock).mockResolvedValue({ providers: [] })
       ;(api.getModelOverrides as Mock).mockResolvedValue({ overrides: {} })
+      ;(api.getModelOverride as Mock).mockResolvedValue({ provider: null, model: null, enabled: false })
       ;(api.getTokenStats as Mock).mockResolvedValue({ stats: [], total_prompt_tokens: 0, total_completion_tokens: 0, total_requests: 0 })
 
       await useDashboardStore.getState().stopService()
@@ -144,6 +147,7 @@ describe('useDashboardStore', () => {
       ;(api.getModels as Mock).mockResolvedValue({ models: [], total: 0, available: 0, unavailable: 0 })
       ;(api.getProviders as Mock).mockResolvedValue({ providers: [] })
       ;(api.getModelOverrides as Mock).mockResolvedValue({ overrides: {} })
+      ;(api.getModelOverride as Mock).mockResolvedValue({ provider: null, model: null, enabled: false })
       ;(api.getTokenStats as Mock).mockResolvedValue({ stats: [], total_prompt_tokens: 0, total_completion_tokens: 0, total_requests: 0 })
 
       await useDashboardStore.getState().saveProviders({ openai: { api_base: 'https://api.openai.com', timeout: 30 } })

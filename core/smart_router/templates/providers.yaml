@@ -51,6 +51,12 @@ providers:
     api_key: ""
     timeout: 30
     
+  # ------------------ 虚拟模型 Provider ------------------
+  _virtual:
+    api_base: ""
+    api_key: ""
+    timeout: 30
+    
   # ------------------ 其他可选服务商 ------------------
   # deepseek:
   #   api_base: https://api.deepseek.com

@@ -72,68 +72,85 @@ def init(
         help="安全模式：只生成缺失的配置文件，不覆盖已有文件"
     )
 ):
-    """生成默认配置文件 (providers.yaml + models.yaml + routing.yaml)"""
+    """生成默认配置文件 (providers.yaml + models/ + routing.yaml)"""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    config_files = ["providers.yaml", "models.yaml", "routing.yaml"]
+    top_level_files = ["providers.yaml", "routing.yaml"]
+    models_dir_name = "models"
+    all_items = top_level_files + [models_dir_name]
 
     if safe:
-        # 安全模式：只生成缺失的文件
-        missing_files = []
-        for filename in config_files:
+        # 安全模式：只生成缺失的文件/目录，不覆盖已有内容
+        missing_items = []
+        for filename in top_level_files:
             if not (output_dir / filename).exists():
-                missing_files.append(filename)
+                missing_items.append(filename)
+        models_dir = output_dir / models_dir_name
+        # 只要 models/ 目录存在（即使为空），也不覆盖，避免删除用户可能存放的其他文件
+        if not models_dir.exists():
+            missing_items.append(models_dir_name)
 
-        if not missing_files:
+        if not missing_items:
             console.print("[dim]所有配置文件已存在，跳过生成[/dim]")
             raise typer.Exit()
 
-        files_to_generate = missing_files
+        items_to_generate = missing_items
     else:
         # 检查文件是否已存在
-        existing_files = []
-        for filename in config_files:
+        existing_items = []
+        for filename in top_level_files:
             if (output_dir / filename).exists():
-                existing_files.append(filename)
+                existing_items.append(filename)
+        models_dir = output_dir / models_dir_name
+        if models_dir.exists() and any(models_dir.glob("*.yaml")):
+            existing_items.append(models_dir_name)
 
-        if existing_files and not force:
+        if existing_items and not force:
             overwrite = typer.confirm(
-                f"以下文件已存在: {', '.join(existing_files)}\n是否覆盖？"
+                f"以下文件/目录已存在: {', '.join(existing_items)}\n是否覆盖？"
             )
             if not overwrite:
                 console.print("[yellow]已取消[/yellow]")
                 raise typer.Exit()
 
-        files_to_generate = config_files
+        items_to_generate = all_items
 
     # 从包内模板复制配置（支持 pip install 和源码运行）
     try:
         from importlib.resources import files
         templates_dir = files("smart_router") / "templates"
-        if templates_dir.exists() and (templates_dir / "models.yaml").exists():
+        models_templates_dir = templates_dir / models_dir_name
+        if templates_dir.exists() and models_templates_dir.exists():
             import shutil
-            for filename in files_to_generate:
-                src = templates_dir / filename
-                dst = output_dir / filename
-                if src.exists():
-                    shutil.copy2(str(src), dst)
+            for item in items_to_generate:
+                if item == models_dir_name:
+                    src = models_templates_dir
+                    dst = output_dir / models_dir_name
+                    if dst.exists():
+                        shutil.rmtree(dst)
+                    shutil.copytree(str(src), dst)
+                else:
+                    src = templates_dir / item
+                    dst = output_dir / item
+                    if src.exists():
+                        shutil.copy2(str(src), dst)
             console.print(f"[green]✓[/green] 配置文件已生成: {output_dir.absolute()}")
         else:
             raise FileNotFoundError("模板目录不存在")
     except Exception:
         console.print("[yellow]⚠[/yellow] 未找到示例配置文件，使用默认配置...")
-        _write_default_configs(output_dir, filenames=files_to_generate)
+        _write_default_configs(output_dir, items=items_to_generate)
 
-    for filename in files_to_generate:
-        console.print(f"  - {filename}")
+    for item in items_to_generate:
+        console.print(f"  - {item}")
     console.print("[dim]请编辑文件中的 API Key，然后运行 `smart-router start` 启动服务[/dim]")
 
 
-def _write_default_configs(output_dir: Path, filenames: Optional[List[str]] = None):
+def _write_default_configs(output_dir: Path, items: Optional[List[str]] = None):
     """写入默认配置文件（回退方案）"""
-    if filenames is None:
-        filenames = ["providers.yaml", "models.yaml", "routing.yaml"]
+    if items is None:
+        items = ["providers.yaml", "models", "routing.yaml"]
 
     # providers.yaml
     providers_content = '''# Providers Configuration
@@ -146,43 +163,48 @@ providers:
     api_base: https://api.openai.com/v1
     api_key: os.environ/OPENAI_API_KEY
     timeout: 30
-    
+
   anthropic:
     api_base: https://api.anthropic.com
     api_key: os.environ/ANTHROPIC_API_KEY
     timeout: 30
-    
+
   # ==================== 国产服务商 ====================
   # ------------------ Moonshot (月之暗面) ------------------
   moonshot-cn:
     api_base: https://api.moonshot.cn/v1
     api_key: os.environ/MOONSHOT_CN_API_KEY
     timeout: 30
-    
+
   moonshot-ai:
     api_base: https://api.moonshot.ai/v1
     api_key: os.environ/MOONSHOT_AI_API_KEY
     timeout: 30
-    
+
   # ------------------ 阿里通义千问 ------------------
   aliyun:
     api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
     api_key: os.environ/DASHSCOPE_API_KEY
     timeout: 30
-    
+
   zhipu:
     api_base: https://open.bigmodel.cn/api/paas/v4
     api_key: os.environ/ZHIPU_API_KEY
     timeout: 30
-    
+
   minimax:
     api_base: https://api.minimax.chat/v1
     api_key: os.environ/MINIMAX_API_KEY
     timeout: 30
+
+  _virtual:
+    api_base: ""
+    api_key: ""
+    timeout: 30
 '''
-    
-    # models.yaml (默认基础模型)
-    models_content = '''# Models Configuration
+
+    # models/default.yaml (默认基础模型)
+    models_default_content = '''# Models Configuration
 # 模型能力声明配置
 # 请根据你的 API Key 配置启用或注释掉不需要的模型
 
@@ -274,7 +296,7 @@ models:
 
   # ------------------ 智能路由虚拟模型 ------------------
   auto:
-    provider: aliyun
+    provider: _virtual
     litellm_model: openai/qwen-max
     capabilities:
       quality: 8
@@ -284,7 +306,7 @@ models:
     difficulty_support: [easy, medium, hard, expert]
 
   smart-router:
-    provider: aliyun
+    provider: _virtual
     litellm_model: openai/qwen-max
     capabilities:
       quality: 8
@@ -293,7 +315,7 @@ models:
     supported_tasks: [coding, code_review, writing, chat]
     difficulty_support: [easy, medium, hard, expert]
 '''
-    
+
     # routing.yaml
     routing_content = '''# Routing Configuration
 # 任务路由策略配置
@@ -310,7 +332,7 @@ tasks:
       - "帮我写一个快速排序算法"
       - "实现一个单例模式"
       - "这段代码怎么优化"
-      
+
   chat:
     name: "日常对话"
     description: "闲聊、简单问答"
@@ -325,7 +347,7 @@ difficulties:
     name: "简单"
     description: "基础问答"
     max_tokens: 2000
-    
+
   medium:
     name: "中等"
     description: "多轮对话"
@@ -341,13 +363,15 @@ fallback:
   similarity_threshold: 2
   max_attempts: 3
 '''
-    
+
     # 写入文件
-    if "providers.yaml" in filenames:
+    if "providers.yaml" in items:
         (output_dir / "providers.yaml").write_text(providers_content)
-    if "models.yaml" in filenames:
-        (output_dir / "models.yaml").write_text(models_content)
-    if "routing.yaml" in filenames:
+    if "models" in items:
+        models_dir = output_dir / "models"
+        models_dir.mkdir(exist_ok=True)
+        (models_dir / "default.yaml").write_text(models_default_content)
+    if "routing.yaml" in items:
         (output_dir / "routing.yaml").write_text(routing_content)
 
 @app.command()
@@ -528,11 +552,17 @@ def doctor(
     config_dir = Path(config) if config else Path.home() / ".smart-router"
     
     # 检查 V3 配置文件是否存在
-    v3_files = ["providers.yaml", "models.yaml", "routing.yaml"]
-    missing_files = [f for f in v3_files if not (config_dir / f).exists()]
-    
-    if missing_files:
-        console.print(f"[red]✗[/red] V3 配置文件缺失: {', '.join(missing_files)}")
+    missing_items = []
+    if not (config_dir / "providers.yaml").exists():
+        missing_items.append("providers.yaml")
+    if not (config_dir / "routing.yaml").exists():
+        missing_items.append("routing.yaml")
+    models_dir = config_dir / "models"
+    if not models_dir.exists() or not any(models_dir.glob("*.yaml")):
+        missing_items.append("models/")
+
+    if missing_items:
+        console.print(f"[red]✗[/red] V3 配置文件缺失: {', '.join(missing_items)}")
         console.print(f"[dim]  请运行 `smart-router init` 生成配置[/dim]")
         checks_failed += 2
     else:
@@ -592,11 +622,17 @@ def list_models(
     config_dir = Path(config) if config else Path.home() / ".smart-router"
     
     # 检查配置文件是否存在
-    v3_files = ["providers.yaml", "models.yaml", "routing.yaml"]
-    missing_files = [f for f in v3_files if not (config_dir / f).exists()]
-    
-    if missing_files:
-        console.print(f"[red]✗[/red] 配置文件缺失: {', '.join(missing_files)}")
+    missing_items = []
+    if not (config_dir / "providers.yaml").exists():
+        missing_items.append("providers.yaml")
+    if not (config_dir / "routing.yaml").exists():
+        missing_items.append("routing.yaml")
+    models_dir = config_dir / "models"
+    if not models_dir.exists() or not any(models_dir.glob("*.yaml")):
+        missing_items.append("models/")
+
+    if missing_items:
+        console.print(f"[red]✗[/red] 配置文件缺失: {', '.join(missing_items)}")
         console.print(f"[dim]  请运行 `smart-router init` 生成配置[/dim]")
         raise typer.Exit(1)
     

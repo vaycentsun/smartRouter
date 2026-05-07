@@ -23,8 +23,10 @@ providers:
     timeout: 30
 """)
         
-        # models.yaml
-        (config_dir / "models.yaml").write_text("""
+        # models/
+        models_dir = config_dir / "models"
+        models_dir.mkdir(exist_ok=True)
+        (models_dir / "default.yaml").write_text("""
 models:
   model-a:
     provider: openai
@@ -36,7 +38,7 @@ models:
       context: 128000
     supported_tasks: [chat]
     difficulty_support: [easy]
-    
+
   model-b:
     provider: openai
     litellm_model: openai/model-b
