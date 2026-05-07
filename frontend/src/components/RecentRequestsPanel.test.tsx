@@ -64,6 +64,8 @@ const mockRequests: RequestRoutingRecord[] = [
     prompt_tokens: 100,
     completion_tokens: 50,
     total_tokens: 150,
+    reasoning_tokens: 10,
+    cached_tokens: 5,
     error_info: null,
     retry_history: [
       { model: 'gpt-4o', status_code: 502, error: null, timestamp: '2024-01-15T14:34:00Z' },
