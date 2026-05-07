@@ -113,6 +113,8 @@ export function LogsPanel() {
                 </button>
               ))}
             </div>
+          </div>
+          <div className="flex items-center gap-3">
             <div className="flex gap-1">
               {LOG_LEVELS.map((l) => (
                 <button
@@ -128,9 +130,9 @@ export function LogsPanel() {
                 </button>
               ))}
             </div>
-          </div>
-          <div className="text-xs text-[#86868b] font-mono">
-            {logs.lines.length} 行
+            <span className="text-xs text-[#86868b] font-mono border-l border-[rgba(0,0,0,0.1)] pl-3">
+              {logs.lines.length} 行
+            </span>
           </div>
         </div>
 
