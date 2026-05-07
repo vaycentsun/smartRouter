@@ -89,8 +89,8 @@ export const api = {
   stopService: () => client.post('/api/stop').then((r) => r.data),
   putProviders: (data: Record<string, ProviderUpdate>) =>
     client.put<{ success: boolean; errors?: string[] }>('/api/providers', { providers: data }).then((r) => r.data),
-  getLogs: (source: LogSource, offset: number, limit?: number) =>
-    client.get<LogsResponse>('/api/logs', { params: { source, offset, limit } }).then((r) => r.data),
+  getLogs: (source: LogSource, offset: number, limit?: number, level?: string) =>
+    client.get<LogsResponse>('/api/logs', { params: { source, offset, limit, level } }).then((r) => r.data),
   getTokenStats: () =>
     client.get<TokenStatsResponse>('/api/token-stats').then((r) => r.data),
   getAnalyticsSummary: (days = 7) =>
