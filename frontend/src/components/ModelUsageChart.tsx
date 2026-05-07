@@ -35,6 +35,10 @@ export function ModelUsageChart() {
   const data = analyticsByModel.map((item) => ({
     name: item.model,
     value: item.prompt_tokens + item.completion_tokens,
+    prompt: item.prompt_tokens,
+    completion: item.completion_tokens,
+    reasoning: item.reasoning_tokens,
+    cached: item.cached_tokens,
     cost: item.cost,
     requests: item.request_count,
   }))

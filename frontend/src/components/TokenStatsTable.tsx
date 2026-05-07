@@ -71,6 +71,18 @@ export function TokenStatsTable() {
             </th>
             <th
               className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+              onClick={() => handleSort('reasoning_tokens')}
+            >
+              推理 Token <SortIcon column="reasoning_tokens" />
+            </th>
+            <th
+              className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+              onClick={() => handleSort('cached_tokens')}
+            >
+              缓存命中 <SortIcon column="cached_tokens" />
+            </th>
+            <th
+              className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
               onClick={() => handleSort('total_tokens')}
             >
               总计 Token <SortIcon column="total_tokens" />
@@ -92,6 +104,12 @@ export function TokenStatsTable() {
               </td>
               <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
                 {item.completion_tokens.toLocaleString()}
+              </td>
+              <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                {item.reasoning_tokens.toLocaleString()}
+              </td>
+              <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                {item.cached_tokens.toLocaleString()}
               </td>
               <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono font-medium">
                 {item.total_tokens.toLocaleString()}

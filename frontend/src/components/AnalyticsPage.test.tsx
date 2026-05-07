@@ -21,17 +21,21 @@ describe('AnalyticsPage', () => {
       total_cost: 15.3,
       total_requests: 42,
       total_tokens: 12500,
+      total_prompt_tokens: 4000,
+      total_completion_tokens: 8500,
+      total_reasoning_tokens: 1200,
+      total_cached_tokens: 800,
       avg_daily_cost: 2.18,
       incomplete: false,
     }
     mockStoreState.analyticsDaily = [
-      { date: '2026-05-01', cost: 2.5, requests: 6, tokens: 1800 },
+      { date: '2026-05-01', cost: 2.5, requests: 6, tokens: 1800, reasoning_tokens: 200, cached_tokens: 100 },
     ]
     mockStoreState.analyticsByModel = [
-      { model: 'qwen3.5-plus', prompt_tokens: 500, completion_tokens: 1500, cost: 2.5, request_count: 10 },
+      { model: 'qwen3.5-plus', prompt_tokens: 500, completion_tokens: 1500, total_tokens: 2000, reasoning_tokens: 200, cached_tokens: 100, cost: 2.5, request_count: 10 },
     ]
     mockStoreState.analyticsTopModels = [
-      { model: 'qwen3.5-plus', total_tokens: 2000, cost: 2.5, request_count: 10 },
+      { model: 'qwen3.5-plus', prompt_tokens: 500, completion_tokens: 1500, total_tokens: 2000, reasoning_tokens: 200, cached_tokens: 100, cost: 2.5, request_count: 10 },
     ]
     render(<AnalyticsPage />)
     expect(screen.getByText('总成本')).toBeInTheDocument()
