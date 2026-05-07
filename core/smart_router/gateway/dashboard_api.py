@@ -1062,6 +1062,12 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     except Exception:
         app.state.health_checker = None
 
+    # 初始化请求路由历史（使用文件持久化，与 Proxy 进程共享）
+    from ..utils.request_routing_history import RequestRoutingHistory, DEFAULT_HISTORY_FILE
+    app.state.request_routing_history = RequestRoutingHistory(
+        max_size=50, persist_file=DEFAULT_HISTORY_FILE
+    )
+
     app.get("/api/health")(health)
     app.get("/api/status")(status)
     app.get("/api/models")(models)

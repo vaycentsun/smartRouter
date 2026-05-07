@@ -1,9 +1,13 @@
 """RequestRoutingHistory 单元测试"""
 
 import asyncio
+import tempfile
+from pathlib import Path
+
 import pytest
 
 from smart_router.utils.request_routing_history import (
+    DEFAULT_HISTORY_FILE,
     RequestRoutingEntry,
     RequestRoutingHistory,
 )
@@ -144,3 +148,80 @@ class TestRequestRoutingHistory:
         assert result["completion_tokens"] == 50
         assert result["total_tokens"] == 150
         assert result["error_info"] is None
+
+    # ==================== 持久化测试 ====================
+
+    @pytest.mark.asyncio
+    async def test_persistence_save_and_load(self, sample_entry):
+        """启用持久化后，写入的记录应保存到文件，新实例能从文件加载"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            persist_file = Path(f.name)
+
+        try:
+            # 实例 A 写入记录
+            history_a = RequestRoutingHistory(max_size=50, persist_file=persist_file)
+            await history_a.record(sample_entry)
+
+            # 验证文件已生成
+            assert persist_file.exists()
+
+            # 实例 B 从同一文件加载，应能读到记录
+            history_b = RequestRoutingHistory(max_size=50, persist_file=persist_file)
+            recent = history_b.get_recent()
+            assert len(recent) == 1
+            assert recent[0]["request_id"] == "req-001"
+            assert recent[0]["fallback_chain"] == ["gpt-4o", "gpt-3.5-turbo"]
+        finally:
+            persist_file.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_persistence_cross_instance(self):
+        """模拟跨进程场景：实例 A 写入，实例 B 读取，验证数据共享"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            persist_file = Path(f.name)
+
+        try:
+            # 实例 A 写入 3 条
+            history_a = RequestRoutingHistory(max_size=50, persist_file=persist_file)
+            for i in range(3):
+                entry = RequestRoutingEntry(
+                    request_id=f"req-{i:03d}",
+                    timestamp="2025-01-01T00:00:00Z",
+                    original_model="auto",
+                    selected_model="gpt-4o",
+                )
+                await history_a.record(entry)
+
+            # 实例 B 读取，应看到 3 条（倒序）
+            history_b = RequestRoutingHistory(max_size=50, persist_file=persist_file)
+            recent = history_b.get_recent()
+            assert len(recent) == 3
+            assert recent[0]["request_id"] == "req-002"
+            assert recent[2]["request_id"] == "req-000"
+        finally:
+            persist_file.unlink(missing_ok=True)
+
+    def test_persistence_corrupted_file(self):
+        """持久化文件损坏时，应优雅降级，不抛异常，返回空列表"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            f.write("not json at all!!!")
+            persist_file = Path(f.name)
+
+        try:
+            history = RequestRoutingHistory(max_size=50, persist_file=persist_file)
+            recent = history.get_recent()
+            assert recent == []
+        finally:
+            persist_file.unlink(missing_ok=True)
+
+    def test_persistence_missing_file(self):
+        """持久化文件不存在时，应返回空列表，不抛异常"""
+        persist_file = Path(tempfile.gettempdir()) / "nonexistent_routing_history.json"
+        history = RequestRoutingHistory(max_size=50, persist_file=persist_file)
+        recent = history.get_recent()
+        assert recent == []
+
+    def test_default_history_file_exported(self):
+        """DEFAULT_HISTORY_FILE 应正确定义为 Path 对象"""
+        assert isinstance(DEFAULT_HISTORY_FILE, Path)
+        assert DEFAULT_HISTORY_FILE.name == "request_routing_history.json"

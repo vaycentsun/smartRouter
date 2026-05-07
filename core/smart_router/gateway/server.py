@@ -552,9 +552,11 @@ def start_server(config_path: Optional[Path] = None):
         from ..utils.token_stats import TokenStats
         app.state.token_stats = TokenStats()
 
-        # 初始化请求路由历史
-        from ..utils.request_routing_history import RequestRoutingHistory
-        app.state.request_routing_history = RequestRoutingHistory(max_size=50)
+        # 初始化请求路由历史（使用文件持久化，支持 Dashboard 跨进程读取）
+        from ..utils.request_routing_history import RequestRoutingHistory, DEFAULT_HISTORY_FILE
+        app.state.request_routing_history = RequestRoutingHistory(
+            max_size=50, persist_file=DEFAULT_HISTORY_FILE
+        )
 
         # 初始化错误计数器
         from .error_counter import ErrorCounter
