@@ -5,12 +5,14 @@ import { CostTrendChart } from './CostTrendChart'
 import { RequestTrendChart } from './RequestTrendChart'
 import { ModelUsageChart } from './ModelUsageChart'
 import { TopModelsTable } from './TopModelsTable'
+import { RecentRequestsPanel } from './RecentRequestsPanel'
 
 export function AnalyticsPage() {
   const {
     isLoadingAnalytics,
     analyticsError,
     fetchAnalytics,
+    recentRequests,
   } = useDashboardStore()
 
   useEffect(() => {
@@ -42,6 +44,9 @@ export function AnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ModelUsageChart />
         <TopModelsTable />
+      </div>
+      <div className="w-full">
+        <RecentRequestsPanel requests={recentRequests} />
       </div>
     </div>
   )

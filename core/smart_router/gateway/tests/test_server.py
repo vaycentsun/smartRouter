@@ -1017,3 +1017,234 @@ class TestGlobalModelOverride:
         # 请求头覆盖应生效
         assert request.state.smart_router_override_model == "gpt-4o"
         assert request.state.smart_router_override_provider == "openai"
+
+
+class TestRoutingHistoryMiddleware:
+    """测试中间件路由历史记录"""
+
+    @pytest.fixture
+    def mock_router(self):
+        router = MagicMock()
+        router.sr_config = MagicMock()
+        return router
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_routing_info(self, mock_router):
+        """验证中间件正确记录路由信息到 RequestRoutingHistory"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
+        from smart_router.selector.v3_selector import SelectionResult
+
+        mock_router.select_model.return_value = SelectionResult(
+            model_name="gpt-4o",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=0.9,
+            reason="test",
+        )
+        mock_router.get_fallback_chain.return_value = ["gpt-4o-mini", "claude-3-haiku"]
+
+        history = RequestRoutingHistory(max_size=50)
+
+        async def mock_call_next(request):
+            return Response(
+                content=json.dumps({
+                    "id": "chatcmpl-test",
+                    "model": "gpt-4o",
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+                }).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        app.state.token_stats = AsyncMock()
+        app.state.request_routing_history = history
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        async def receive():
+            return {
+                "type": "http.request",
+                "body": json.dumps({
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Hello"}]
+                }).encode(),
+                "more_body": False,
+            }
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+
+        records = history.get_recent()
+        assert len(records) == 1
+
+        record = records[0]
+        assert record["original_model"] == "auto"
+        assert record["selected_model"] == "gpt-4o"
+        assert record["actual_model"] == "gpt-4o"
+        assert record["task_type"] == "chat"
+        assert record["difficulty"] == "easy"
+        assert record["strategy"] == "auto"
+        assert record["did_fallback"] is False
+        assert record["fallback_chain"] == ["gpt-4o-mini", "claude-3-haiku"]
+        assert record["status_code"] == 200
+        assert record["prompt_tokens"] == 10
+        assert record["completion_tokens"] == 5
+        assert record["total_tokens"] == 15
+        assert "request_id" in record
+        assert "timestamp" in record
+
+    @pytest.mark.asyncio
+    async def test_middleware_detects_fallback(self, mock_router):
+        """验证 actual_model 与 selected_model 不一致时 did_fallback=True"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
+        from smart_router.selector.v3_selector import SelectionResult
+
+        mock_router.select_model.return_value = SelectionResult(
+            model_name="gpt-4o",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=0.9,
+            reason="test",
+        )
+        mock_router.get_fallback_chain.return_value = []
+
+        history = RequestRoutingHistory(max_size=50)
+
+        async def mock_call_next(request):
+            return Response(
+                content=json.dumps({
+                    "model": "claude-3-opus",
+                    "usage": {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}
+                }).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        app.state.token_stats = AsyncMock()
+        app.state.request_routing_history = history
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        async def receive():
+            return {
+                "type": "http.request",
+                "body": json.dumps({
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Hello"}]
+                }).encode(),
+                "more_body": False,
+            }
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+
+        records = history.get_recent()
+        assert len(records) == 1
+        assert records[0]["selected_model"] == "gpt-4o"
+        assert records[0]["actual_model"] == "claude-3-opus"
+        assert records[0]["did_fallback"] is True
+
+    @pytest.mark.asyncio
+    async def test_middleware_no_fallback(self, mock_router):
+        """验证 actual_model 与 selected_model 一致时 did_fallback=False"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
+        from smart_router.selector.v3_selector import SelectionResult
+
+        mock_router.select_model.return_value = SelectionResult(
+            model_name="gpt-4o",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=0.9,
+            reason="test",
+        )
+        mock_router.get_fallback_chain.return_value = []
+
+        history = RequestRoutingHistory(max_size=50)
+
+        async def mock_call_next(request):
+            return Response(
+                content=json.dumps({
+                    "model": "gpt-4o",
+                    "usage": {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}
+                }).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        app.state.token_stats = AsyncMock()
+        app.state.request_routing_history = history
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        async def receive():
+            return {
+                "type": "http.request",
+                "body": json.dumps({
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Hello"}]
+                }).encode(),
+                "more_body": False,
+            }
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+
+        records = history.get_recent()
+        assert len(records) == 1
+        assert records[0]["selected_model"] == "gpt-4o"
+        assert records[0]["actual_model"] == "gpt-4o"
+        assert records[0]["did_fallback"] is False
