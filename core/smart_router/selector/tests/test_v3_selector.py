@@ -433,3 +433,51 @@ class TestV3ModelSelector:
         # 不需要 vision 时，可能选中任一模型（根据评分）
         result = selector.select("chat", "medium", requires_vision=False)
         assert result.model_name in ["gpt-4o", "gpt-4o-vision"]
+
+    def test_select_ranked_filters_and_sorts(self, sample_config):
+        """select_ranked 应返回按公式得分降序排列的完整候选列表"""
+        selector = V3ModelSelector(sample_config)
+        
+        ranked = selector.select_ranked("chat", "easy")
+        
+        # 应包含所有支持 chat/easy 的模型
+        model_names = [name for name, _ in ranked]
+        assert "gpt-4o" in model_names
+        assert "gpt-4o-mini" in model_names
+        assert "cheap-bad-model" in model_names
+        
+        # 按 formula 得分降序排列
+        # formula weights: quality=0.5, cost=0.5
+        # gpt-4o: 9*0.5 + 3*0.5 = 6.0
+        # gpt-4o-mini: 6*0.5 + 9*0.5 = 7.5
+        # cheap-bad-model: 2*0.5 + 10*0.5 = 6.0
+        scores = {name: score for name, score in ranked}
+        assert scores["gpt-4o-mini"] == 7.5
+        assert scores["gpt-4o"] == 6.0
+        assert scores["cheap-bad-model"] == 6.0
+        
+        # 验证降序
+        for i in range(len(ranked) - 1):
+            assert ranked[i][1] >= ranked[i + 1][1]
+    
+    def test_select_ranked_empty_candidates(self, sample_config):
+        """没有候选模型时应返回空列表"""
+        selector = V3ModelSelector(sample_config)
+        
+        ranked = selector.select_ranked("unknown_task", "easy")
+        assert ranked == []
+    
+    def test_select_ranked_respects_filters(self, sample_config):
+        """select_ranked 应正确应用 difficulty 和 context 过滤"""
+        selector = V3ModelSelector(sample_config)
+        
+        # hard 难度只支持 gpt-4o
+        ranked = selector.select_ranked("chat", "hard")
+        model_names = [name for name, _ in ranked]
+        assert model_names == ["gpt-4o"]
+        
+        # 需要 vision 时过滤非 vision 模型
+        ranked = selector.select_ranked("chat", "easy", requires_vision=True)
+        model_names = [name for name, _ in ranked]
+        # sample_config 中没有 vision=True 的模型
+        assert model_names == []

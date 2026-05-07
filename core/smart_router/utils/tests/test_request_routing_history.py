@@ -39,6 +39,7 @@ class TestRequestRoutingHistory:
             completion_tokens=50,
             total_tokens=150,
             error_info=None,
+            retry_history=[],
         )
 
     @pytest.mark.asyncio
@@ -129,6 +130,7 @@ class TestRequestRoutingHistory:
             "completion_tokens",
             "total_tokens",
             "error_info",
+            "retry_history",
         }
         assert set(result.keys()) == expected_keys
 

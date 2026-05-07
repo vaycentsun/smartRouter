@@ -19,6 +19,16 @@ DEFAULT_HISTORY_FILE = Path.home() / ".smart-router" / "request_routing_history.
 
 
 @dataclass
+class RetryRecord:
+    """单次重试记录"""
+
+    model: str
+    status_code: int
+    error: Optional[str] = None
+    timestamp: str = ""
+
+
+@dataclass
 class RequestRoutingEntry:
     """单条请求路由记录"""
 
@@ -38,6 +48,7 @@ class RequestRoutingEntry:
     completion_tokens: int = 0
     total_tokens: int = 0
     error_info: Optional[str] = None
+    retry_history: list[dict] = field(default_factory=list)
 
 
 class RequestRoutingHistory:
@@ -77,6 +88,7 @@ class RequestRoutingHistory:
                     completion_tokens=item.get("completion_tokens", 0),
                     total_tokens=item.get("total_tokens", 0),
                     error_info=item.get("error_info"),
+                    retry_history=item.get("retry_history", []),
                 )
                 self._buffer.append(entry)
             logger.debug(f"Loaded {len(self._buffer)} routing history records from {self._persist_file}")
@@ -143,4 +155,5 @@ class RequestRoutingHistory:
             "completion_tokens": entry.completion_tokens,
             "total_tokens": entry.total_tokens,
             "error_info": entry.error_info,
+            "retry_history": entry.retry_history,
         }

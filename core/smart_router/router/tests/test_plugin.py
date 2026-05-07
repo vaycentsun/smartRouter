@@ -307,6 +307,90 @@ class TestSmartRouterGracefulFallback:
         with pytest.raises(NoModelAvailableError):
             router.select_model("auto", messages=[{"role": "user", "content": "test"}])
 
+    def test_select_model_returns_ranked_models(self):
+        """select_model 应返回包含策略排序列表的 SelectionResult"""
+        from smart_router.config.schema import ProviderConfig, ModelConfig, ModelCapabilities
+        from smart_router.config.schema import RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, FormulaConfig
+
+        config = Config(
+            providers={
+                "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
+            },
+            models={
+                "model-a": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/a",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+                "model-b": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/b",
+                    capabilities=ModelCapabilities(quality=6, cost=9, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})
+                },
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=1000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                formula=FormulaConfig(weights={"quality": 0.5, "cost": 0.5}),
+                fallback=FallbackConfig()
+            )
+        )
+
+        with patch('smart_router.router.plugin.Router.__init__', return_value=None):
+            router = SmartRouter(config=config)
+
+        result = router.select_model("auto", messages=[{"role": "user", "content": "test"}])
+
+        # formula: quality=0.5, cost=0.5
+        # model-a: 9*0.5 + 3*0.5 = 6.0
+        # model-b: 6*0.5 + 9*0.5 = 7.5
+        assert result.ranked_models == ["model-b", "model-a"]
+
+    def test_select_model_graceful_fallback_ranked_models(self):
+        """graceful fallback 时 ranked_models 应为可用模型列表"""
+        from smart_router.config.schema import ProviderConfig, ModelConfig, ModelCapabilities
+        from smart_router.config.schema import RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, FormulaConfig
+
+        config = Config(
+            providers={
+                "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"]
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})
+                },
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=1000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                formula=FormulaConfig(weights={"quality": 0.5, "cost": 0.5}),
+                fallback=FallbackConfig()
+            )
+        )
+
+        with patch('smart_router.router.plugin.Router.__init__', return_value=None):
+            router = SmartRouter(config=config)
+
+        # 请求不存在的任务类型，触发 graceful fallback
+        result = router.select_model("stage:unknown_task", messages=[{"role": "user", "content": "test"}])
+
+        assert result.strategy == "fallback"
+        assert result.ranked_models == ["gpt-4o"]
+
 
 class TestSmartRouterReloadConfig:
     """测试 reload_config 运行时配置更新"""

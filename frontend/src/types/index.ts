@@ -242,6 +242,13 @@ export interface AlertHistoryItem {
   message: string
 }
 
+export interface RetryRecord {
+  model: string
+  status_code: number
+  error: string | null
+  timestamp: string
+}
+
 export interface RequestRoutingRecord {
   request_id: string
   timestamp: string
@@ -259,4 +266,5 @@ export interface RequestRoutingRecord {
   completion_tokens: number
   total_tokens: number
   error_info: string | null
+  retry_history?: RetryRecord[]
 }

@@ -1029,6 +1029,245 @@ class TestMiddlewareErrorCounter:
         assert app.state.error_counter.get_error_rate() == 2 / 3
 
 
+class TestMiddlewareStrategyFallback:
+    """测试非流式请求的策略排序重试逻辑"""
+
+    @pytest.fixture
+    def mock_router(self):
+        router = MagicMock()
+        config = MagicMock()
+        config.routing.fallback.max_attempts = 3
+        router.sr_config = config
+        return router
+
+    @pytest.mark.asyncio
+    async def test_non_stream_retry_on_502(self, mock_router):
+        """非流式请求，首个模型返回 502，应按策略排序 fallback 到次优模型"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a", "model-b", "model-c"]
+        )
+        mock_router.select_model.return_value = result
+
+        call_count = 0
+        async def mock_call_next(request):
+            nonlocal call_count
+            call_count += 1
+            body = await request.body()
+            data = json.loads(body)
+            model = data.get("model")
+            if model == "model-a":
+                return Response(content=b'error', status_code=502)
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        with patch("smart_router.gateway.server.asyncio.sleep", new_callable=AsyncMock):
+            response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert call_count == 2
+        assert request.state.smart_router_selected == "model-b"
+        assert request.state.smart_router_retry_count == 1
+        assert len(request.state.smart_router_retry_history) == 1
+        assert request.state.smart_router_retry_history[0]["model"] == "model-a"
+        assert request.state.smart_router_retry_history[0]["status_code"] == 502
+
+    @pytest.mark.asyncio
+    async def test_non_stream_retry_exhausted(self, mock_router):
+        """所有候选模型都失败时，应返回 503"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a", "model-b"]
+        )
+        mock_router.select_model.return_value = result
+        mock_router.sr_config.routing.fallback.max_attempts = 2
+
+        async def mock_call_next(request):
+            return Response(content=b'error', status_code=503)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        with patch("smart_router.gateway.server.asyncio.sleep", new_callable=AsyncMock):
+            response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 503
+        data = json.loads(response.body)
+        assert data["error"]["code"] == "503"
+        assert "model-a" in data["error"]["attempted_models"]
+        assert "model-b" in data["error"]["attempted_models"]
+
+    @pytest.mark.asyncio
+    async def test_stream_request_no_custom_retry(self, mock_router):
+        """流式请求不触发自建重试（单次调用）"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a", "model-b"]
+        )
+        mock_router.select_model.return_value = result
+
+        call_count = 0
+        async def mock_call_next(request):
+            nonlocal call_count
+            call_count += 1
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({
+            "model": "auto",
+            "messages": [{"role": "user", "content": "test"}],
+            "stream": True
+        }).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert call_count == 1
+        assert request.state.smart_router_retry_count == 0
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_error_propagates(self, mock_router):
+        """401 错误不应触发重试，直接透传"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a", "model-b"]
+        )
+        mock_router.select_model.return_value = result
+
+        async def mock_call_next(request):
+            return Response(content=b'unauthorized', status_code=401)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 401
+        assert request.state.smart_router_retry_count == 0
+
+
 class TestGlobalModelOverride:
     @pytest.fixture
     def mock_router(self):
