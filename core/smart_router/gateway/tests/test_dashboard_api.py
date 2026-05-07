@@ -299,6 +299,8 @@ class TestTokenStatsAPI:
             assert data["stats"] == []
             assert data["total_prompt_tokens"] == 0
             assert data["total_completion_tokens"] == 0
+            assert data["total_reasoning_tokens"] == 0
+            assert data["total_cached_tokens"] == 0
             assert data["total_requests"] == 0
 
     def test_token_stats_with_data(self, client, tmp_path):

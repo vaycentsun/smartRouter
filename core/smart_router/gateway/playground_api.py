@@ -170,11 +170,26 @@ async def _call_model(model_name: str, prompt: str, config):
         latency_ms = int((time.time() - start_time) * 1000)
 
         content = response.choices[0].message.content or ""
-        prompt_tokens = getattr(response.usage, "prompt_tokens", 0)
-        completion_tokens = getattr(response.usage, "completion_tokens", 0)
+        usage = response.usage
+        prompt_tokens = getattr(usage, "prompt_tokens", 0)
+        completion_tokens = getattr(usage, "completion_tokens", 0)
         total_tokens = prompt_tokens + completion_tokens
 
-        await TokenStats().record(model_name, prompt_tokens, completion_tokens, total_tokens)
+        # 提取 reasoning_tokens 和 cached_tokens
+        reasoning_tokens = 0
+        completion_details = getattr(usage, "completion_tokens_details", None)
+        if completion_details:
+            reasoning_tokens = getattr(completion_details, "reasoning_tokens", 0) or 0
+
+        cached_tokens = 0
+        prompt_details = getattr(usage, "prompt_tokens_details", None)
+        if prompt_details:
+            cached_tokens = getattr(prompt_details, "cached_tokens", 0) or 0
+
+        await TokenStats().record(
+            model_name, prompt_tokens, completion_tokens, total_tokens,
+            reasoning_tokens=reasoning_tokens, cached_tokens=cached_tokens
+        )
 
         cost = _calculate_cost(model_name, prompt_tokens, completion_tokens, config)
 

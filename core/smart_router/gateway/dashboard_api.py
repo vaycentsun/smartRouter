@@ -759,6 +759,8 @@ async def token_stats():
     result = []
     total_prompt = 0
     total_completion = 0
+    total_reasoning = 0
+    total_cached = 0
     total_requests = 0
 
     for model, entry in data.items():
@@ -767,16 +769,22 @@ async def token_stats():
             "prompt_tokens": entry.get("prompt_tokens", 0),
             "completion_tokens": entry.get("completion_tokens", 0),
             "total_tokens": entry.get("total_tokens", 0),
+            "reasoning_tokens": entry.get("reasoning_tokens", 0),
+            "cached_tokens": entry.get("cached_tokens", 0),
             "request_count": entry.get("request_count", 0),
         })
         total_prompt += entry.get("prompt_tokens", 0)
         total_completion += entry.get("completion_tokens", 0)
+        total_reasoning += entry.get("reasoning_tokens", 0)
+        total_cached += entry.get("cached_tokens", 0)
         total_requests += entry.get("request_count", 0)
 
     return {
         "stats": result,
         "total_prompt_tokens": total_prompt,
         "total_completion_tokens": total_completion,
+        "total_reasoning_tokens": total_reasoning,
+        "total_cached_tokens": total_cached,
         "total_requests": total_requests,
     }
 
@@ -836,6 +844,8 @@ async def analytics_summary(days: int = 7):
 
     total_prompt_tokens = summary.get("total_prompt_tokens", 0)
     total_completion_tokens = summary.get("total_completion_tokens", 0)
+    total_reasoning_tokens = summary.get("total_reasoning_tokens", 0)
+    total_cached_tokens = summary.get("total_cached_tokens", 0)
     total_tokens = total_prompt_tokens + total_completion_tokens
     avg_daily_cost = total_cost / days if days > 0 else 0.0
 
@@ -843,6 +853,10 @@ async def analytics_summary(days: int = 7):
         "total_cost": total_cost,
         "total_requests": summary.get("total_requests", 0),
         "total_tokens": total_tokens,
+        "total_prompt_tokens": total_prompt_tokens,
+        "total_completion_tokens": total_completion_tokens,
+        "total_reasoning_tokens": total_reasoning_tokens,
+        "total_cached_tokens": total_cached_tokens,
         "avg_daily_cost": avg_daily_cost,
         "incomplete": incomplete,
     }
@@ -867,9 +881,13 @@ async def analytics_daily(days: int = 7):
             day_cost = 0.0
             day_requests = 0
             day_tokens = 0
+            day_reasoning = 0
+            day_cached = 0
             for model_name, entry in daily.items():
                 day_requests += entry.get("request_count", 0)
                 day_tokens += entry.get("total_tokens", 0)
+                day_reasoning += entry.get("reasoning_tokens", 0)
+                day_cached += entry.get("cached_tokens", 0)
                 model_config = config.models.get(model_name) if config else None
                 price = getattr(model_config, "price", None) if model_config else None
                 day_cost += _compute_cost(
@@ -882,6 +900,8 @@ async def analytics_daily(days: int = 7):
                 "cost": day_cost,
                 "requests": day_requests,
                 "tokens": day_tokens,
+                "reasoning_tokens": day_reasoning,
+                "cached_tokens": day_cached,
             })
     return result
 
@@ -907,6 +927,9 @@ async def analytics_by_model(days: int = 7):
             "model": model_name,
             "prompt_tokens": entry.get("prompt_tokens", 0),
             "completion_tokens": entry.get("completion_tokens", 0),
+            "total_tokens": entry.get("total_tokens", 0),
+            "reasoning_tokens": entry.get("reasoning_tokens", 0),
+            "cached_tokens": entry.get("cached_tokens", 0),
             "cost": cost,
             "request_count": entry.get("request_count", 0),
         })
@@ -936,6 +959,8 @@ async def analytics_top_models(limit: int = 10, days: int = 7):
             "prompt_tokens": entry.get("prompt_tokens", 0),
             "completion_tokens": entry.get("completion_tokens", 0),
             "total_tokens": entry.get("total_tokens", 0),
+            "reasoning_tokens": entry.get("reasoning_tokens", 0),
+            "cached_tokens": entry.get("cached_tokens", 0),
             "request_count": entry.get("request_count", 0),
             "cost": cost,
         })
