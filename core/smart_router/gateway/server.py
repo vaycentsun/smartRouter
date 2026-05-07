@@ -63,12 +63,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                 
                                 # 重新构建请求体
                                 modified_body = json.dumps(data).encode("utf-8")
-                                
-                                # 创建新的请求，使用修改后的 body
-                                async def receive():
-                                    return {"type": "http.request", "body": modified_body, "more_body": False}
-                                
-                                request = Request(request.scope, receive, request._send)
+
+                                # 直接修改原始 request 的缓存 body，确保下游能读取到修改后的内容
+                                request._body = modified_body
                             else:
                                 console.print(f"[yellow]模型覆盖无效: {override_provider}/{model_name} (不可用或 provider 不匹配)[/yellow]")
                         else:
@@ -102,11 +99,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                     console.print(f"[cyan]全局模型覆盖: {original_model} -> {go_model} (provider: {go_provider})[/cyan]")
                                     
                                     modified_body = json.dumps(data).encode("utf-8")
-                                    
-                                    async def receive():
-                                        return {"type": "http.request", "body": modified_body, "more_body": False}
-                                    
-                                    request = Request(request.scope, receive, request._send)
+
+                                    # 直接修改原始 request 的缓存 body，确保下游能读取到修改后的内容
+                                    request._body = modified_body
                                 else:
                                     console.print(f"[yellow]全局模型覆盖无效: {go_provider}/{go_model} (不可用或 provider 不匹配)[/yellow]")
                             else:
@@ -164,12 +159,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                     
                                     # 重新构建请求体
                                     modified_body = json.dumps(data).encode("utf-8")
-                                    
-                                    # 创建新的请求，使用修改后的 body
-                                    async def receive():
-                                        return {"type": "http.request", "body": modified_body, "more_body": False}
-                                    
-                                    request = Request(request.scope, receive, request._send)
+
+                                    # 直接修改原始 request 的缓存 body，确保下游能读取到修改后的内容
+                                    request._body = modified_body
                                 except Exception as e:
                                     console.print(f"[yellow]智能路由失败: {e}[/yellow]")
                                     import traceback
@@ -188,12 +180,10 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                                 request.state.smart_router_task = "fallback"
                                                 
                                                 modified_body = json.dumps(data).encode("utf-8")
-                                                
-                                                async def receive():
-                                                    return {"type": "http.request", "body": modified_body, "more_body": False}
-                                                
-                                                request = Request(request.scope, receive, request._send)
-                                                
+
+                                                # 直接修改原始 request 的缓存 body，确保下游能读取到修改后的内容
+                                                request._body = modified_body
+
                                                 console.print(f"[yellow]智能路由异常降级: {original_model} -> {fallback_model}[/yellow]")
                                             else:
                                                 from starlette.responses import JSONResponse

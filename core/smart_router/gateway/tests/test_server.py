@@ -425,6 +425,60 @@ class TestMiddlewareLogic:
 
         assert response.status_code == 200
 
+    @pytest.mark.asyncio
+    async def test_middleware_replaces_model_in_request_body(self):
+        """model=auto 时，中间件应修改 request body 中的 model 为实际选择的模型"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from starlette.requests import Request
+        from starlette.responses import Response
+        from smart_router.selector.v3_selector import SelectionResult
+
+        mock_router = MagicMock()
+        mock_router.select_model.return_value = SelectionResult(
+            model_name="gpt-4o",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=0.9,
+            reason="test",
+        )
+        mock_router.get_fallback_chain.return_value = []
+
+        async def mock_call_next(request):
+            body = await request.body()
+            data = json.loads(body)
+            # 关键断言：下游必须收到替换后的实际模型名，而不是 "auto"
+            assert data["model"] == "gpt-4o"
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert request.state.smart_router_selected == "gpt-4o"
+        assert request.state.smart_router_original == "auto"
+
     def test_middleware_json_parse_failure(self):
         """测试请求体 JSON 解析失败时的降级"""
         import json
