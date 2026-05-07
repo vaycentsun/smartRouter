@@ -12,11 +12,15 @@ describe('SummaryCards', () => {
     mockStoreState.isLoadingAnalytics = false
   })
 
-  it('renders four stat cards with labels', () => {
+  it('renders stat cards with labels', () => {
     mockStoreState.analyticsSummary = {
       total_cost: 15.3,
       total_requests: 42,
       total_tokens: 12500,
+      total_prompt_tokens: 8000,
+      total_completion_tokens: 4500,
+      total_reasoning_tokens: 1200,
+      total_cached_tokens: 300,
       avg_daily_cost: 2.18,
       incomplete: false,
     }
@@ -24,6 +28,10 @@ describe('SummaryCards', () => {
     expect(screen.getByText('总成本')).toBeInTheDocument()
     expect(screen.getByText('总请求数')).toBeInTheDocument()
     expect(screen.getByText('总 Token 数')).toBeInTheDocument()
+    expect(screen.getByText('输入 Token')).toBeInTheDocument()
+    expect(screen.getByText('输出 Token')).toBeInTheDocument()
+    expect(screen.getByText('推理 Token')).toBeInTheDocument()
+    expect(screen.getByText('缓存命中')).toBeInTheDocument()
     expect(screen.getByText('日均成本')).toBeInTheDocument()
   })
 
@@ -32,6 +40,10 @@ describe('SummaryCards', () => {
       total_cost: 15.3,
       total_requests: 42,
       total_tokens: 12500,
+      total_prompt_tokens: 8000,
+      total_completion_tokens: 4500,
+      total_reasoning_tokens: 1200,
+      total_cached_tokens: 300,
       avg_daily_cost: 2.18,
       incomplete: false,
     }
@@ -39,6 +51,10 @@ describe('SummaryCards', () => {
     expect(screen.getByText('¥15.30')).toBeInTheDocument()
     expect(screen.getByText('42')).toBeInTheDocument()
     expect(screen.getByText('12,500')).toBeInTheDocument()
+    expect(screen.getByText('8,000')).toBeInTheDocument()
+    expect(screen.getByText('4,500')).toBeInTheDocument()
+    expect(screen.getByText('1,200')).toBeInTheDocument()
+    expect(screen.getByText('300')).toBeInTheDocument()
     expect(screen.getByText('¥2.18')).toBeInTheDocument()
   })
 
@@ -47,6 +63,10 @@ describe('SummaryCards', () => {
       total_cost: 15.3,
       total_requests: 42,
       total_tokens: 12500,
+      total_prompt_tokens: 8000,
+      total_completion_tokens: 4500,
+      total_reasoning_tokens: 1200,
+      total_cached_tokens: 300,
       avg_daily_cost: 2.18,
       incomplete: true,
     }
@@ -66,6 +86,10 @@ describe('SummaryCards', () => {
       total_cost: null,
       total_requests: 10,
       total_tokens: 1000,
+      total_prompt_tokens: 600,
+      total_completion_tokens: 400,
+      total_reasoning_tokens: 0,
+      total_cached_tokens: 0,
       avg_daily_cost: null,
       incomplete: true,
     }

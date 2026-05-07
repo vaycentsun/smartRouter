@@ -4,6 +4,7 @@
 现将 API 路由逻辑提取到本模块，供 daemon.py 的前台/后台模式共用。
 """
 
+import logging
 import os
 import signal
 import socket
@@ -18,6 +19,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.responses import FileResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
+from smart_router.utils.log_parser import parse_log_line
 from ..config.loader import ConfigLoader
 from ..classifier.task_classifier import TaskTypeClassifier
 from ..classifier.difficulty_classifier import DifficultyClassifier
@@ -129,8 +131,9 @@ class FormulaPreviewRequest(BaseModel):
     prompt: str = ""
 
 
-class LogsResponse(BaseModel):
+class LogReadResult(BaseModel):
     lines: list[str]
+    structured_lines: list[dict]
     offset: int
     total_size: int
 
@@ -173,40 +176,77 @@ LOG_FILE_MAP = {
 }
 
 
-def read_log_lines(source: str, offset: int, limit: int = 500) -> LogsResponse:
+def read_log_lines(source: str, offset: int = 0, limit: int = 500, level: str = "ALL") -> LogReadResult:
     """读取日志文件指定偏移之后的新行
 
     Args:
         source: 日志源，"service" 或 "dashboard"
         offset: 已读取的字节数
         limit: 最大返回行数
+        level: 日志等级筛选，"ALL" 表示不过滤
 
     Returns:
-        LogsResponse: 包含新行列表、新的 offset 和文件总大小
+        LogReadResult: 包含新行列表、结构化数据、新的 offset 和文件总大小
     """
     if source not in LOG_FILE_MAP:
         raise ValueError(f"Invalid log source: {source}")
 
-    log_path = LOG_FILE_MAP[source]
+    log_file = LOG_FILE_MAP[source]
 
-    if not log_path.exists():
-        return LogsResponse(lines=[], offset=0, total_size=0)
+    if not log_file.exists():
+        return LogReadResult(lines=[], structured_lines=[], offset=0, total_size=0)
 
-    content = log_path.read_bytes()
-    total_size = len(content)
+    total_size = log_file.stat().st_size
 
     # 文件被清空或轮转：offset 超出范围，从头开始
     if offset > total_size:
         offset = 0
 
-    new_content = content[offset:]
-    text = new_content.decode("utf-8", errors="replace")
-    lines = text.splitlines()
+    # 解析等级参数
+    level_filter = None
+    if level.upper() != "ALL":
+        level_filter = getattr(logging, level.upper(), None)
+        if level_filter is None:
+            raise ValueError(f"Invalid log level: {level}")
 
-    if len(lines) > limit:
-        lines = lines[-limit:]
+    # 读取从 offset 到文件末尾的内容
+    with open(log_file, "r", encoding="utf-8") as f:
+        f.seek(offset)
+        content = f.read()
+        new_offset = f.tell()
 
-    return LogsResponse(lines=lines, offset=total_size, total_size=total_size)
+    # 解析每一行
+    lines = content.splitlines()
+    result_lines = []
+    structured_lines = []
+
+    for line in lines:
+        parsed = parse_log_line(line)
+
+        # 等级筛选
+        if level_filter is not None:
+            if parsed.levelno < level_filter:
+                continue
+
+        result_lines.append(line.rstrip())
+        structured_lines.append({
+            "timestamp": parsed.timestamp,
+            "level": parsed.level,
+            "name": parsed.name,
+            "message": parsed.message,
+        })
+
+    # 如果超过 limit，取最后 limit 行（保持旧行为）
+    if len(result_lines) > limit:
+        result_lines = result_lines[-limit:]
+        structured_lines = structured_lines[-limit:]
+
+    return LogReadResult(
+        lines=result_lines,
+        structured_lines=structured_lines,
+        offset=new_offset,
+        total_size=total_size,
+    )
 
 
 # ==================== API 处理函数 ====================
@@ -696,16 +736,16 @@ async def stop():
     return {"success": True, "message": "Smart Router stopped"}
 
 
-async def get_logs(source: str = "service", offset: int = 0, limit: int = 500):
+async def get_logs(source: str = "service", offset: int = 0, limit: int = 500, level: str = "ALL"):
     try:
-        result = read_log_lines(source, offset, limit)
+        result = read_log_lines(source, offset, limit, level)
         return {
             "lines": result.lines,
+            "structured_lines": result.structured_lines,
             "offset": result.offset,
             "total_size": result.total_size,
         }
     except ValueError as e:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"读取日志失败: {e}")
@@ -719,6 +759,8 @@ async def token_stats():
     result = []
     total_prompt = 0
     total_completion = 0
+    total_reasoning = 0
+    total_cached = 0
     total_requests = 0
 
     for model, entry in data.items():
@@ -727,16 +769,22 @@ async def token_stats():
             "prompt_tokens": entry.get("prompt_tokens", 0),
             "completion_tokens": entry.get("completion_tokens", 0),
             "total_tokens": entry.get("total_tokens", 0),
+            "reasoning_tokens": entry.get("reasoning_tokens", 0),
+            "cached_tokens": entry.get("cached_tokens", 0),
             "request_count": entry.get("request_count", 0),
         })
         total_prompt += entry.get("prompt_tokens", 0)
         total_completion += entry.get("completion_tokens", 0)
+        total_reasoning += entry.get("reasoning_tokens", 0)
+        total_cached += entry.get("cached_tokens", 0)
         total_requests += entry.get("request_count", 0)
 
     return {
         "stats": result,
         "total_prompt_tokens": total_prompt,
         "total_completion_tokens": total_completion,
+        "total_reasoning_tokens": total_reasoning,
+        "total_cached_tokens": total_cached,
         "total_requests": total_requests,
     }
 
@@ -796,6 +844,8 @@ async def analytics_summary(days: int = 7):
 
     total_prompt_tokens = summary.get("total_prompt_tokens", 0)
     total_completion_tokens = summary.get("total_completion_tokens", 0)
+    total_reasoning_tokens = summary.get("total_reasoning_tokens", 0)
+    total_cached_tokens = summary.get("total_cached_tokens", 0)
     total_tokens = total_prompt_tokens + total_completion_tokens
     avg_daily_cost = total_cost / days if days > 0 else 0.0
 
@@ -803,6 +853,10 @@ async def analytics_summary(days: int = 7):
         "total_cost": total_cost,
         "total_requests": summary.get("total_requests", 0),
         "total_tokens": total_tokens,
+        "total_prompt_tokens": total_prompt_tokens,
+        "total_completion_tokens": total_completion_tokens,
+        "total_reasoning_tokens": total_reasoning_tokens,
+        "total_cached_tokens": total_cached_tokens,
         "avg_daily_cost": avg_daily_cost,
         "incomplete": incomplete,
     }
@@ -827,9 +881,13 @@ async def analytics_daily(days: int = 7):
             day_cost = 0.0
             day_requests = 0
             day_tokens = 0
+            day_reasoning = 0
+            day_cached = 0
             for model_name, entry in daily.items():
                 day_requests += entry.get("request_count", 0)
                 day_tokens += entry.get("total_tokens", 0)
+                day_reasoning += entry.get("reasoning_tokens", 0)
+                day_cached += entry.get("cached_tokens", 0)
                 model_config = config.models.get(model_name) if config else None
                 price = getattr(model_config, "price", None) if model_config else None
                 day_cost += _compute_cost(
@@ -842,6 +900,8 @@ async def analytics_daily(days: int = 7):
                 "cost": day_cost,
                 "requests": day_requests,
                 "tokens": day_tokens,
+                "reasoning_tokens": day_reasoning,
+                "cached_tokens": day_cached,
             })
     return result
 
@@ -867,6 +927,9 @@ async def analytics_by_model(days: int = 7):
             "model": model_name,
             "prompt_tokens": entry.get("prompt_tokens", 0),
             "completion_tokens": entry.get("completion_tokens", 0),
+            "total_tokens": entry.get("total_tokens", 0),
+            "reasoning_tokens": entry.get("reasoning_tokens", 0),
+            "cached_tokens": entry.get("cached_tokens", 0),
             "cost": cost,
             "request_count": entry.get("request_count", 0),
         })
@@ -896,6 +959,8 @@ async def analytics_top_models(limit: int = 10, days: int = 7):
             "prompt_tokens": entry.get("prompt_tokens", 0),
             "completion_tokens": entry.get("completion_tokens", 0),
             "total_tokens": entry.get("total_tokens", 0),
+            "reasoning_tokens": entry.get("reasoning_tokens", 0),
+            "cached_tokens": entry.get("cached_tokens", 0),
             "request_count": entry.get("request_count", 0),
             "cost": cost,
         })

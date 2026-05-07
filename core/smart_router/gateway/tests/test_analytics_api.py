@@ -14,9 +14,14 @@ from smart_router.config.schema import Config, ProviderConfig, ModelConfig, Mode
 
 
 @pytest.fixture
-def client():
-    app = build_dashboard_app(static_dir=None)
-    return TestClient(app)
+def client(tmp_path):
+    from unittest.mock import patch
+    import smart_router.utils.request_routing_history as rrh
+    # 使用临时文件隔离测试状态，避免历史记录跨测试泄漏
+    temp_history = tmp_path / "request_routing_history.json"
+    with patch.object(rrh, "DEFAULT_HISTORY_FILE", temp_history):
+        app = build_dashboard_app(static_dir=None)
+        return TestClient(app)
 
 
 class TestAnalyticsSummary:
@@ -26,6 +31,8 @@ class TestAnalyticsSummary:
         mock_ts.get_summary.return_value = {
             "total_prompt_tokens": 0,
             "total_completion_tokens": 0,
+            "total_reasoning_tokens": 0,
+            "total_cached_tokens": 0,
             "total_requests": 0,
             "model_breakdown": {},
         }
@@ -37,6 +44,8 @@ class TestAnalyticsSummary:
             assert data["total_cost"] == 0.0
             assert data["total_requests"] == 0
             assert data["total_tokens"] == 0
+            assert data["total_reasoning_tokens"] == 0
+            assert data["total_cached_tokens"] == 0
             assert data["avg_daily_cost"] == 0.0
 
     def test_summary_with_data(self, client, tmp_path, monkeypatch):
@@ -128,6 +137,8 @@ class TestAnalyticsSummary:
         mock_ts.get_summary.return_value = {
             "total_prompt_tokens": 0,
             "total_completion_tokens": 0,
+            "total_reasoning_tokens": 0,
+            "total_cached_tokens": 0,
             "total_requests": 0,
             "model_breakdown": {},
         }
@@ -178,6 +189,8 @@ class TestAnalyticsDaily:
             today_item = next(item for item in data if item["date"] == dates[0])
             assert today_item["requests"] == 1
             assert today_item["tokens"] == 150
+            assert today_item["reasoning_tokens"] == 0
+            assert today_item["cached_tokens"] == 0
 
 
 class TestAnalyticsByModel:
@@ -186,6 +199,8 @@ class TestAnalyticsByModel:
         mock_ts.get_summary.return_value = {
             "total_prompt_tokens": 0,
             "total_completion_tokens": 0,
+            "total_reasoning_tokens": 0,
+            "total_cached_tokens": 0,
             "total_requests": 0,
             "model_breakdown": {},
         }
@@ -231,6 +246,8 @@ class TestAnalyticsByModel:
                 assert data[0]["model"] == "gpt-4o"
                 assert data[0]["cost"] == (2000 / 1000 * 0.005 + 1000 / 1000 * 0.015)
                 assert data[0]["request_count"] == 1
+                assert data[0]["reasoning_tokens"] == 0
+                assert data[0]["cached_tokens"] == 0
 
 
 class TestAnalyticsTopModels:
@@ -239,6 +256,8 @@ class TestAnalyticsTopModels:
         mock_ts.get_summary.return_value = {
             "total_prompt_tokens": 0,
             "total_completion_tokens": 0,
+            "total_reasoning_tokens": 0,
+            "total_cached_tokens": 0,
             "total_requests": 0,
             "model_breakdown": {},
         }
@@ -377,6 +396,8 @@ class TestRecentRequests:
             prompt_tokens=10,
             completion_tokens=5,
             total_tokens=15,
+            reasoning_tokens=3,
+            cached_tokens=2,
         )
         asyncio.run(history.record(entry))
         app.state.request_routing_history = history
@@ -402,6 +423,8 @@ class TestRecentRequests:
         assert req["prompt_tokens"] == 10
         assert req["completion_tokens"] == 5
         assert req["total_tokens"] == 15
+        assert req["reasoning_tokens"] == 3
+        assert req["cached_tokens"] == 2
 
     def test_recent_requests_limit(self):
         """limit 参数限制返回数量"""

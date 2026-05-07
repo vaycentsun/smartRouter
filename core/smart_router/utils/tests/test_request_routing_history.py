@@ -38,6 +38,8 @@ class TestRequestRoutingHistory:
             prompt_tokens=100,
             completion_tokens=50,
             total_tokens=150,
+            reasoning_tokens=30,
+            cached_tokens=20,
             error_info=None,
             retry_history=[],
         )
@@ -66,6 +68,8 @@ class TestRequestRoutingHistory:
         assert result["prompt_tokens"] == 100
         assert result["completion_tokens"] == 50
         assert result["total_tokens"] == 150
+        assert result["reasoning_tokens"] == 30
+        assert result["cached_tokens"] == 20
         assert result["error_info"] is None
 
     @pytest.mark.asyncio
@@ -129,6 +133,8 @@ class TestRequestRoutingHistory:
             "prompt_tokens",
             "completion_tokens",
             "total_tokens",
+            "reasoning_tokens",
+            "cached_tokens",
             "error_info",
             "retry_history",
         }
@@ -149,7 +155,27 @@ class TestRequestRoutingHistory:
         assert result["prompt_tokens"] == 100
         assert result["completion_tokens"] == 50
         assert result["total_tokens"] == 150
+        assert result["reasoning_tokens"] == 30
+        assert result["cached_tokens"] == 20
         assert result["error_info"] is None
+
+    @pytest.mark.asyncio
+    async def test_record_with_reasoning_and_cached_tokens(self, history):
+        """验证 reasoning_tokens 和 cached_tokens 正确记录"""
+        entry = RequestRoutingEntry(
+            request_id="req-002",
+            timestamp="2025-01-01T00:00:00Z",
+            original_model="gpt-4o",
+            selected_model="gpt-4o-mini",
+            reasoning_tokens=45,
+            cached_tokens=25,
+        )
+        await history.record(entry)
+
+        recent = history.get_recent()
+        assert len(recent) == 1
+        assert recent[0]["reasoning_tokens"] == 45
+        assert recent[0]["cached_tokens"] == 25
 
     # ==================== 持久化测试 ====================
 

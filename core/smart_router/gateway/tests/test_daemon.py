@@ -222,6 +222,28 @@ class TestStartDaemon:
             # 这里测试两种情况都可以接受
             assert "已启动" in captured.out
 
+    def test_start_with_log_file_and_level(self, capsys):
+        """启动时应传递 --log-file 和 --log-level 参数给子进程"""
+        mock_process = MagicMock()
+        mock_process.pid = 99999
+        log_file = Path("/tmp/test-smart-router.log")
+
+        with patch("smart_router.gateway.daemon._get_pid", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=False), \
+             patch("smart_router.gateway.daemon._remove_pid"), \
+             patch("smart_router.gateway.daemon.subprocess.Popen", return_value=mock_process) as mock_popen:
+            start_daemon(log_file=log_file)
+            mock_popen.assert_called_once()
+            call_args = mock_popen.call_args[0][0]
+            # 验证 --log-file 参数
+            assert "--log-file" in call_args
+            log_file_index = call_args.index("--log-file")
+            assert call_args[log_file_index + 1] == str(log_file)
+            # 验证 --log-level 参数
+            assert "--log-level" in call_args
+            log_level_index = call_args.index("--log-level")
+            assert call_args[log_level_index + 1] == "INFO"
+
 
 class TestStopDaemon:
     """stop_daemon 测试"""
@@ -510,6 +532,96 @@ class TestViewLogsEdgeCases:
             pass  # 已在基本测试中覆盖
 
 
+class TestViewLogsWithLevelFilter:
+    """view_logs 带 level 筛选测试"""
+
+    def test_view_logs_with_level_error(self, tmp_path, capsys):
+        """只显示 ERROR 级别日志"""
+        import logging
+        log_file = tmp_path / "smart-router.log"
+        # 写入不同级别的日志
+        log_content = """2026-05-07 14:23:01,234 - smart_router - INFO - This is info
+2026-05-07 14:23:02,234 - smart_router - ERROR - This is error
+2026-05-07 14:23:03,234 - smart_router - WARNING - This is warning
+2026-05-07 14:23:04,234 - smart_router - ERROR - Another error
+"""
+        log_file.write_text(log_content)
+
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", tmp_path):
+            view_logs(lines=100, level="ERROR")
+            captured = capsys.readouterr()
+            assert "This is error" in captured.out
+            assert "Another error" in captured.out
+            assert "This is info" not in captured.out
+            assert "This is warning" not in captured.out
+
+    def test_view_logs_with_level_info(self, tmp_path, capsys):
+        """显示 INFO 及以上级别日志"""
+        import logging
+        log_file = tmp_path / "smart-router.log"
+        log_content = """2026-05-07 14:23:01,234 - smart_router - INFO - This is info
+2026-05-07 14:23:02,234 - smart_router - ERROR - This is error
+2026-05-07 14:23:03,234 - smart_router - DEBUG - This is debug
+"""
+        log_file.write_text(log_content)
+
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", tmp_path):
+            view_logs(lines=100, level="INFO")
+            captured = capsys.readouterr()
+            assert "This is info" in captured.out
+            assert "This is error" in captured.out
+            assert "This is debug" not in captured.out
+
+    def test_view_logs_with_invalid_level(self, capsys, tmp_path):
+        """无效的日志等级显示错误"""
+        log_file = tmp_path / "smart-router.log"
+        log_file.write_text("test\n")
+
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", tmp_path):
+            view_logs(level="INVALID")
+            captured = capsys.readouterr()
+            assert "无效的日志等级" in captured.out
+
+    def test_view_logs_with_level_all(self, tmp_path, capsys):
+        """level=ALL 显示所有日志"""
+        log_file = tmp_path / "smart-router.log"
+        log_content = """2026-05-07 14:23:01,234 - smart_router - INFO - Info message
+2026-05-07 14:23:02,234 - smart_router - ERROR - Error message
+"""
+        log_file.write_text(log_content)
+
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", tmp_path):
+            view_logs(lines=100, level="ALL")
+            captured = capsys.readouterr()
+            assert "Info message" in captured.out
+            assert "Error message" in captured.out
+
+    def test_view_logs_old_format_uses_info_level(self, tmp_path, capsys):
+        """旧格式日志无法解析时视为 INFO"""
+        log_file = tmp_path / "smart-router.log"
+        # 旧格式（无级别信息）
+        log_content = "This is old format log\nAnother old format\n"
+        log_file.write_text(log_content)
+
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", tmp_path):
+            view_logs(lines=100, level="INFO")
+            captured = capsys.readouterr()
+            assert "This is old format log" in captured.out
+            assert "Another old format" in captured.out
+
+    def test_view_logs_old_format_filtered_by_higher_level(self, tmp_path, capsys):
+        """旧格式日志在更高等级筛选时被过滤"""
+        log_file = tmp_path / "smart-router.log"
+        log_content = "This is old format log\n"
+        log_file.write_text(log_content)
+
+        with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", tmp_path):
+            view_logs(lines=100, level="ERROR")
+            captured = capsys.readouterr()
+            # 旧格式视为 INFO，ERROR 筛选不会显示
+            assert "This is old format log" not in captured.out
+
+
 class TestGenericPidFileHelpers:
     """通用 PID 文件辅助函数测试"""
 
@@ -666,6 +778,31 @@ class TestStartDashboardDaemon:
             except KeyboardInterrupt:
                 pass
             assert not pid_file.exists()
+
+    def test_foreground_configures_uvicorn_log(self, tmp_path, capsys):
+        """前台模式启动时应配置 uvicorn 日志格式"""
+        pid_file = tmp_path / "dashboard.pid"
+        mock_log_config = {"version": 1, "handlers": {}}
+
+        with patch("smart_router.gateway.daemon.DASHBOARD_PID_FILE", pid_file), \
+             patch("smart_router.gateway.daemon.DASHBOARD_LOG_FILE", tmp_path / "dashboard.log"), \
+             patch("smart_router.gateway.daemon._get_pid_from_file", return_value=None), \
+             patch("smart_router.gateway.daemon._is_port_in_use", return_value=False), \
+             patch("smart_router.gateway.daemon._build_dashboard_app"), \
+             patch("smart_router.utils.logging_config.get_uvicorn_log_config", return_value=mock_log_config) as mock_get_config, \
+             patch("uvicorn.run") as mock_run:
+
+            start_dashboard_daemon(foreground=True)
+
+            # 验证调用了 get_uvicorn_log_config
+            mock_get_config.assert_called_once_with(tmp_path / "dashboard.log")
+            # 验证 uvicorn.run 被调用且包含 log_config 参数
+            mock_run.assert_called_once()
+            call_kwargs = mock_run.call_args
+            assert "log_config" in call_kwargs.kwargs
+            assert call_kwargs.kwargs["log_config"] == mock_log_config
+            captured = capsys.readouterr()
+            assert "Dashboard:" in captured.out
 
 
 class TestStopDashboardDaemon:

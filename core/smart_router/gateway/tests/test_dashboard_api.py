@@ -11,10 +11,15 @@ from smart_router.gateway.dashboard_api import build_dashboard_app
 
 
 @pytest.fixture
-def client():
-    """构建 TestClient，不挂载静态文件"""
-    app = build_dashboard_app(static_dir=None)
-    return TestClient(app)
+def client(tmp_path):
+    from unittest.mock import patch
+    import smart_router.utils.request_routing_history as rrh
+    # 使用临时文件隔离测试状态，避免历史记录跨测试泄漏
+    temp_history = tmp_path / "request_routing_history.json"
+    with patch.object(rrh, "DEFAULT_HISTORY_FILE", temp_history):
+        """构建 TestClient，不挂载静态文件"""
+        app = build_dashboard_app(static_dir=None)
+        return TestClient(app)
 
 
 class TestHealth:
@@ -299,6 +304,8 @@ class TestTokenStatsAPI:
             assert data["stats"] == []
             assert data["total_prompt_tokens"] == 0
             assert data["total_completion_tokens"] == 0
+            assert data["total_reasoning_tokens"] == 0
+            assert data["total_cached_tokens"] == 0
             assert data["total_requests"] == 0
 
     def test_token_stats_with_data(self, client, tmp_path):

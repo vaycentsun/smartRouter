@@ -75,6 +75,8 @@ class TokenStats:
         prompt_tokens: int,
         completion_tokens: int,
         total_tokens: int,
+        reasoning_tokens: int = 0,
+        cached_tokens: int = 0,
         date: Optional[str] = None,
     ):
         if self._lock is None:
@@ -86,12 +88,16 @@ class TokenStats:
                     "prompt_tokens": 0,
                     "completion_tokens": 0,
                     "total_tokens": 0,
+                    "reasoning_tokens": 0,
+                    "cached_tokens": 0,
                     "request_count": 0,
                 }
             entry = records[model]
             entry["prompt_tokens"] += prompt_tokens
             entry["completion_tokens"] += completion_tokens
             entry["total_tokens"] += total_tokens
+            entry["reasoning_tokens"] += reasoning_tokens
+            entry["cached_tokens"] += cached_tokens
             entry["request_count"] += 1
 
             # 同时更新每日数据
@@ -104,12 +110,16 @@ class TokenStats:
                     "prompt_tokens": 0,
                     "completion_tokens": 0,
                     "total_tokens": 0,
+                    "reasoning_tokens": 0,
+                    "cached_tokens": 0,
                     "request_count": 0,
                 }
             daily_entry = daily_records[date_str][model]
             daily_entry["prompt_tokens"] += prompt_tokens
             daily_entry["completion_tokens"] += completion_tokens
             daily_entry["total_tokens"] += total_tokens
+            daily_entry["reasoning_tokens"] += reasoning_tokens
+            daily_entry["cached_tokens"] += cached_tokens
             daily_entry["request_count"] += 1
 
             self._data["_meta"] = {
@@ -140,6 +150,8 @@ class TokenStats:
             return {
                 "total_prompt_tokens": 0,
                 "total_completion_tokens": 0,
+                "total_reasoning_tokens": 0,
+                "total_cached_tokens": 0,
                 "total_requests": 0,
                 "model_breakdown": {},
             }
@@ -150,6 +162,8 @@ class TokenStats:
 
         total_prompt = 0
         total_completion = 0
+        total_reasoning = 0
+        total_cached = 0
         total_requests = 0
         model_breakdown: dict = {}
 
@@ -157,9 +171,13 @@ class TokenStats:
             for model, entry in daily_records[date_str].items():
                 pt = entry.get("prompt_tokens", 0)
                 ct = entry.get("completion_tokens", 0)
+                rt = entry.get("reasoning_tokens", 0)
+                cat = entry.get("cached_tokens", 0)
                 rc = entry.get("request_count", 0)
                 total_prompt += pt
                 total_completion += ct
+                total_reasoning += rt
+                total_cached += cat
                 total_requests += rc
 
                 if model not in model_breakdown:
@@ -167,17 +185,23 @@ class TokenStats:
                         "prompt_tokens": 0,
                         "completion_tokens": 0,
                         "total_tokens": 0,
+                        "reasoning_tokens": 0,
+                        "cached_tokens": 0,
                         "request_count": 0,
                     }
                 mb = model_breakdown[model]
                 mb["prompt_tokens"] += pt
                 mb["completion_tokens"] += ct
                 mb["total_tokens"] += entry.get("total_tokens", 0)
+                mb["reasoning_tokens"] += rt
+                mb["cached_tokens"] += cat
                 mb["request_count"] += rc
 
         return {
             "total_prompt_tokens": total_prompt,
             "total_completion_tokens": total_completion,
+            "total_reasoning_tokens": total_reasoning,
+            "total_cached_tokens": total_cached,
             "total_requests": total_requests,
             "model_breakdown": model_breakdown,
         }

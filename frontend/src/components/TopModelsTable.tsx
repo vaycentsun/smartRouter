@@ -57,9 +57,33 @@ export function TopModelsTable() {
               </th>
               <th
                 className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                onClick={() => handleSort('prompt_tokens')}
+              >
+                输入 <SortIcon column="prompt_tokens" />
+              </th>
+              <th
+                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                onClick={() => handleSort('completion_tokens')}
+              >
+                输出 <SortIcon column="completion_tokens" />
+              </th>
+              <th
+                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                onClick={() => handleSort('reasoning_tokens')}
+              >
+                推理 <SortIcon column="reasoning_tokens" />
+              </th>
+              <th
+                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                onClick={() => handleSort('cached_tokens')}
+              >
+                缓存 <SortIcon column="cached_tokens" />
+              </th>
+              <th
+                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
                 onClick={() => handleSort('total_tokens')}
               >
-                Token 数 <SortIcon column="total_tokens" />
+                总计 <SortIcon column="total_tokens" />
               </th>
               <th
                 className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
@@ -84,6 +108,18 @@ export function TopModelsTable() {
                 <td className="py-3 px-2 text-[#86868b] font-mono">{index + 1}</td>
                 <td className="py-3 px-2 font-medium text-[#1d1d1f]">{item.model}</td>
                 <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                  {item.prompt_tokens.toLocaleString()}
+                </td>
+                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                  {item.completion_tokens.toLocaleString()}
+                </td>
+                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                  {item.reasoning_tokens.toLocaleString()}
+                </td>
+                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                  {item.cached_tokens.toLocaleString()}
+                </td>
+                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono font-medium">
                   {item.total_tokens.toLocaleString()}
                 </td>
                 <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">

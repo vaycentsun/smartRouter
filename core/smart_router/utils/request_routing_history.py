@@ -47,6 +47,8 @@ class RequestRoutingEntry:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    reasoning_tokens: int = 0
+    cached_tokens: int = 0
     error_info: Optional[str] = None
     retry_history: list[dict] = field(default_factory=list)
 
@@ -87,6 +89,8 @@ class RequestRoutingHistory:
                     prompt_tokens=item.get("prompt_tokens", 0),
                     completion_tokens=item.get("completion_tokens", 0),
                     total_tokens=item.get("total_tokens", 0),
+                    reasoning_tokens=item.get("reasoning_tokens", 0),
+                    cached_tokens=item.get("cached_tokens", 0),
                     error_info=item.get("error_info"),
                     retry_history=item.get("retry_history", []),
                 )
@@ -154,6 +158,8 @@ class RequestRoutingHistory:
             "prompt_tokens": entry.prompt_tokens,
             "completion_tokens": entry.completion_tokens,
             "total_tokens": entry.total_tokens,
+            "reasoning_tokens": entry.reasoning_tokens,
+            "cached_tokens": entry.cached_tokens,
             "error_info": entry.error_info,
             "retry_history": entry.retry_history,
         }

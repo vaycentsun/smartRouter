@@ -21,9 +21,14 @@ from smart_router.config.schema import (
 
 
 @pytest.fixture
-def client():
-    app = build_dashboard_app(static_dir=None)
-    return TestClient(app)
+def client(tmp_path):
+    from unittest.mock import patch
+    import smart_router.utils.request_routing_history as rrh
+    # 使用临时文件隔离测试状态，避免历史记录跨测试泄漏
+    temp_history = tmp_path / "request_routing_history.json"
+    with patch.object(rrh, "DEFAULT_HISTORY_FILE", temp_history):
+        app = build_dashboard_app(static_dir=None)
+        return TestClient(app)
 
 
 @pytest.fixture
@@ -65,6 +70,8 @@ class TestCompletions:
                 mock_response.choices[0].message.content = "Hello, world!"
                 mock_response.usage.prompt_tokens = 10
                 mock_response.usage.completion_tokens = 5
+                mock_response.usage.completion_tokens_details = None
+                mock_response.usage.prompt_tokens_details = None
                 mock_llm.return_value = mock_response
 
                 response = client.post(
@@ -99,6 +106,8 @@ class TestCompletions:
                         mock_response.choices[0].message.content = "Claude response"
                         mock_response.usage.prompt_tokens = 8
                         mock_response.usage.completion_tokens = 4
+                    mock_response.usage.completion_tokens_details = None
+                    mock_response.usage.prompt_tokens_details = None
                     return mock_response
 
                 mock_llm.side_effect = side_effect
@@ -221,6 +230,8 @@ class TestHistory:
                     mock_response.choices[0].message.content = "Hi!"
                     mock_response.usage.prompt_tokens = 2
                     mock_response.usage.completion_tokens = 1
+                    mock_response.usage.completion_tokens_details = None
+                    mock_response.usage.prompt_tokens_details = None
                     mock_llm.return_value = mock_response
 
                     response = client.post(
