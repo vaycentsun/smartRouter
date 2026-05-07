@@ -102,6 +102,22 @@ export function RecentRequestsPanel({ requests = [] }: RecentRequestsPanelProps)
                       <span className="text-xs text-[#86868b] block">attempted_fallbacks</span>
                       <span className="text-[#1d1d1f]">{req.attempted_fallbacks ?? 0}</span>
                     </div>
+                    <div>
+                      <span className="text-xs text-[#86868b] block">输入 Token</span>
+                      <span className="text-[#1d1d1f] font-mono">{req.prompt_tokens}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-[#86868b] block">输出 Token</span>
+                      <span className="text-[#1d1d1f] font-mono">{req.completion_tokens}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-[#86868b] block">推理 Token</span>
+                      <span className="text-[#1d1d1f] font-mono">{req.reasoning_tokens}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-[#86868b] block">缓存命中</span>
+                      <span className="text-[#1d1d1f] font-mono">{req.cached_tokens}</span>
+                    </div>
                     <div className="col-span-2">
                       <span className="text-xs text-[#86868b] block">fallback 链</span>
                       <div data-testid="fallback-chain" className="flex flex-wrap gap-1 mt-1">

@@ -24,6 +24,8 @@ const mockRequests: RequestRoutingRecord[] = [
     prompt_tokens: 150,
     completion_tokens: 80,
     total_tokens: 230,
+    reasoning_tokens: 30,
+    cached_tokens: 20,
     error_info: null,
   },
   {
@@ -42,6 +44,8 @@ const mockRequests: RequestRoutingRecord[] = [
     prompt_tokens: 500,
     completion_tokens: 300,
     total_tokens: 800,
+    reasoning_tokens: 60,
+    cached_tokens: 40,
     error_info: null,
   },
 ]
