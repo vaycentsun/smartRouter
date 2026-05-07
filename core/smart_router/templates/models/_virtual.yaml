@@ -20,22 +20,4 @@ models:
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
     
-  stage-default:
-    provider: _virtual
-    litellm_model: openai/qwen3.6-plus
-    capabilities:
-      quality: 9
-      cost: 10
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard, expert]
 
-  strategy-cost:
-    provider: _virtual
-    litellm_model: openai/qwen3.6-plus
-    capabilities:
-      quality: 9
-      cost: 10
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard, expert]
