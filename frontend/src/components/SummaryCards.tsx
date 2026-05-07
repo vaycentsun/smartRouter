@@ -13,6 +13,14 @@ export function SummaryCards() {
       showIncomplete: analyticsSummary?.incomplete && analyticsSummary?.total_cost !== null,
     },
     {
+      label: '日均成本',
+      value: analyticsSummary?.avg_daily_cost,
+      format: (v: number) => `¥${v.toFixed(2)}`,
+      sub: '平均每天',
+      accent: 'orange',
+      showIncomplete: analyticsSummary?.incomplete && analyticsSummary?.avg_daily_cost !== null,
+    },
+    {
       label: '总请求数',
       value: analyticsSummary?.total_requests,
       format: (v: number) => v.toLocaleString(),
@@ -29,12 +37,36 @@ export function SummaryCards() {
       showIncomplete: false,
     },
     {
-      label: '日均成本',
-      value: analyticsSummary?.avg_daily_cost,
-      format: (v: number) => `¥${v.toFixed(2)}`,
-      sub: '平均每天',
-      accent: 'orange',
-      showIncomplete: analyticsSummary?.incomplete && analyticsSummary?.avg_daily_cost !== null,
+      label: '输入 Token',
+      value: analyticsSummary?.total_prompt_tokens,
+      format: (v: number) => v.toLocaleString(),
+      sub: 'Prompt 消耗',
+      accent: 'indigo',
+      showIncomplete: false,
+    },
+    {
+      label: '推理 Token',
+      value: analyticsSummary?.total_reasoning_tokens,
+      format: (v: number) => v.toLocaleString(),
+      sub: 'Reasoning 消耗',
+      accent: 'pink',
+      showIncomplete: false,
+    },
+    {
+      label: '输出 Token',
+      value: analyticsSummary?.total_completion_tokens,
+      format: (v: number) => v.toLocaleString(),
+      sub: 'Completion 消耗',
+      accent: 'teal',
+      showIncomplete: false,
+    },
+    {
+      label: '缓存命中',
+      value: analyticsSummary?.total_cached_tokens,
+      format: (v: number) => v.toLocaleString(),
+      sub: 'Cached 命中',
+      accent: 'cyan',
+      showIncomplete: false,
     },
   ]
 
@@ -63,10 +95,34 @@ export function SummaryCards() {
       glow: 'shadow-[rgba(255,149,0,0.06)]',
       bg: 'bg-[rgba(255,149,0,0.05)]',
     },
+    pink: {
+      border: 'border-[rgba(255,45,85,0.12)]',
+      text: 'text-[#FF2D55]',
+      glow: 'shadow-[rgba(255,45,85,0.06)]',
+      bg: 'bg-[rgba(255,45,85,0.05)]',
+    },
+    cyan: {
+      border: 'border-[rgba(0,199,204,0.12)]',
+      text: 'text-[#00C7CC]',
+      glow: 'shadow-[rgba(0,199,204,0.06)]',
+      bg: 'bg-[rgba(0,199,204,0.05)]',
+    },
+    indigo: {
+      border: 'border-[rgba(88,86,214,0.12)]',
+      text: 'text-[#5856D6]',
+      glow: 'shadow-[rgba(88,86,214,0.06)]',
+      bg: 'bg-[rgba(88,86,214,0.05)]',
+    },
+    teal: {
+      border: 'border-[rgba(48,209,88,0.12)]',
+      text: 'text-[#30D158]',
+      glow: 'shadow-[rgba(48,209,88,0.06)]',
+      bg: 'bg-[rgba(48,209,88,0.05)]',
+    },
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {stats.map((stat) => {
         const style = accentMap[stat.accent]
         const hasValue = stat.value !== undefined && stat.value !== null && !isLoadingAnalytics

@@ -205,6 +205,8 @@ class TestTokenStatsDaily:
         assert ts.get_summary(days=7) == {
             "total_prompt_tokens": 0,
             "total_completion_tokens": 0,
+            "total_reasoning_tokens": 0,
+            "total_cached_tokens": 0,
             "total_requests": 0,
             "model_breakdown": {},
         }
@@ -232,3 +234,65 @@ class TestTokenStatsDaily:
         daily = ts.get_daily("2024-01-01")
         assert daily["gpt-4o"]["request_count"] == 50
         assert daily["gpt-4o"]["total_tokens"] == 100
+
+
+class TestTokenStatsDetailedTokens:
+    """测试 reasoning_tokens 和 cached_tokens 统计"""
+
+    def test_record_with_reasoning_and_cached_tokens(self, tmp_path):
+        stats_file = tmp_path / "token_stats.json"
+        ts = TokenStats(stats_file=stats_file)
+        asyncio.run(ts.record("gpt-4o", 100, 50, 150, reasoning_tokens=30, cached_tokens=20))
+
+        all_stats = ts.get_all()
+        assert all_stats["gpt-4o"]["reasoning_tokens"] == 30
+        assert all_stats["gpt-4o"]["cached_tokens"] == 20
+        assert all_stats["gpt-4o"]["prompt_tokens"] == 100
+        assert all_stats["gpt-4o"]["completion_tokens"] == 50
+        assert all_stats["gpt-4o"]["total_tokens"] == 150
+        assert all_stats["gpt-4o"]["request_count"] == 1
+
+    def test_record_accumulates_reasoning_and_cached_tokens(self, tmp_path):
+        stats_file = tmp_path / "token_stats.json"
+        ts = TokenStats(stats_file=stats_file)
+        asyncio.run(ts.record("gpt-4o", 100, 50, 150, reasoning_tokens=30, cached_tokens=20))
+        asyncio.run(ts.record("gpt-4o", 50, 25, 75, reasoning_tokens=10, cached_tokens=5))
+
+        all_stats = ts.get_all()
+        assert all_stats["gpt-4o"]["reasoning_tokens"] == 40
+        assert all_stats["gpt-4o"]["cached_tokens"] == 25
+
+    def test_daily_record_with_reasoning_and_cached_tokens(self, tmp_path, monkeypatch):
+        stats_file = tmp_path / "token_stats.json"
+        ts = TokenStats(stats_file=stats_file)
+        monkeypatch.setattr(time, "strftime", lambda fmt, t=None: "2024-01-15")
+        asyncio.run(ts.record("gpt-4o", 100, 50, 150, reasoning_tokens=30, cached_tokens=20))
+
+        daily = ts.get_daily("2024-01-15")
+        assert daily["gpt-4o"]["reasoning_tokens"] == 30
+        assert daily["gpt-4o"]["cached_tokens"] == 20
+
+    def test_summary_includes_reasoning_and_cached_tokens(self, tmp_path, monkeypatch):
+        stats_file = tmp_path / "token_stats.json"
+        ts = TokenStats(stats_file=stats_file)
+
+        for i in range(3):
+            date_str = f"2024-01-{10 + i:02d}"
+            monkeypatch.setattr(time, "strftime", lambda fmt, t=None, d=date_str: d)
+            asyncio.run(ts.record("gpt-4o", 100, 50, 150, reasoning_tokens=30, cached_tokens=20))
+            asyncio.run(ts.record("claude-3", 200, 100, 300, reasoning_tokens=60, cached_tokens=40))
+
+        summary = ts.get_summary(days=3)
+        assert summary["total_reasoning_tokens"] == 270  # (30+60)*3
+        assert summary["total_cached_tokens"] == 180  # (20+40)*3
+        assert summary["model_breakdown"]["gpt-4o"]["reasoning_tokens"] == 90
+        assert summary["model_breakdown"]["gpt-4o"]["cached_tokens"] == 60
+        assert summary["model_breakdown"]["claude-3"]["reasoning_tokens"] == 180
+        assert summary["model_breakdown"]["claude-3"]["cached_tokens"] == 120
+
+    def test_empty_summary_includes_new_fields(self, tmp_path):
+        stats_file = tmp_path / "token_stats.json"
+        ts = TokenStats(stats_file=stats_file)
+        summary = ts.get_summary(days=7)
+        assert summary["total_reasoning_tokens"] == 0
+        assert summary["total_cached_tokens"] == 0

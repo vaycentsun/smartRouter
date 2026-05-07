@@ -1,41 +1,35 @@
 # Models Configuration - Virtual Models (智能路由专用)
+# 注意：虚拟模型的 provider (_virtual) api_key 为空，因此它们不会被纳入可用模型候选池，
+# 以下配置仅作占位，正常情况下不影响路由决策。
 models:
   auto:
     provider: _virtual
-    litellm_model: openai/qwen3.6-plus
+    litellm_model: openai/virtual-model
     capabilities:
-      quality: 9
-      cost: 10
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard, expert]
-    
-  smart-router:
-    provider: _virtual
-    litellm_model: openai/qwen3.6-plus
-    capabilities:
-      quality: 9
-      cost: 10
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard, expert]
-    
-  stage-default:
-    provider: _virtual
-    litellm_model: openai/qwen3.6-plus
-    capabilities:
-      quality: 9
-      cost: 10
-      context: 128000
+      quality: 1
+      cost: 1
+      context: 2560000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
 
-  strategy-cost:
+  smart-router:
     provider: _virtual
-    litellm_model: openai/qwen3.6-plus
+    litellm_model: openai/virtual-model
     capabilities:
-      quality: 9
-      cost: 10
-      context: 128000
+      quality: 1
+      cost: 1
+      context: 2560000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
     difficulty_support: [easy, medium, hard, expert]
+
+  default:
+    provider: _virtual
+    litellm_model: openai/virtual-model
+    capabilities:
+      quality: 1
+      cost: 1
+      context: 2560000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+    
+

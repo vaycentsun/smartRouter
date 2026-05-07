@@ -11,6 +11,25 @@ from ..config.schema import Config, ModelConfig
 from ..exceptions import NoModelAvailableError
 
 
+def _message_contains_image(messages: List[Dict]) -> bool:
+    """检查消息列表是否包含图片
+    
+    Args:
+        messages: OpenAI 格式的消息列表
+        
+    Returns:
+        bool: 如果消息中包含图片则返回 True
+    """
+    for msg in messages:
+        content = msg.get("content")
+        if isinstance(content, list):
+            # 多模态内容
+            for item in content:
+                if isinstance(item, dict) and item.get("type") in ("image_url", "image"):
+                    return True
+    return False
+
+
 class SmartRouter(Router):
     """
     智能路由插件。
@@ -114,6 +133,9 @@ class SmartRouter(Router):
         
         markers = parse_markers(messages)
         
+        # 检测消息是否包含图片
+        requires_vision = _message_contains_image(messages)
+        
         # 从 model_hint 解析 stage
         if model_hint.startswith("stage:"):
             task_type = model_hint.replace("stage:", "")
@@ -144,7 +166,8 @@ class SmartRouter(Router):
                 task_type=classification.task_type,
                 difficulty=classification.estimated_difficulty,
                 strategy=strategy,
-                required_context=required_context
+                required_context=required_context,
+                requires_vision=requires_vision
             )
         except NoModelAvailableError:
             # Graceful fallback: 当没有模型匹配时，选择第一个可用模型

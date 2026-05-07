@@ -7,8 +7,8 @@ vi.mock('../store/useDashboardStore')
 import { mockStoreState } from '../store/__mocks__/useDashboardStore'
 
 const mockTokenStats = [
-  { model: 'gpt-4o', prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500, request_count: 10 },
-  { model: 'claude-3', prompt_tokens: 2000, completion_tokens: 1000, total_tokens: 3000, request_count: 5 },
+  { model: 'gpt-4o', prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500, reasoning_tokens: 100, cached_tokens: 50, request_count: 10 },
+  { model: 'claude-3', prompt_tokens: 2000, completion_tokens: 1000, total_tokens: 3000, reasoning_tokens: 200, cached_tokens: 100, request_count: 5 },
 ]
 
 describe('TokenStatsTable', () => {

@@ -245,6 +245,56 @@ models:
         assert config.providers["_virtual"].api_key == ""
         assert config.models["auto"].provider == "_virtual"
 
+    def test_virtual_model_with_zero_capabilities_fails(self, tmp_path):
+        """虚拟模型 quality/cost 为 0 时应导致验证失败"""
+        (tmp_path / "providers.yaml").write_text("""
+providers:
+  openai:
+    api_base: https://api.openai.com
+    api_key: sk-test
+    timeout: 30
+""")
+        (tmp_path / "routing.yaml").write_text("""
+tasks:
+  chat:
+    name: "聊天"
+    description: "日常对话"
+    capability_weights:
+      quality: 0.5
+      cost: 0.5
+difficulties:
+  easy:
+    description: "简单"
+    max_tokens: 2000
+strategies:
+  auto:
+    description: "自动"
+fallback:
+  mode: auto
+  similarity_threshold: 2
+  provider_isolation: false
+  max_attempts: 3
+""")
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+        (models_dir / "_virtual.yaml").write_text("""
+models:
+  auto:
+    provider: _virtual
+    litellm_model: openai/virtual-model
+    capabilities:
+      quality: 0
+      cost: 0
+      context: 2560000
+    supported_tasks: [chat]
+    difficulty_support: [easy]
+""")
+
+        loader = ConfigLoader(tmp_path)
+        with pytest.raises(ConfigError) as exc_info:
+            loader.load()
+        assert "validation" in str(exc_info.value).lower()
+
     def test_preserve_existing_virtual_provider(self, tmp_path):
         """providers.yaml 已包含 _virtual 时不覆盖用户配置"""
         (tmp_path / "providers.yaml").write_text("""

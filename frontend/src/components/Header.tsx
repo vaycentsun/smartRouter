@@ -1,7 +1,7 @@
 import { useDashboardStore } from '../store/useDashboardStore'
 
 export function Header() {
-  const { fetchAll, stopService, isLoading, clearError } = useDashboardStore()
+  const { fetchAll, stopService, isLoading, clearError, status } = useDashboardStore()
 
   const handleRefresh = () => {
     clearError()
@@ -13,6 +13,12 @@ export function Header() {
       await stopService()
     }
   }
+
+  const handleStart = () => {
+    alert('请在终端中运行以下命令启动服务：\n\nsmart-router start\n\n或\n\nsmr start')
+  }
+
+  const isRunning = status?.running ?? false
 
   return (
     <header className="glass-header sticky top-0 z-50">
@@ -41,13 +47,23 @@ export function Header() {
           >
             {isLoading ? '刷新中...' : '刷新'}
           </button>
-          <button
-            onClick={handleStop}
-            disabled={isLoading}
-            className="px-4 py-2 bg-[rgba(255,59,48,0.06)] text-[#FF3B30] border border-[rgba(255,59,48,0.12)] rounded-xl hover:bg-[rgba(255,59,48,0.1)] hover:border-[rgba(255,59,48,0.2)] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium backdrop-blur-sm"
-          >
-            停止服务
-          </button>
+          {isRunning ? (
+            <button
+              onClick={handleStop}
+              disabled={isLoading}
+              className="px-4 py-2 bg-[rgba(255,59,48,0.06)] text-[#FF3B30] border border-[rgba(255,59,48,0.12)] rounded-xl hover:bg-[rgba(255,59,48,0.1)] hover:border-[rgba(255,59,48,0.2)] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium backdrop-blur-sm"
+            >
+              停止服务
+            </button>
+          ) : (
+            <button
+              onClick={handleStart}
+              disabled={isLoading}
+              className="px-4 py-2 bg-[rgba(52,199,89,0.06)] text-[#34C759] border border-[rgba(52,199,89,0.12)] rounded-xl hover:bg-[rgba(52,199,89,0.1)] hover:border-[rgba(52,199,89,0.2)] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium backdrop-blur-sm"
+            >
+              启动服务
+            </button>
+          )}
         </div>
       </div>
     </header>

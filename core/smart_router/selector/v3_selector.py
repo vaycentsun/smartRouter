@@ -35,7 +35,8 @@ class V3ModelSelector:
         task_type: str,
         difficulty: str,
         strategy: str = "auto",
-        required_context: int = 0
+        required_context: int = 0,
+        requires_vision: bool = False
     ) -> SelectionResult:
         """选择最佳模型
         
@@ -44,11 +45,12 @@ class V3ModelSelector:
             difficulty: 难度（easy/medium/hard/expert）
             strategy: 策略（已废弃，保留仅用于兼容）
             required_context: 所需的上下文窗口大小（token 数），为 0 时不做上下文过滤
+            requires_vision: 是否需要视觉能力
             
         Returns:
             SelectionResult
         """
-        candidates = self._filter_candidates(task_type, difficulty, required_context)
+        candidates = self._filter_candidates(task_type, difficulty, required_context, requires_vision)
         
         if not candidates:
             raise NoModelAvailableError(
@@ -85,7 +87,8 @@ class V3ModelSelector:
         self,
         task_type: str,
         difficulty: str,
-        required_context: int = 0
+        required_context: int = 0,
+        requires_vision: bool = False
     ) -> List[Tuple[str, object]]:
         """过滤符合条件的模型
         
@@ -93,6 +96,7 @@ class V3ModelSelector:
             task_type: 任务类型
             difficulty: 难度等级
             required_context: 所需的上下文窗口大小（token 数），为 0 时不做上下文过滤
+            requires_vision: 是否需要视觉能力
         """
         candidates = []
         
@@ -108,6 +112,10 @@ class V3ModelSelector:
             
             # 检查上下文窗口支持
             if required_context > 0 and model.capabilities.context < required_context:
+                continue
+            
+            # 检查视觉能力
+            if requires_vision and not getattr(model.capabilities, 'vision', False):
                 continue
             
             candidates.append((name, model))

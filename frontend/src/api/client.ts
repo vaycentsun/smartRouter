@@ -24,6 +24,7 @@ import type {
   FormulaUpdateRequest,
   FormulaPreviewRequest,
   FormulaPreviewResponse,
+  RequestRoutingRecord,
 } from '../types'
 
 export interface AlertTestResult {
@@ -88,8 +89,8 @@ export const api = {
   stopService: () => client.post('/api/stop').then((r) => r.data),
   putProviders: (data: Record<string, ProviderUpdate>) =>
     client.put<{ success: boolean; errors?: string[] }>('/api/providers', { providers: data }).then((r) => r.data),
-  getLogs: (source: LogSource, offset: number, limit?: number) =>
-    client.get<LogsResponse>('/api/logs', { params: { source, offset, limit } }).then((r) => r.data),
+  getLogs: (source: LogSource, offset: number, limit?: number, level?: string) =>
+    client.get<LogsResponse>('/api/logs', { params: { source, offset, limit, level } }).then((r) => r.data),
   getTokenStats: () =>
     client.get<TokenStatsResponse>('/api/token-stats').then((r) => r.data),
   getAnalyticsSummary: (days = 7) =>
@@ -100,6 +101,8 @@ export const api = {
     client.get<AnalyticsByModelItem[]>('/api/analytics/by-model', { params: { days } }).then((r) => r.data),
   getAnalyticsTopModels: (limit = 10, days = 7) =>
     client.get<AnalyticsTopModelItem[]>('/api/analytics/top-models', { params: { limit, days } }).then((r) => r.data),
+  getRecentRequests: (limit = 50) =>
+    client.get<{ requests: RequestRoutingRecord[] }>('/api/analytics/recent-requests', { params: { limit } }).then((r) => r.data),
   postPlayground: (data: PlaygroundRequest) =>
     client.post<{ results: PlaygroundResult[] }>('/api/playground/completions', data).then((r) => r.data),
   getPlaygroundHistory: () =>

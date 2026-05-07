@@ -1,4 +1,4 @@
-"""Analytics API 测试 — 覆盖汇总、每日趋势、按模型聚合、TOP10"""
+"""Analytics API 测试 — 覆盖汇总、每日趋势、按模型聚合、TOP10、最近请求"""
 
 import pytest
 import json
@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from smart_router.gateway.dashboard_api import build_dashboard_app
 from smart_router.utils.token_stats import TokenStats
+from smart_router.utils.request_routing_history import RequestRoutingHistory, RequestRoutingEntry
 from smart_router.config.schema import Config, ProviderConfig, ModelConfig, ModelCapabilities, ModelPrice, RoutingConfig, FallbackConfig
 
 
@@ -25,6 +26,8 @@ class TestAnalyticsSummary:
         mock_ts.get_summary.return_value = {
             "total_prompt_tokens": 0,
             "total_completion_tokens": 0,
+            "total_reasoning_tokens": 0,
+            "total_cached_tokens": 0,
             "total_requests": 0,
             "model_breakdown": {},
         }
@@ -36,6 +39,8 @@ class TestAnalyticsSummary:
             assert data["total_cost"] == 0.0
             assert data["total_requests"] == 0
             assert data["total_tokens"] == 0
+            assert data["total_reasoning_tokens"] == 0
+            assert data["total_cached_tokens"] == 0
             assert data["avg_daily_cost"] == 0.0
 
     def test_summary_with_data(self, client, tmp_path, monkeypatch):
@@ -127,6 +132,8 @@ class TestAnalyticsSummary:
         mock_ts.get_summary.return_value = {
             "total_prompt_tokens": 0,
             "total_completion_tokens": 0,
+            "total_reasoning_tokens": 0,
+            "total_cached_tokens": 0,
             "total_requests": 0,
             "model_breakdown": {},
         }
@@ -177,6 +184,8 @@ class TestAnalyticsDaily:
             today_item = next(item for item in data if item["date"] == dates[0])
             assert today_item["requests"] == 1
             assert today_item["tokens"] == 150
+            assert today_item["reasoning_tokens"] == 0
+            assert today_item["cached_tokens"] == 0
 
 
 class TestAnalyticsByModel:
@@ -185,6 +194,8 @@ class TestAnalyticsByModel:
         mock_ts.get_summary.return_value = {
             "total_prompt_tokens": 0,
             "total_completion_tokens": 0,
+            "total_reasoning_tokens": 0,
+            "total_cached_tokens": 0,
             "total_requests": 0,
             "model_breakdown": {},
         }
@@ -230,6 +241,8 @@ class TestAnalyticsByModel:
                 assert data[0]["model"] == "gpt-4o"
                 assert data[0]["cost"] == (2000 / 1000 * 0.005 + 1000 / 1000 * 0.015)
                 assert data[0]["request_count"] == 1
+                assert data[0]["reasoning_tokens"] == 0
+                assert data[0]["cached_tokens"] == 0
 
 
 class TestAnalyticsTopModels:
@@ -238,6 +251,8 @@ class TestAnalyticsTopModels:
         mock_ts.get_summary.return_value = {
             "total_prompt_tokens": 0,
             "total_completion_tokens": 0,
+            "total_reasoning_tokens": 0,
+            "total_cached_tokens": 0,
             "total_requests": 0,
             "model_breakdown": {},
         }
@@ -339,3 +354,110 @@ class TestAnalyticsTopModels:
                 assert len(data) == 1
                 assert data[0]["model"] == "model-b"
                 assert data[0]["request_count"] == 2
+
+
+class TestRecentRequests:
+    def test_recent_requests_empty(self, client):
+        """无历史记录时返回空列表"""
+        response = client.get("/api/analytics/recent-requests")
+        assert response.status_code == 200
+        data = response.json()
+        assert data == {"requests": []}
+
+    def test_recent_requests_with_data(self):
+        """预置记录时返回正确格式和字段"""
+        import asyncio
+
+        # Python 3.9 下 asyncio.Lock() 需要当前线程存在 event loop
+        try:
+            asyncio.get_event_loop()
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
+        app = build_dashboard_app(static_dir=None)
+        history = RequestRoutingHistory(max_size=50)
+        entry = RequestRoutingEntry(
+            request_id="abc123",
+            timestamp="2024-01-01T00:00:00+00:00",
+            original_model="auto",
+            selected_model="gpt-4o",
+            actual_model="gpt-4o",
+            task_type="chat",
+            difficulty="medium",
+            strategy="auto",
+            fallback_chain=["claude-3", "gpt-3.5"],
+            did_fallback=False,
+            status_code=200,
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+            reasoning_tokens=3,
+            cached_tokens=2,
+        )
+        asyncio.run(history.record(entry))
+        app.state.request_routing_history = history
+
+        test_client = TestClient(app)
+        response = test_client.get("/api/analytics/recent-requests")
+        assert response.status_code == 200
+        data = response.json()
+        assert "requests" in data
+        assert len(data["requests"]) == 1
+        req = data["requests"][0]
+        assert req["request_id"] == "abc123"
+        assert req["timestamp"] == "2024-01-01T00:00:00+00:00"
+        assert req["original_model"] == "auto"
+        assert req["selected_model"] == "gpt-4o"
+        assert req["actual_model"] == "gpt-4o"
+        assert req["task_type"] == "chat"
+        assert req["difficulty"] == "medium"
+        assert req["strategy"] == "auto"
+        assert req["fallback_chain"] == ["claude-3", "gpt-3.5"]
+        assert req["did_fallback"] is False
+        assert req["status_code"] == 200
+        assert req["prompt_tokens"] == 10
+        assert req["completion_tokens"] == 5
+        assert req["total_tokens"] == 15
+        assert req["reasoning_tokens"] == 3
+        assert req["cached_tokens"] == 2
+
+    def test_recent_requests_limit(self):
+        """limit 参数限制返回数量"""
+        import asyncio
+
+        # Python 3.9 下 asyncio.Lock() 需要当前线程存在 event loop
+        try:
+            asyncio.get_event_loop()
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
+        app = build_dashboard_app(static_dir=None)
+        history = RequestRoutingHistory(max_size=100)
+        for i in range(60):
+            entry = RequestRoutingEntry(
+                request_id=f"req-{i:03d}",
+                timestamp=f"2024-01-01T{i:02d}:00:00+00:00",
+                original_model="auto",
+                selected_model="gpt-4o",
+                actual_model="gpt-4o",
+                task_type="chat",
+                difficulty="medium",
+                strategy="auto",
+                fallback_chain=[],
+                did_fallback=False,
+                status_code=200,
+                prompt_tokens=10,
+                completion_tokens=5,
+                total_tokens=15,
+            )
+            asyncio.run(history.record(entry))
+        app.state.request_routing_history = history
+
+        test_client = TestClient(app)
+        response = test_client.get("/api/analytics/recent-requests?limit=50")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["requests"]) == 50
+        # 验证是按时间倒序（最新的在前）
+        assert data["requests"][0]["request_id"] == "req-059"
+        assert data["requests"][49]["request_id"] == "req-010"

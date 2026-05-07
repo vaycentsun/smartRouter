@@ -135,6 +135,7 @@ export interface LogState {
   offset: number
   total_size: number
   source: LogSource
+  level: string
 }
 
 export interface TokenStatsItem {
@@ -142,6 +143,8 @@ export interface TokenStatsItem {
   prompt_tokens: number
   completion_tokens: number
   total_tokens: number
+  reasoning_tokens: number
+  cached_tokens: number
   request_count: number
 }
 
@@ -149,6 +152,8 @@ export interface TokenStatsResponse {
   stats: TokenStatsItem[]
   total_prompt_tokens: number
   total_completion_tokens: number
+  total_reasoning_tokens: number
+  total_cached_tokens: number
   total_requests: number
 }
 
@@ -156,6 +161,10 @@ export interface AnalyticsSummary {
   total_cost: number | null
   total_requests: number
   total_tokens: number
+  total_prompt_tokens: number
+  total_completion_tokens: number
+  total_reasoning_tokens: number
+  total_cached_tokens: number
   avg_daily_cost: number | null
   incomplete: boolean
 }
@@ -165,19 +174,28 @@ export interface AnalyticsDailyItem {
   cost: number
   requests: number
   tokens: number
+  reasoning_tokens: number
+  cached_tokens: number
 }
 
 export interface AnalyticsByModelItem {
   model: string
   prompt_tokens: number
   completion_tokens: number
+  total_tokens: number
+  reasoning_tokens: number
+  cached_tokens: number
   cost: number
   request_count: number
 }
 
 export interface AnalyticsTopModelItem {
   model: string
+  prompt_tokens: number
+  completion_tokens: number
   total_tokens: number
+  reasoning_tokens: number
+  cached_tokens: number
   cost: number
   request_count: number
 }
@@ -240,4 +258,25 @@ export interface AlertHistoryItem {
   threshold: number
   timestamp: number
   message: string
+}
+
+export interface RequestRoutingRecord {
+  request_id: string
+  timestamp: string
+  original_model: string
+  selected_model: string
+  actual_model: string | null
+  task_type: string | null
+  difficulty: string | null
+  strategy: string | null
+  fallback_chain: string[]
+  attempted_fallbacks: number | null
+  did_fallback: boolean
+  status_code: number
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  reasoning_tokens: number
+  cached_tokens: number
+  error_info: string | null
 }

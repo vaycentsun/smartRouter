@@ -1,6 +1,8 @@
 import os
 import sys
 import json
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -54,21 +56,32 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                 data["model"] = model_name
                                 
                                 # 保存到 request.state 供后续使用
+                                request.state.smart_router_selected = model_name
                                 request.state.smart_router_override = True
                                 request.state.smart_router_override_provider = override_provider
                                 request.state.smart_router_override_model = model_name
                                 request.state.smart_router_original = original_model
+                                request.state.smart_router_task = "override"
+                                
+                                request_id = str(uuid.uuid4())[:8]
+                                request.state.smart_router_request_id = request_id
+                                request.state.smart_router_routing_info = {
+                                    "request_id": request_id,
+                                    "original_model": original_model,
+                                    "selected_model": model_name,
+                                    "task_type": "override",
+                                    "difficulty": None,
+                                    "strategy": "override",
+                                    "fallback_chain": [],
+                                }
                                 
                                 console.print(f"[cyan]模型覆盖: {original_model} -> {model_name} (provider: {override_provider})[/cyan]")
                                 
                                 # 重新构建请求体
                                 modified_body = json.dumps(data).encode("utf-8")
-                                
-                                # 创建新的请求，使用修改后的 body
-                                async def receive():
-                                    return {"type": "http.request", "body": modified_body, "more_body": False}
-                                
-                                request = Request(request.scope, receive, request._send)
+
+                                # 直接修改原始 request 的缓存 body，确保下游能读取到修改后的内容
+                                request._body = modified_body
                             else:
                                 console.print(f"[yellow]模型覆盖无效: {override_provider}/{model_name} (不可用或 provider 不匹配)[/yellow]")
                         else:
@@ -99,14 +112,24 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                     request.state.smart_router_override_provider = go_provider
                                     request.state.smart_router_override_model = go_model
                                     
+                                    request_id = str(uuid.uuid4())[:8]
+                                    request.state.smart_router_request_id = request_id
+                                    request.state.smart_router_routing_info = {
+                                        "request_id": request_id,
+                                        "original_model": original_model,
+                                        "selected_model": go_model,
+                                        "task_type": "override",
+                                        "difficulty": None,
+                                        "strategy": "override",
+                                        "fallback_chain": [],
+                                    }
+                                    
                                     console.print(f"[cyan]全局模型覆盖: {original_model} -> {go_model} (provider: {go_provider})[/cyan]")
                                     
                                     modified_body = json.dumps(data).encode("utf-8")
-                                    
-                                    async def receive():
-                                        return {"type": "http.request", "body": modified_body, "more_body": False}
-                                    
-                                    request = Request(request.scope, receive, request._send)
+
+                                    # 直接修改原始 request 的缓存 body，确保下游能读取到修改后的内容
+                                    request._body = modified_body
                                 else:
                                     console.print(f"[yellow]全局模型覆盖无效: {go_provider}/{go_model} (不可用或 provider 不匹配)[/yellow]")
                             else:
@@ -138,17 +161,81 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                     request.state.smart_router_selected = selected
                                     request.state.smart_router_original = original_model
                                     request.state.smart_router_task = result.task_type
+                                    request.state.smart_router_difficulty = result.difficulty
+                                    request.state.smart_router_strategy = result.strategy
+
+                                    request_id = str(uuid.uuid4())[:8]
+                                    request.state.smart_router_request_id = request_id
+
+                                    fallback_chain = []
+                                    if hasattr(self.router, 'get_fallback_chain') and selected:
+                                        try:
+                                            fallback_chain = self.router.get_fallback_chain(selected)
+                                        except Exception:
+                                            pass
+
+                                    request.state.smart_router_routing_info = {
+                                        "request_id": request_id,
+                                        "original_model": original_model,
+                                        "selected_model": selected,
+                                        "task_type": result.task_type,
+                                        "difficulty": result.difficulty,
+                                        "strategy": result.strategy,
+                                        "fallback_chain": fallback_chain,
+                                    }
                                     
                                     # 重新构建请求体
                                     modified_body = json.dumps(data).encode("utf-8")
-                                    
-                                    # 创建新的请求，使用修改后的 body
-                                    async def receive():
-                                        return {"type": "http.request", "body": modified_body, "more_body": False}
-                                    
-                                    request = Request(request.scope, receive, request._send)
+
+                                    # 直接修改原始 request 的缓存 body，确保下游能读取到修改后的内容
+                                    request._body = modified_body
                                 except Exception as e:
-                                    console.print(f"[yellow]智能路由失败，使用原始模型: {e}[/yellow]")
+                                    console.print(f"[yellow]智能路由失败: {e}[/yellow]")
+                                    import traceback
+                                    console.print(traceback.format_exc())
+                                    
+                                    # 对于保留模型名（auto/smart-router/default），不应直接透传给下游，
+                                    # 因为 LiteLLM 不认识这些名称。尝试 fallback 到第一个可用模型。
+                                    if original_model in ("auto", "smart-router", "default"):
+                                        try:
+                                            available = self.router.sr_config.get_available_models()
+                                            if available:
+                                                fallback_model = available[0]
+                                                data["model"] = fallback_model
+                                                request.state.smart_router_selected = fallback_model
+                                                request.state.smart_router_original = original_model
+                                                request.state.smart_router_task = "fallback"
+                                                
+                                                request_id = str(uuid.uuid4())[:8]
+                                                request.state.smart_router_request_id = request_id
+                                                request.state.smart_router_routing_info = {
+                                                    "request_id": request_id,
+                                                    "original_model": original_model,
+                                                    "selected_model": fallback_model,
+                                                    "task_type": "fallback",
+                                                    "difficulty": None,
+                                                    "strategy": "fallback",
+                                                    "fallback_chain": [],
+                                                }
+                                                
+                                                modified_body = json.dumps(data).encode("utf-8")
+
+                                                # 直接修改原始 request 的缓存 body，确保下游能读取到修改后的内容
+                                                request._body = modified_body
+
+                                                console.print(f"[yellow]智能路由异常降级: {original_model} -> {fallback_model}[/yellow]")
+                                            else:
+                                                from starlette.responses import JSONResponse
+                                                return JSONResponse(
+                                                    status_code=400,
+                                                    content={"error": {"message": "No model available for routing", "type": "invalid_request_error", "code": "400"}}
+                                                )
+                                        except Exception as fallback_e:
+                                            from starlette.responses import JSONResponse
+                                            return JSONResponse(
+                                                status_code=400,
+                                                content={"error": {"message": f"Routing failed: {fallback_e}", "type": "invalid_request_error", "code": "400"}}
+                                            )
             except Exception as e:
                 console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                 import traceback
@@ -246,14 +333,92 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         completion_tokens = usage.get("completion_tokens", 0)
                         total_tokens = usage.get("total_tokens", 0)
                         
-                        console.print(f"[green]✓ Recording tokens: {model_name} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens}[/green]")
+                        # 提取 reasoning_tokens 和 cached_tokens（OpenAI 等格式）
+                        reasoning_tokens = 0
+                        completion_details = usage.get("completion_tokens_details", {})
+                        if completion_details:
+                            reasoning_tokens = completion_details.get("reasoning_tokens", 0)
+                        
+                        cached_tokens = 0
+                        prompt_details = usage.get("prompt_tokens_details", {})
+                        if prompt_details:
+                            cached_tokens = prompt_details.get("cached_tokens", 0)
+                        
+                        console.print(f"[green]✓ Recording tokens: {model_name} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens} reasoning:{reasoning_tokens} cached:{cached_tokens}[/green]")
                         
                         token_stats = request.app.state.token_stats
                         await token_stats.record(
-                            model_name, prompt_tokens, completion_tokens, total_tokens
+                            model_name, prompt_tokens, completion_tokens, total_tokens,
+                            reasoning_tokens=reasoning_tokens, cached_tokens=cached_tokens
                         )
                     else:
                         console.print("[yellow]No usage data in response[/yellow]")
+                    
+                    # 在解析 usage 后，增加 actual_model 解析
+                    actual_model = None
+
+                    if is_sse:
+                        text = body_bytes.decode("utf-8", errors="replace")
+                        for line in text.splitlines():
+                            line = line.strip()
+                            if line.startswith("data: "):
+                                data = line[6:]
+                                if data == "[DONE]":
+                                    continue
+                                try:
+                                    chunk = json.loads(data)
+                                    if chunk.get("model"):
+                                        actual_model = chunk["model"]
+                                        break
+                                except json.JSONDecodeError:
+                                    continue
+                    else:
+                        try:
+                            resp_data = json.loads(body_bytes)
+                            actual_model = resp_data.get("model")
+                        except json.JSONDecodeError:
+                            pass
+
+                    # 组装并写入 RequestRoutingHistory
+                    routing_info = getattr(request.state, 'smart_router_routing_info', None)
+                    selected_model = getattr(request.state, 'smart_router_selected', None)
+
+                    if routing_info and selected_model:
+                        did_fallback = actual_model is not None and actual_model != selected_model
+                        attempted_fallbacks = None
+                        fallback_header = response.headers.get("x-litellm-attempted-fallbacks")
+                        if fallback_header is not None:
+                            try:
+                                attempted_fallbacks = int(fallback_header)
+                            except ValueError:
+                                pass
+
+                        from smart_router.utils.request_routing_history import RequestRoutingEntry
+                        
+                        entry = RequestRoutingEntry(
+                            request_id=routing_info["request_id"],
+                            timestamp=datetime.now(timezone.utc).isoformat(),
+                            original_model=routing_info["original_model"],
+                            selected_model=selected_model,
+                            actual_model=actual_model,
+                            task_type=routing_info.get("task_type"),
+                            difficulty=routing_info.get("difficulty"),
+                            strategy=routing_info.get("strategy"),
+                            fallback_chain=routing_info.get("fallback_chain", []),
+                            attempted_fallbacks=attempted_fallbacks,
+                            did_fallback=did_fallback,
+                            status_code=response.status_code,
+                            prompt_tokens=usage.get("prompt_tokens", 0) if usage else 0,
+                            completion_tokens=usage.get("completion_tokens", 0) if usage else 0,
+                            total_tokens=usage.get("total_tokens", 0) if usage else 0,
+                            reasoning_tokens=reasoning_tokens if usage else 0,
+                            cached_tokens=cached_tokens if usage else 0,
+                        )
+
+                        history = getattr(request.app.state, 'request_routing_history', None)
+                        if history:
+                            await history.record(entry)
+                
                 else:
                     console.print("[yellow]No model name resolved, skipping stats[/yellow]")
                 
@@ -400,6 +565,12 @@ def start_server(config_path: Optional[Path] = None):
         # 初始化 Token 统计
         from ..utils.token_stats import TokenStats
         app.state.token_stats = TokenStats()
+
+        # 初始化请求路由历史（使用文件持久化，支持 Dashboard 跨进程读取）
+        from ..utils.request_routing_history import RequestRoutingHistory, DEFAULT_HISTORY_FILE
+        app.state.request_routing_history = RequestRoutingHistory(
+            max_size=50, persist_file=DEFAULT_HISTORY_FILE
+        )
 
         # 初始化错误计数器
         from .error_counter import ErrorCounter
