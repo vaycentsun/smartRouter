@@ -25,6 +25,7 @@ import type {
   FormulaPreviewRequest,
   FormulaPreviewResponse,
   RequestRoutingRecord,
+  ErrorStatsResponse,
 } from '../types'
 
 export interface AlertTestResult {
@@ -103,6 +104,8 @@ export const api = {
     client.get<AnalyticsTopModelItem[]>('/api/analytics/top-models', { params: { limit, days } }).then((r) => r.data),
   getRecentRequests: (limit = 50) =>
     client.get<{ requests: RequestRoutingRecord[] }>('/api/analytics/recent-requests', { params: { limit } }).then((r) => r.data),
+  getErrorStats: (days = 7) =>
+    client.get<ErrorStatsResponse>('/api/analytics/error-stats', { params: { days } }).then((r) => r.data),
   postPlayground: (data: PlaygroundRequest) =>
     client.post<{ results: PlaygroundResult[] }>('/api/playground/completions', data).then((r) => r.data),
   getPlaygroundHistory: () =>

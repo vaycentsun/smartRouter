@@ -287,4 +287,34 @@ export interface RequestRoutingRecord {
   cached_tokens: number
   error_info: string | null
   retry_history?: RetryRecord[]
+  final_error_type?: string | null
+}
+
+export interface ErrorStatsModelItem {
+  model: string
+  provider: string
+  total_attempts: number
+  failures: number
+  success_rate: number
+  error_types: Record<string, number>
+}
+
+export interface ErrorStatsErrorTypeItem {
+  error_type: string
+  count: number
+}
+
+export interface ErrorStatsProviderErrorItem {
+  provider: string
+  error_type: string
+  count: number
+}
+
+export interface ErrorStatsResponse {
+  models: ErrorStatsModelItem[]
+  error_types: ErrorStatsErrorTypeItem[]
+  provider_errors: ErrorStatsProviderErrorItem[]
+  total_requests: number
+  total_failures: number
+  failure_rate: number
 }

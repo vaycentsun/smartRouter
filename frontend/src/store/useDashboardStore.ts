@@ -20,6 +20,7 @@ import type {
   AlertRule,
   AlertHistoryItem,
   RequestRoutingRecord,
+  ErrorStatsResponse,
 } from '../types'
 import { api } from '../api/client'
 
@@ -59,6 +60,11 @@ interface DashboardState {
   recentRequests: RequestRoutingRecord[]
   isLoadingAnalytics: boolean
   analyticsError: string | null
+
+  // Error Stats
+  errorStats: ErrorStatsResponse | null
+  isLoadingErrorStats: boolean
+  errorStatsError: string | null
 
   // Playground
   playgroundResults: PlaygroundResult[]
@@ -104,6 +110,10 @@ interface DashboardState {
   fetchAlertHistory: () => Promise<void>
   testAlertRule: (rule: AlertRule) => Promise<{ triggered: boolean; triggers: Array<Pick<AlertHistoryItem, 'rule_id' | 'rule_name' | 'severity' | 'metric' | 'current_value' | 'threshold' | 'message'>> } | null>
   clearAlertsError: () => void
+
+  // Error Stats Actions
+  fetchErrorStats: (days?: number) => Promise<void>
+  clearErrorStatsError: () => void
 }
 
 const STORAGE_KEY = 'smart-router-model-override'
@@ -160,6 +170,11 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   recentRequests: [],
   isLoadingAnalytics: false,
   analyticsError: null,
+
+  // Error Stats
+  errorStats: null,
+  isLoadingErrorStats: false,
+  errorStatsError: null,
 
   // Playground
   playgroundResults: [],
@@ -479,6 +494,18 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   clearAlertsError: () => set({ alertsError: null }),
+
+  fetchErrorStats: async (days = 7) => {
+    set({ isLoadingErrorStats: true, errorStatsError: null })
+    try {
+      const result = await api.getErrorStats(days)
+      set({ errorStats: result, isLoadingErrorStats: false })
+    } catch (err) {
+      set({ errorStatsError: (err as Error).message, isLoadingErrorStats: false })
+    }
+  },
+
+  clearErrorStatsError: () => set({ errorStatsError: null }),
 
   checkProviderHealth: async (providerName: string) => {
     set((state) => ({

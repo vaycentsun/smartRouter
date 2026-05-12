@@ -23,14 +23,20 @@ console = Console()
 def _is_retryable_status(status_code: int) -> bool:
     """判断 HTTP 状态码是否可重试
     
-    可重试：5xx 服务端错误、429 Rate Limit
-    不可重试：4xx（除 429 外）
+    策略：任何非 2xx 状态码都值得尝试 fallback 换模型。
+    因为不同 provider 的模型配置可能不同，404/401/403 等错误
+    通过换 provider 或换模型都可能解决。
     """
-    if status_code == 429:
-        return True
-    if status_code >= 500:
-        return True
-    return False
+    return status_code < 200 or status_code >= 300
+
+
+def _is_auth_error(status_code: int) -> bool:
+    """判断是否为认证/授权错误
+    
+    401/403 错误通常表示当前 provider 的 API Key 问题，
+    fallback 时应优先尝试其他 provider 的模型。
+    """
+    return status_code in (401, 403)
 
 
 def _is_retryable_exception(exc: Exception) -> bool:
@@ -343,12 +349,14 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         
                         retry_history = getattr(request.state, 'smart_router_retry_history', [])
                         error_info = None
+                        final_error_type = None
                         if retry_history:
                             last_error = retry_history[-1]
                             if last_error.get("error"):
                                 error_info = f"{last_error['model']}: {last_error['error']}"
                             elif last_error.get("status_code"):
                                 error_info = f"{last_error['model']}: HTTP {last_error['status_code']}"
+                            final_error_type = last_error.get("error_type")
                         
                         entry = RequestRoutingEntry(
                             request_id=routing_info["request_id"],
@@ -370,6 +378,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             retry_history=retry_history,
                             reasoning_tokens=reasoning_tokens if usage else 0,
                             cached_tokens=cached_tokens if usage else 0,
+                            final_error_type=final_error_type,
                         )
 
                         history = getattr(request.app.state, 'request_routing_history', None)
@@ -412,11 +421,13 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         data: dict,
         original_model: str
     ):
-        """非流式请求的策略排序重试逻辑
+        """统一路由重试逻辑（支持流式/非流式）
         
-        按 V3ModelSelector 的策略排序依次尝试候选模型，
-        失败后等待 10 秒再尝试下一个。
-        流式请求不触发自建重试，直接单次调用。
+        核心策略：
+        1. 任何非 2xx 错误都触发 fallback 换模型
+        2. 401/403 认证错误优先跨 provider 重试
+        3. 流式请求在首 token 返回前可重试
+        4. 详细记录每次尝试的错误信息供后续分析
         """
         from starlette.responses import JSONResponse
         
@@ -462,13 +473,11 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         console.print(f"[yellow]智能路由异常降级: {original_model} -> {fallback_model}[/yellow]")
                         return await call_next(request)
                     else:
-                        from starlette.responses import JSONResponse
                         return JSONResponse(
                             status_code=400,
                             content={"error": {"message": "No model available for routing", "type": "invalid_request_error", "code": "400"}}
                         )
                 except Exception as fallback_e:
-                    from starlette.responses import JSONResponse
                     return JSONResponse(
                         status_code=400,
                         content={"error": {"message": f"Routing failed: {fallback_e}", "type": "invalid_request_error", "code": "400"}}
@@ -489,12 +498,10 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         request_id = str(uuid.uuid4())[:8]
         request.state.smart_router_request_id = request_id
         
-        fallback_chain = []
-        if hasattr(self.router, 'get_fallback_chain') and selected:
-            try:
-                fallback_chain = self.router.get_fallback_chain(selected)
-            except Exception:
-                pass
+        # 构建智能 fallback 候选列表（含 provider 信息）
+        candidates = self._build_fallback_candidates(
+            selected, result.ranked_models or [selected]
+        )
         
         request.state.smart_router_routing_info = {
             "request_id": request_id,
@@ -503,28 +510,18 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             "task_type": result.task_type,
             "difficulty": result.difficulty,
             "strategy": result.strategy,
-            "fallback_chain": fallback_chain,
+            "fallback_chain": [c["model"] for c in candidates],
         }
         
         # 判断是否为流式请求
         is_streaming = data.get("stream", False)
-        
-        if is_streaming:
-            # 流式请求：不触发自建重试，单次调用
-            data["model"] = selected
-            request.state.smart_router_selected = selected
-            request.state.smart_router_retry_count = 0
-            request.state.smart_router_retry_history = []
-            modified_body = json.dumps(data).encode("utf-8")
-            request._body = modified_body
-            return await call_next(request)
-        
-        # 非流式请求：策略排序重试
-        candidates = result.ranked_models or [selected]
         max_attempts = self.router.sr_config.routing.fallback.max_attempts
         retry_history = []
         
-        for attempt, model_name in enumerate(candidates[:max_attempts]):
+        for attempt, candidate in enumerate(candidates[:max_attempts]):
+            model_name = candidate["model"]
+            provider = candidate["provider"]
+            
             data["model"] = model_name
             modified_body = json.dumps(data).encode("utf-8")
             request._body = modified_body
@@ -533,13 +530,16 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 response = await call_next(request)
             except Exception as e:
                 if _is_retryable_exception(e):
+                    error_type = type(e).__name__
                     retry_history.append({
                         "model": model_name,
+                        "provider": provider,
                         "status_code": 0,
+                        "error_type": error_type,
                         "error": str(e),
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     })
-                    console.print(f"[yellow]模型 {model_name} 调用异常: {e}[/yellow]")
+                    console.print(f"[yellow]模型 {model_name} (provider: {provider}) 调用异常 [{error_type}]: {e}[/yellow]")
                     if attempt < len(candidates[:max_attempts]) - 1:
                         console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
                         await asyncio.sleep(10)
@@ -547,23 +547,37 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 raise
             
             if _is_retryable_status(response.status_code):
+                # 提取错误类型（从响应体或状态码推断）
+                error_type = self._infer_error_type(response.status_code)
                 retry_history.append({
                     "model": model_name,
+                    "provider": provider,
                     "status_code": response.status_code,
+                    "error_type": error_type,
                     "error": None,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
-                console.print(f"[yellow]模型 {model_name} 返回 {response.status_code}，准备重试[/yellow]")
+                console.print(f"[yellow]模型 {model_name} (provider: {provider}) 返回 {response.status_code} ({error_type})，准备重试[/yellow]")
+                
+                # 401/403 时过滤掉同 provider 的剩余候选
+                if _is_auth_error(response.status_code):
+                    remaining = candidates[attempt + 1 : max_attempts]
+                    filtered = [c for c in remaining if c["provider"] != provider]
+                    if len(filtered) < len(remaining):
+                        skipped = [c["model"] for c in remaining if c["provider"] == provider]
+                        console.print(f"[dim]认证错误，跳过同 provider 候选: {skipped}[/dim]")
+                        candidates = candidates[: attempt + 1] + filtered
+                
                 if attempt < len(candidates[:max_attempts]) - 1:
                     console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
                     await asyncio.sleep(10)
                 continue
             
-            # 成功或不可重试错误（4xx 除 429）
+            # 成功
             request.state.smart_router_selected = model_name
             request.state.smart_router_retry_count = attempt
             request.state.smart_router_retry_history = retry_history
-            console.print(f"[green]模型 {model_name} 调用成功（尝试 {attempt + 1}/{max_attempts}）[/green]")
+            console.print(f"[green]模型 {model_name} (provider: {provider}) 调用成功（尝试 {attempt + 1}/{max_attempts}）[/green]")
             return response
         
         # 所有候选耗尽
@@ -580,6 +594,88 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 }
             }
         )
+    
+    def _build_fallback_candidates(self, selected: str, ranked_models: list) -> list[dict]:
+        """构建带 provider 信息的 fallback 候选列表
+        
+        排序策略：
+        1. 同 provider 内 quality 相似的模型（fallback 链）
+        2. 跨 provider 的能力匹配模型
+        3. 任意可用模型兜底
+        """
+        config = self.router.sr_config
+        selected_provider = config.models.get(selected, {}).provider if selected in config.models else None
+        
+        candidates = []
+        seen = {selected}
+        
+        # 1. 策略排序的模型
+        for model_name in ranked_models:
+            if model_name in seen:
+                continue
+            if model_name not in config.models:
+                continue
+            model_config = config.models[model_name]
+            if not config.is_model_available(model_name):
+                continue
+            candidates.append({
+                "model": model_name,
+                "provider": model_config.provider,
+                "source": "ranked",
+            })
+            seen.add(model_name)
+        
+        # 2. fallback 链中的模型（同 provider）
+        if hasattr(self.router, 'get_fallback_chain') and selected:
+            try:
+                fallback_chain = self.router.get_fallback_chain(selected)
+                for model_name in fallback_chain:
+                    if model_name in seen:
+                        continue
+                    if model_name not in config.models:
+                        continue
+                    model_config = config.models[model_name]
+                    if not config.is_model_available(model_name):
+                        continue
+                    candidates.append({
+                        "model": model_name,
+                        "provider": model_config.provider,
+                        "source": "fallback_chain",
+                    })
+                    seen.add(model_name)
+            except Exception:
+                pass
+        
+        # 3. 跨 provider 的可用模型兜底
+        for model_name in config.get_available_models():
+            if model_name in seen:
+                continue
+            model_config = config.models[model_name]
+            candidates.append({
+                "model": model_name,
+                "provider": model_config.provider,
+                "source": "cross_provider",
+            })
+            seen.add(model_name)
+        
+        return candidates
+    
+    @staticmethod
+    def _infer_error_type(status_code: int) -> str:
+        """根据 HTTP 状态码推断错误类型"""
+        mapping = {
+            400: "BadRequest",
+            401: "AuthenticationError",
+            403: "PermissionError",
+            404: "NotFoundError",
+            408: "TimeoutError",
+            429: "RateLimitError",
+            500: "InternalServerError",
+            502: "BadGateway",
+            503: "ServiceUnavailable",
+            504: "GatewayTimeout",
+        }
+        return mapping.get(status_code, f"HTTPError_{status_code}")
 
 
 def start_server(config_path: Optional[Path] = None):
@@ -702,7 +798,7 @@ def start_server(config_path: Optional[Path] = None):
         # 初始化请求路由历史（使用文件持久化，支持 Dashboard 跨进程读取）
         from ..utils.request_routing_history import RequestRoutingHistory, DEFAULT_HISTORY_FILE
         app.state.request_routing_history = RequestRoutingHistory(
-            max_size=50, persist_file=DEFAULT_HISTORY_FILE
+            max_size=100, persist_file=DEFAULT_HISTORY_FILE
         )
 
         # 初始化错误计数器
@@ -822,6 +918,108 @@ def start_server(config_path: Optional[Path] = None):
             clear_override_state()
             app.state.global_model_override = {"provider": None, "model": None, "enabled": False}
             return {"provider": None, "model": None, "enabled": False}
+        
+        # 注册错误统计 API（供 Dashboard 展示模型失败率）
+        @app.get("/api/analytics/error-stats")
+        async def _get_error_stats(days: int = 7):
+            """获取模型错误统计
+            
+            返回每个模型的失败次数、成功率、常见错误类型分布。
+            数据来源于 RequestRoutingHistory 中的 retry_history。
+            """
+            history = getattr(request.app.state, 'request_routing_history', None)
+            if not history:
+                return {
+                    "models": [],
+                    "error_types": [],
+                    "provider_errors": [],
+                    "total_requests": 0,
+                    "total_failures": 0,
+                }
+            
+            records = history.get_recent(limit=100)
+            
+            # 按模型聚合统计
+            model_stats = {}
+            error_type_counts = {}
+            provider_error_counts = {}
+            total_requests = len(records)
+            total_failures = 0
+            
+            for record in records:
+                retry_history = record.get("retry_history", [])
+                
+                # 统计最终是否成功（有 retry_history 但最终 status_code 不是 503 表示成功 fallback）
+                is_failed = record.get("status_code", 200) >= 500 or record.get("error_info")
+                if is_failed:
+                    total_failures += 1
+                
+                # 统计每次重试的错误
+                for retry in retry_history:
+                    model_name = retry.get("model", "unknown")
+                    provider = retry.get("provider", "unknown")
+                    error_type = retry.get("error_type", "Unknown")
+                    
+                    # 模型统计
+                    if model_name not in model_stats:
+                        model_stats[model_name] = {
+                            "model": model_name,
+                            "provider": provider,
+                            "total_attempts": 0,
+                            "failures": 0,
+                            "error_types": {},
+                        }
+                    model_stats[model_name]["total_attempts"] += 1
+                    model_stats[model_name]["failures"] += 1
+                    
+                    err_types = model_stats[model_name]["error_types"]
+                    err_types[error_type] = err_types.get(error_type, 0) + 1
+                    
+                    # 全局错误类型统计
+                    error_type_counts[error_type] = error_type_counts.get(error_type, 0) + 1
+                    
+                    # Provider 错误统计
+                    provider_key = f"{provider}:{error_type}"
+                    provider_error_counts[provider_key] = provider_error_counts.get(provider_key, 0) + 1
+            
+            # 计算成功率
+            model_list = []
+            for model_name, stats in model_stats.items():
+                total = stats["total_attempts"]
+                failures = stats["failures"]
+                success_rate = (total - failures) / total * 100 if total > 0 else 100.0
+                model_list.append({
+                    "model": model_name,
+                    "provider": stats["provider"],
+                    "total_attempts": total,
+                    "failures": failures,
+                    "success_rate": round(success_rate, 1),
+                    "error_types": stats["error_types"],
+                })
+            
+            # 按失败次数降序排列
+            model_list.sort(key=lambda x: x["failures"], reverse=True)
+            
+            # 错误类型排行
+            error_types_list = [
+                {"error_type": k, "count": v}
+                for k, v in sorted(error_type_counts.items(), key=lambda x: x[1], reverse=True)
+            ]
+            
+            # Provider 错误分布
+            provider_errors_list = [
+                {"provider": k.split(":")[0], "error_type": k.split(":")[1], "count": v}
+                for k, v in sorted(provider_error_counts.items(), key=lambda x: x[1], reverse=True)
+            ]
+            
+            return {
+                "models": model_list,
+                "error_types": error_types_list,
+                "provider_errors": provider_errors_list,
+                "total_requests": total_requests,
+                "total_failures": total_failures,
+                "failure_rate": round(total_failures / total_requests * 100, 1) if total_requests > 0 else 0.0,
+            }
         
         # 启动配置热重载监听
         watcher = ConfigWatcher(

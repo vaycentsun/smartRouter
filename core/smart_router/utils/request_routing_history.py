@@ -26,6 +26,8 @@ class RetryRecord:
     status_code: int
     error: Optional[str] = None
     timestamp: str = ""
+    provider: Optional[str] = None
+    error_type: Optional[str] = None
 
 
 @dataclass
@@ -51,6 +53,7 @@ class RequestRoutingEntry:
     cached_tokens: int = 0
     error_info: Optional[str] = None
     retry_history: list[dict] = field(default_factory=list)
+    final_error_type: Optional[str] = None
 
 
 class RequestRoutingHistory:
@@ -93,6 +96,7 @@ class RequestRoutingHistory:
                     cached_tokens=item.get("cached_tokens", 0),
                     error_info=item.get("error_info"),
                     retry_history=item.get("retry_history", []),
+                    final_error_type=item.get("final_error_type"),
                 )
                 self._buffer.append(entry)
             logger.debug(f"Loaded {len(self._buffer)} routing history records from {self._persist_file}")
@@ -162,4 +166,5 @@ class RequestRoutingHistory:
             "cached_tokens": entry.cached_tokens,
             "error_info": entry.error_info,
             "retry_history": entry.retry_history,
+            "final_error_type": entry.final_error_type,
         }
