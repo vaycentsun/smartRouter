@@ -9,6 +9,7 @@ const createMockStore = (overrides = {}) => ({
   logs: { lines: [], offset: 0, total_size: 0, source: 'service' as const },
   fetchLogs: vi.fn(),
   setLogSource: vi.fn(),
+  setLogLevel: vi.fn(),
   logError: null,
   clearLogError: vi.fn(),
   ...overrides,

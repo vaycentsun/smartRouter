@@ -27,6 +27,8 @@ describe('DashboardPage', () => {
     mockStoreState.setModelsFilter = vi.fn()
     mockStoreState.setModelsSort = vi.fn()
     mockStoreState.clearToast = vi.fn()
+    mockStoreState.fetchErrorStats = vi.fn().mockResolvedValue(undefined)
+    mockStoreState.clearErrorStatsError = vi.fn()
   })
 
   it('renders stats overview, status card and dry run panel', () => {

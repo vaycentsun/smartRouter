@@ -112,21 +112,21 @@ describe('useDashboardStore', () => {
   })
 
   describe('stopService', () => {
-    it('calls stopService then fetchAll on success', async () => {
+    it('calls stopService then updates status on success', async () => {
       ;(api.stopService as Mock).mockResolvedValue({})
-      ;(api.getStatus as Mock).mockResolvedValue({ running: false, pid: null, uptime_seconds: null, service_url: null, version: '1.0.0' })
-      ;(api.getModels as Mock).mockResolvedValue({ models: [], total: 0, available: 0, unavailable: 0 })
-      ;(api.getProviders as Mock).mockResolvedValue({ providers: [] })
-      ;(api.getModelOverrides as Mock).mockResolvedValue({ overrides: {} })
-      ;(api.getModelOverride as Mock).mockResolvedValue({ provider: null, model: null, enabled: false })
-      ;(api.getTokenStats as Mock).mockResolvedValue({ stats: [], total_prompt_tokens: 0, total_completion_tokens: 0, total_requests: 0 })
 
       await useDashboardStore.getState().stopService()
 
       const state = useDashboardStore.getState()
       expect(state.isLoading).toBe(false)
       expect(api.stopService).toHaveBeenCalled()
-      expect(api.getStatus).toHaveBeenCalled()
+      expect(state.status).toEqual({
+        running: false,
+        pid: null,
+        uptime_seconds: null,
+        service_url: null,
+        version: '',
+      })
     })
 
     it('sets error on failure', async () => {
