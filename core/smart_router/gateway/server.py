@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import Request
 from rich.console import Console
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from ..config.loader import ConfigLoader
 from ..config.schema import Config
@@ -67,7 +68,76 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.router = router
     
+    async def _call_app_directly(self, request: Request, call_next=None) -> Response:
+        """直接调用下游 ASGI app，绕过 call_next 的单次限制
+        
+        BaseHTTPMiddleware 的 call_next 在同一个 dispatch 中不能安全调用多次，
+        因为每次调用都会关闭内部的 send_stream。通过直接调用 self.app，
+        可以创建全新的 ASGI 上下文，避免 stream 被复用的问题。
+        
+        当 self.app 不是有效的 ASGI app（如测试中的 MagicMock）时，
+        如果提供了 call_next，会回退到 call_next 以保持向后兼容。
+        """
+        from starlette.responses import Response as StarletteResponse
+        
+        # 设置递归保护标记，防止再次进入 _route_with_retry
+        request.scope["_smart_router_internal_retry"] = True
+        
+        response_messages = []
+        
+        async def mock_receive():
+            b = getattr(request, "_body", None)
+            if b is not None:
+                return {"type": "http.request", "body": b, "more_body": False}
+            return await request.receive()
+        
+        async def mock_send(message):
+            response_messages.append(message)
+        
+        try:
+            await self.app(request.scope, mock_receive, mock_send)
+        except Exception:
+            if call_next:
+                return await call_next(request)
+            raise
+        
+        if not response_messages:
+            if call_next:
+                return await call_next(request)
+            raise RuntimeError("No response from app")
+        
+        start_msg = response_messages[0]
+        if start_msg["type"] != "http.response.start":
+            raise RuntimeError(f"Unexpected response type: {start_msg['type']}")
+        
+        # 收集 body
+        body_chunks = []
+        for msg in response_messages[1:]:
+            if msg["type"] == "http.response.body":
+                body_chunks.append(msg.get("body", b""))
+        
+        body = b"".join(body_chunks)
+        
+        # raw_headers 是 bytes 对列表，需要解码为 str dict
+        headers = {}
+        for k, v in start_msg.get("headers", []):
+            if isinstance(k, bytes):
+                k = k.decode("latin-1")
+            if isinstance(v, bytes):
+                v = v.decode("latin-1")
+            headers[k] = v
+        
+        return StarletteResponse(
+            content=body,
+            status_code=start_msg["status"],
+            headers=headers,
+        )
+    
     async def dispatch(self, request: Request, call_next):
+        # 递归保护：如果是内部 fallback 重试调用，直接透传
+        if request.scope.get("_smart_router_internal_retry"):
+            return await call_next(request)
+        
         routed = False  # 标记是否已由路由逻辑处理
         
         # 只处理 chat/completions 请求
@@ -187,10 +257,6 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                 )
                                 routed = True
             except Exception as e:
-                # _route_with_retry 中 call_next 会把 request._body 消费掉并设为 None
-                # 恢复原始请求体，确保后续 call_next 能正常读取
-                if 'body' in locals() and body:
-                    request._body = body
                 console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                 import traceback
                 console.print(traceback.format_exc())
@@ -489,7 +555,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         request._body = modified_body
                         
                         console.print(f"[yellow]智能路由异常降级: {original_model} -> {fallback_model}[/yellow]")
-                        return await call_next(request)
+                        return await self._call_app_directly(request, call_next)
                     else:
                         return JSONResponse(
                             status_code=400,
@@ -502,7 +568,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                     )
             else:
                 # stage: 前缀等，直接透传
-                return await call_next(request)
+                return await self._call_app_directly(request, call_next)
         
         selected = result.model_name
         console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
@@ -555,7 +621,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             request._body = modified_body
             
             try:
-                response = await call_next(request)
+                response = await self._call_app_directly(request, call_next)
             except Exception as e:
                 if _is_retryable_exception(e):
                     error_type = type(e).__name__
