@@ -1319,8 +1319,8 @@ class TestMiddlewareStrategyFallback:
         assert request.state.smart_router_retry_history[0]["error_type"] == "NotFoundError"
 
     @pytest.mark.asyncio
-    async def test_401_skips_same_provider_and_tries_cross_provider(self, mock_router):
-        """401 认证错误时应跳过同 provider 候选，优先跨 provider 重试"""
+    async def test_401_retries_all_candidates(self, mock_router):
+        """401 认证错误时也应继续尝试所有候选（包括同 provider）"""
         from smart_router.gateway.server import SmartRouterMiddleware
         from smart_router.selector.v3_selector import SelectionResult
         from starlette.requests import Request
@@ -1392,14 +1392,16 @@ class TestMiddlewareStrategyFallback:
         with patch("smart_router.gateway.server.asyncio.sleep", new_callable=AsyncMock):
             response = await middleware.dispatch(request, mock_call_next)
 
-        # model-a (401) -> model-b 应该被跳过（同 provider） -> model-c (200)
+        # model-a (401) -> model-b (401，同 provider也应尝试) -> model-c (200)
         assert response.status_code == 200
-        assert call_count == 2  # 只尝试了 model-a 和 model-c
+        assert call_count == 3  # 尝试了 model-a、model-b 和 model-c
         assert request.state.smart_router_selected == "model-c"
         retry_history = request.state.smart_router_retry_history
-        assert len(retry_history) == 1
+        assert len(retry_history) == 2
         assert retry_history[0]["model"] == "model-a"
         assert retry_history[0]["error_type"] == "AuthenticationError"
+        assert retry_history[1]["model"] == "model-b"
+        assert retry_history[1]["error_type"] == "AuthenticationError"
 
     @pytest.mark.asyncio
     async def test_retry_history_includes_provider_and_error_type(self, mock_router):
