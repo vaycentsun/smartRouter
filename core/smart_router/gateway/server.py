@@ -426,21 +426,21 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
 
                     # 组装并写入 RequestRoutingHistory
                     routing_info = getattr(request.state, 'smart_router_routing_info', None)
-                    selected_model = getattr(request.state, 'smart_router_selected', None)
 
-                    if routing_info and selected_model:
+                    # 只要有 routing_info 就记录（包括全部失败返回 503 的情况）
+                    if routing_info:
+                        # selected_model 固定为策略首选模型，从 routing_info 读取，
+                        # 不会被最终成功模型覆盖，确保 did_fallback 语义正确
+                        selected_model = routing_info.get("selected_model")
+
+                        # did_fallback: 策略首选模型 vs 实际响应模型
                         did_fallback = actual_model is not None and actual_model != selected_model
-                        attempted_fallbacks = None
-                        fallback_header = response.headers.get("x-litellm-attempted-fallbacks")
-                        if fallback_header is not None:
-                            try:
-                                attempted_fallbacks = int(fallback_header)
-                            except ValueError:
-                                pass
 
-                        from smart_router.utils.request_routing_history import RequestRoutingEntry
-                        
+                        # attempted_fallbacks: Smart Router 自己实际重试的次数
+                        # retry_history 中每条记录对应一次失败的模型调用尝试
                         retry_history = getattr(request.state, 'smart_router_retry_history', [])
+                        attempted_fallbacks = len(retry_history)
+
                         error_info = None
                         final_error_type = None
                         if retry_history:
@@ -450,7 +450,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             elif last_error.get("status_code"):
                                 error_info = f"{last_error['model']}: HTTP {last_error['status_code']}"
                             final_error_type = last_error.get("error_type")
-                        
+
+                        from smart_router.utils.request_routing_history import RequestRoutingEntry
+
                         entry = RequestRoutingEntry(
                             request_id=routing_info["request_id"],
                             timestamp=datetime.now(timezone.utc).isoformat(),
