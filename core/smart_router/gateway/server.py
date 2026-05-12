@@ -642,15 +642,6 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 })
                 console.print(f"[yellow]模型 {model_name} (provider: {provider}) 返回 {response.status_code} ({error_type})，准备重试[/yellow]")
                 
-                # 401/403 时过滤掉同 provider 的剩余候选
-                if _is_auth_error(response.status_code):
-                    remaining = candidates[attempt + 1:]
-                    filtered = [c for c in remaining if c["provider"] != provider]
-                    if len(filtered) < len(remaining):
-                        skipped = [c["model"] for c in remaining if c["provider"] == provider]
-                        console.print(f"[dim]认证错误，跳过同 provider 候选: {skipped}[/dim]")
-                        candidates = candidates[:attempt + 1] + filtered
-                
                 if attempt < len(candidates) - 1 and attempt < max_attempts - 1:
                     console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
                     await asyncio.sleep(10)
