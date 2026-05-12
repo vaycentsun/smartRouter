@@ -958,6 +958,7 @@ def start_server(config_path: Optional[Path] = None):
                     "provider_errors": [],
                     "total_requests": 0,
                     "total_failures": 0,
+                    "failure_rate": 0.0,
                 }
             
             records = history.get_recent(limit=100)
