@@ -65,7 +65,7 @@ models:
     provider: aliyun
     litellm_model: openai/gui-plus-2026-02-26
     capabilities:
-      quality: 9
+      quality: 10
       cost: 10
       context: 128000
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
