@@ -350,13 +350,27 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         retry_history = getattr(request.state, 'smart_router_retry_history', [])
                         error_info = None
                         final_error_type = None
-                        if retry_history:
-                            last_error = retry_history[-1]
-                            if last_error.get("error"):
-                                error_info = f"{last_error['model']}: {last_error['error']}"
-                            elif last_error.get("status_code"):
-                                error_info = f"{last_error['model']}: HTTP {last_error['status_code']}"
-                            final_error_type = last_error.get("error_type")
+
+                        if response.status_code >= 400:
+                            # 最终失败：记录最后一次错误信息
+                            if retry_history:
+                                last_error = retry_history[-1]
+                                if last_error.get("error"):
+                                    error_info = f"{last_error['model']}: {last_error['error']}"
+                                elif last_error.get("status_code"):
+                                    error_info = f"{last_error['model']}: HTTP {last_error['status_code']}"
+                                final_error_type = last_error.get("error_type")
+                            else:
+                                error_info = f"HTTP {response.status_code}"
+                                final_error_type = "HTTPError"
+                        else:
+                            # 最终成功
+                            if retry_history:
+                                error_info = f"Success (after {len(retry_history)} fallback attempts)"
+                                final_error_type = "Success"
+                            else:
+                                error_info = "Success"
+                                final_error_type = "Success"
                         
                         entry = RequestRoutingEntry(
                             request_id=routing_info["request_id"],
@@ -594,6 +608,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         
         # 所有候选耗尽
         console.print(f"[red]所有模型均失败，已尝试: {[r['model'] for r in retry_history]}[/red]")
+        request.state.smart_router_selected = retry_history[-1]["model"] if retry_history else ""
         request.state.smart_router_retry_history = retry_history
         return JSONResponse(
             status_code=503,
