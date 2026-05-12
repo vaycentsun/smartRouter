@@ -503,6 +503,14 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             selected, result.ranked_models or [selected]
         )
         
+        # fallback_chain 保持与 get_fallback_chain 一致（不包含 selected）
+        fallback_chain = []
+        if hasattr(self.router, 'get_fallback_chain') and selected:
+            try:
+                fallback_chain = self.router.get_fallback_chain(selected)
+            except Exception:
+                pass
+        
         request.state.smart_router_routing_info = {
             "request_id": request_id,
             "original_model": original_model,
@@ -510,15 +518,17 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             "task_type": result.task_type,
             "difficulty": result.difficulty,
             "strategy": result.strategy,
-            "fallback_chain": [c["model"] for c in candidates],
+            "fallback_chain": fallback_chain,
         }
         
         # 判断是否为流式请求
         is_streaming = data.get("stream", False)
         max_attempts = self.router.sr_config.routing.fallback.max_attempts
         retry_history = []
+        attempt = 0
         
-        for attempt, candidate in enumerate(candidates[:max_attempts]):
+        while attempt < len(candidates) and attempt < max_attempts:
+            candidate = candidates[attempt]
             model_name = candidate["model"]
             provider = candidate["provider"]
             
@@ -540,9 +550,10 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     })
                     console.print(f"[yellow]模型 {model_name} (provider: {provider}) 调用异常 [{error_type}]: {e}[/yellow]")
-                    if attempt < len(candidates[:max_attempts]) - 1:
+                    if attempt < len(candidates) - 1 and attempt < max_attempts - 1:
                         console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
                         await asyncio.sleep(10)
+                    attempt += 1
                     continue
                 raise
             
@@ -561,16 +572,17 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 
                 # 401/403 时过滤掉同 provider 的剩余候选
                 if _is_auth_error(response.status_code):
-                    remaining = candidates[attempt + 1 : max_attempts]
+                    remaining = candidates[attempt + 1:]
                     filtered = [c for c in remaining if c["provider"] != provider]
                     if len(filtered) < len(remaining):
                         skipped = [c["model"] for c in remaining if c["provider"] == provider]
                         console.print(f"[dim]认证错误，跳过同 provider 候选: {skipped}[/dim]")
-                        candidates = candidates[: attempt + 1] + filtered
+                        candidates = candidates[:attempt + 1] + filtered
                 
-                if attempt < len(candidates[:max_attempts]) - 1:
+                if attempt < len(candidates) - 1 and attempt < max_attempts - 1:
                     console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
                     await asyncio.sleep(10)
+                attempt += 1
                 continue
             
             # 成功
@@ -582,6 +594,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         
         # 所有候选耗尽
         console.print(f"[red]所有模型均失败，已尝试: {[r['model'] for r in retry_history]}[/red]")
+        request.state.smart_router_retry_history = retry_history
         return JSONResponse(
             status_code=503,
             content={
@@ -599,15 +612,25 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         """构建带 provider 信息的 fallback 候选列表
         
         排序策略：
-        1. 同 provider 内 quality 相似的模型（fallback 链）
-        2. 跨 provider 的能力匹配模型
-        3. 任意可用模型兜底
+        1. 首选模型（selected）
+        2. 策略排序的模型
+        3. fallback 链中的模型（同 provider）
+        4. 跨 provider 的可用模型兜底
         """
         config = self.router.sr_config
-        selected_provider = config.models.get(selected, {}).provider if selected in config.models else None
-        
         candidates = []
-        seen = {selected}
+        seen = set()
+        
+        # 0. 首选模型
+        if selected and selected in config.models:
+            model_config = config.models[selected]
+            if config.is_model_available(selected):
+                candidates.append({
+                    "model": selected,
+                    "provider": model_config.provider,
+                    "source": "selected",
+                })
+                seen.add(selected)
         
         # 1. 策略排序的模型
         for model_name in ranked_models:
