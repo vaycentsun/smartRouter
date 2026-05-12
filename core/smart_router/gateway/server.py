@@ -780,6 +780,26 @@ def start_server(config_path: Optional[Path] = None):
         
         if not available_models:
             console.print("[red]错误: 没有可用的模型，请检查 API Key 配置[/red]")
+            console.print(f"[dim]共配置 {len(config.models)} 个模型，0 个可用[/dim]")
+            
+            # 诊断：哪些 provider 缺少 API Key
+            missing_providers = []
+            for provider_name, provider in config.providers.items():
+                if not config.is_provider_available(provider_name):
+                    missing_providers.append(provider_name)
+            
+            if missing_providers:
+                console.print(f"[yellow]以下 provider 未配置 API Key（或环境变量未设置）:[/yellow]")
+                for p in missing_providers:
+                    console.print(f"  - [yellow]{p}[/yellow]")
+            
+            # 诊断：哪些模型因 provider 不可用被过滤
+            console.print("[dim]模型可用性详情:[/dim]")
+            for model_name, model in config.models.items():
+                provider_ok = config.is_provider_available(model.provider)
+                status = "[green]✓[/green]" if provider_ok else "[red]✗[/red]"
+                console.print(f"  {status} {model_name} (provider: {model.provider})")
+            
             sys.exit(1)
         
         console.print(f"[dim]可用模型: {len(available_models)} / {len(config.models)}[/dim]")
