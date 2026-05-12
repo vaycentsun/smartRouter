@@ -977,6 +977,92 @@ async def analytics_recent_requests(request: Request, limit: int = 50):
     return {"requests": history.get_recent(limit)}
 
 
+async def analytics_error_stats(request: Request, days: int = 7):
+    """获取模型错误统计（供 Dashboard 展示模型失败率）"""
+    history = getattr(request.app.state, 'request_routing_history', None)
+    if not history:
+        return {
+            "models": [],
+            "error_types": [],
+            "provider_errors": [],
+            "total_requests": 0,
+            "total_failures": 0,
+            "failure_rate": 0.0,
+        }
+
+    records = history.get_recent(limit=100)
+
+    model_stats = {}
+    error_type_counts = {}
+    provider_error_counts = {}
+    total_requests = len(records)
+    total_failures = 0
+
+    for record in records:
+        retry_history = record.get("retry_history", [])
+        is_failed = record.get("status_code", 200) >= 500 or record.get("error_info")
+        if is_failed:
+            total_failures += 1
+
+        for retry in retry_history:
+            model_name = retry.get("model", "unknown")
+            provider = retry.get("provider", "unknown")
+            error_type = retry.get("error_type", "Unknown")
+
+            if model_name not in model_stats:
+                model_stats[model_name] = {
+                    "model": model_name,
+                    "provider": provider,
+                    "total_attempts": 0,
+                    "failures": 0,
+                    "error_types": {},
+                }
+            model_stats[model_name]["total_attempts"] += 1
+            model_stats[model_name]["failures"] += 1
+
+            err_types = model_stats[model_name]["error_types"]
+            err_types[error_type] = err_types.get(error_type, 0) + 1
+
+            error_type_counts[error_type] = error_type_counts.get(error_type, 0) + 1
+            provider_key = f"{provider}:{error_type}"
+            provider_error_counts[provider_key] = provider_error_counts.get(provider_key, 0) + 1
+
+    model_list = []
+    for model_name, stats in model_stats.items():
+        total = stats["total_attempts"]
+        failures = stats["failures"]
+        success_rate = (total - failures) / total * 100 if total > 0 else 100.0
+        model_list.append({
+            "model": model_name,
+            "provider": stats["provider"],
+            "total_attempts": total,
+            "failures": failures,
+            "success_rate": round(success_rate, 1),
+            "error_types": stats["error_types"],
+        })
+
+    model_list.sort(key=lambda x: x["failures"], reverse=True)
+
+    error_types_list = [
+        {"error_type": k, "count": v}
+        for k, v in sorted(error_type_counts.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    provider_errors_list = [
+        {"provider": k.split(":")[0], "error_type": k.split(":")[1], "count": v}
+        for k, v in sorted(provider_error_counts.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    return {
+        "models": model_list,
+        "error_types": error_types_list,
+        "provider_errors": provider_errors_list,
+        "total_requests": total_requests,
+        "total_failures": total_failures,
+        "failure_rate": round(total_failures / total_requests * 100, 1) if total_requests > 0 else 0.0,
+    }
+
+
 # ==================== Alerts API ====================
 
 ALERTS_CONFIG_PATH = DEFAULT_PID_DIR / "alerts.yaml"
@@ -1158,6 +1244,7 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.get("/api/analytics/by-model")(analytics_by_model)
     app.get("/api/analytics/top-models")(analytics_top_models)
     app.get("/api/analytics/recent-requests")(analytics_recent_requests)
+    app.get("/api/analytics/error-stats")(analytics_error_stats)
 
     # Alerts API
     app.get("/api/alerts/rules")(get_alert_rules)
