@@ -43,16 +43,28 @@ def _is_auth_error(status_code: int) -> bool:
 def _is_retryable_exception(exc: Exception) -> bool:
     """判断异常是否可重试
     
-    可重试：网络超时、连接断开等
-    不可重试：配置错误、认证错误等
+    可重试：网络超时、连接断开、模型调用相关异常等。
+    在 fallback 场景下，大多数模型/provider 层面的异常都值得尝试换模型重试，
+    因为不同 provider 的模型配置、API 状态、参数支持度都可能不同。
     """
     import asyncio
     if isinstance(exc, asyncio.TimeoutError):
         return True
     exc_name = type(exc).__name__.lower()
     retryable_names = (
+        # 网络层异常
         "connectionerror", "connectionrefusederror", "connectionreseterror",
         "connectionabortederror", "timeouterror", "oserror", "ioerror",
+        # LiteLLM / Provider 模型调用异常（换模型/provider 可能解决）
+        "notfounderror",           # 模型不存在（可能在当前 provider 下不可用）
+        "authenticationerror",     # 认证失败（可能其他 provider 的 key 有效）
+        "badrequesterror",         # 请求参数不被当前模型支持
+        "ratelimiterror",          # 速率限制
+        "serviceunavailableerror", # 服务不可用
+        "apierror",                # 通用 API 错误
+        "internalservererror",     # Provider 内部错误
+        "badgatewayerror",         # 网关错误
+        "gatewaytimeouterror",     # 网关超时
     )
     return exc_name in retryable_names
 
