@@ -84,15 +84,24 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         request.scope["_smart_router_internal_retry"] = True
         
         response_messages = []
+        _body_sent = False
+        response_complete = asyncio.Event()
         
         async def mock_receive():
-            b = getattr(request, "_body", None)
-            if b is not None:
-                return {"type": "http.request", "body": b, "more_body": False}
-            return await request.receive()
+            nonlocal _body_sent
+            if not _body_sent:
+                b = getattr(request, "_body", None)
+                if b is not None:
+                    _body_sent = True
+                    return {"type": "http.request", "body": b, "more_body": False}
+            # 等待 stream_response 完成后再返回 disconnect，避免过早触发 listen_for_disconnect 取消 stream
+            await response_complete.wait()
+            return {"type": "http.disconnect"}
         
         async def mock_send(message):
             response_messages.append(message)
+            if message["type"] == "http.response.body" and not message.get("more_body", True):
+                response_complete.set()
         
         try:
             # 清除 LiteLLM 在 scope 中缓存的解析后 body，确保修改后的 request._body 能被正确读取
