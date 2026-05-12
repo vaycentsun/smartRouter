@@ -180,3 +180,21 @@ class TestFormulaAPI:
         models = data["models"]
         # cost 优先：gpt-4o-mini (cost=9) > gpt-4o (cost=3)
         assert models[0]["name"] == "gpt-4o-mini"
+
+
+class TestRoutingYamlTemplate:
+    """测试 routing.yaml 模板默认值"""
+
+    def test_template_default_formula_is_cost_priority(self):
+        """routing.yaml 模板默认 formula 应为成本优先"""
+        import yaml
+        template_path = Path(__file__).parent.parent.parent / "templates" / "routing.yaml"
+        assert template_path.exists(), f"模板文件不存在: {template_path}"
+
+        with open(template_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        formula = data.get("formula", {})
+        weights = formula.get("weights", {})
+        assert weights.get("quality") == 0.1
+        assert weights.get("cost") == 0.9

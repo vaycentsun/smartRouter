@@ -5,7 +5,7 @@ from smart_router.utils.token_counter import estimate_tokens, estimate_messages_
 from smart_router.selector.v3_selector import V3ModelSelector
 from smart_router.config.schema import (
     Config, ProviderConfig, ModelConfig, ModelCapabilities,
-    TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, RoutingConfig
+    TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, RoutingConfig, FormulaConfig
 )
 from smart_router.classifier.task_classifier import TaskClassifier
 from smart_router.classifier.types import ClassificationResult
@@ -125,6 +125,7 @@ class TestModelSelectorContextAware:
                     "quality": StrategyConfig(description="Quality"),
                     "cost": StrategyConfig(description="Cost")
                 },
+                formula=FormulaConfig(weights={"quality": 0.5, "cost": 0.5}),
                 fallback=FallbackConfig()
             )
         )
