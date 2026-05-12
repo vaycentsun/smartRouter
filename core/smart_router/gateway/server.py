@@ -187,6 +187,10 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                 )
                                 routed = True
             except Exception as e:
+                # _route_with_retry 中 call_next 会把 request._body 消费掉并设为 None
+                # 恢复原始请求体，确保后续 call_next 能正常读取
+                if 'body' in locals() and body:
+                    request._body = body
                 console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                 import traceback
                 console.print(traceback.format_exc())
@@ -572,6 +576,17 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 raise
             
             if _is_retryable_status(response.status_code):
+                # 必须先消费 response body，确保 call_next 内部的 task group 正确退出
+                # 否则残留的 stream 会干扰下一次 call_next，导致 AssertionError
+                try:
+                    if hasattr(response, "body_iterator"):
+                        async for _ in response.body_iterator:
+                            pass
+                    elif hasattr(response, "body"):
+                        _ = response.body
+                except Exception:
+                    pass
+                
                 # 提取错误类型（从响应体或状态码推断）
                 error_type = self._infer_error_type(response.status_code)
                 retry_history.append({
