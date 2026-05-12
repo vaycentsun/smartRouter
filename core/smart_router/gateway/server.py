@@ -95,6 +95,8 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             response_messages.append(message)
         
         try:
+            # 清除 LiteLLM 在 scope 中缓存的解析后 body，确保修改后的 request._body 能被正确读取
+            request.scope.pop("parsed_body", None)
             await self.app(request.scope, mock_receive, mock_send)
         except Exception:
             if call_next:
