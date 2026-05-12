@@ -385,14 +385,19 @@ def start(
         False,
         "--foreground", "-f",
         help="前台运行"
+    ),
+    log_level: str = typer.Option(
+        "INFO",
+        "--log-level", "-l",
+        help="日志等级 (DEBUG/INFO/WARNING/ERROR)"
     )
 ):
     """启动 Smart Router 服务"""
     if foreground:
         from .gateway.server import start_server
-        start_server(config_path=config)
+        start_server(config_path=config, log_level=log_level)
     else:
-        start_daemon(config_path=config)
+        start_daemon(config_path=config, log_level=log_level)
 
 
 @app.command()

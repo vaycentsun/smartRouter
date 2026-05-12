@@ -773,8 +773,14 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         return mapping.get(status_code, f"HTTPError_{status_code}")
 
 
-def start_server(config_path: Optional[Path] = None):
+def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
     """启动 Smart Router 代理服务"""
+    # 配置日志
+    import logging
+    from ..utils.logging_config import setup_logging
+    log_file = Path.home() / ".smart-router" / "smart-router.log"
+    setup_logging(log_file, level=getattr(logging, log_level.upper(), logging.INFO))
+    
     # config_path 是配置目录，不是单个文件
     if config_path is None:
         config_dir = Path.home() / ".smart-router"

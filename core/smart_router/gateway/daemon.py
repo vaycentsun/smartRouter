@@ -177,13 +177,14 @@ def _remove_pid():
         DEFAULT_PID_FILE.unlink()
 
 
-def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = None):
+def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = None, log_level: str = "INFO"):
     """
     在后台启动 Smart Router 服务
     
     Args:
         config_path: 配置文件路径
         log_file: 日志文件路径（默认 ~/.smart-router/smart-router.log）
+        log_level: 日志等级 (DEBUG/INFO/WARNING/ERROR)
     """
     # 前置检查：可选的 MASTER_KEY
     master_key = os.environ.get("SMART_ROUTER_MASTER_KEY")
@@ -220,7 +221,7 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
     python_exe = _get_python_executable()
     cmd = [python_exe, "-m", "smart_router.gateway.server_main"]
     cmd.extend(["--log-file", str(log_file)])
-    cmd.extend(["--log-level", "INFO"])
+    cmd.extend(["--log-level", log_level])
     if config_path:
         cmd.extend(["--config", str(config_path)])
     
