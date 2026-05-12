@@ -112,8 +112,8 @@ strategies:
 # ==================== 全局路由参数 ====================
 formula:
   weights:
-    quality: 0.1
-    cost: 0.9
+    quality: 0.5
+    cost: 0.5
 
 # ==================== Fallback 配置 ====================
 fallback:

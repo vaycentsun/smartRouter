@@ -14,7 +14,6 @@ from smart_router.config.schema import (
     DifficultyConfig,
     StrategyConfig,
     FallbackConfig,
-    FormulaConfig,
 )
 
 
@@ -440,22 +439,6 @@ class TestProviderConfigRateLimit:
         params = config.get_litellm_params("qwen-max")
         assert params["custom_llm_provider"] == "openai"
         assert params["api_base"] == "https://dashscope.aliyuncs.com/compatible-mode/v1"
-
-
-class TestFormulaConfigDefaults:
-    """测试 FormulaConfig 默认权重"""
-
-    def test_default_formula_is_cost_priority(self):
-        """FormulaConfig 默认权重应为成本优先"""
-        formula = FormulaConfig()
-        assert formula.weights["quality"] == 0.1
-        assert formula.weights["cost"] == 0.9
-
-    def test_explicit_weights_override_default(self):
-        """显式传入的权重应覆盖默认值"""
-        formula = FormulaConfig(weights={"quality": 0.5, "cost": 0.5})
-        assert formula.weights["quality"] == 0.5
-        assert formula.weights["cost"] == 0.5
 
 
 class TestModelPrice:

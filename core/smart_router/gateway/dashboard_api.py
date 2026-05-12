@@ -1000,7 +1000,7 @@ async def analytics_error_stats(request: Request, days: int = 7):
 
     for record in records:
         retry_history = record.get("retry_history", [])
-        is_failed = record.get("status_code", 200) >= 500
+        is_failed = record.get("status_code", 200) >= 500 or record.get("error_info")
         if is_failed:
             total_failures += 1
 

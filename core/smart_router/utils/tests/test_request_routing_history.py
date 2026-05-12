@@ -137,7 +137,6 @@ class TestRequestRoutingHistory:
             "cached_tokens",
             "error_info",
             "retry_history",
-            "final_error_type",
         }
         assert set(result.keys()) == expected_keys
 

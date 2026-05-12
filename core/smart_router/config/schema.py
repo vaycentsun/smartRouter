@@ -111,7 +111,7 @@ class FallbackConfig(BaseModel):
 class FormulaConfig(BaseModel):
     """全局评分公式配置"""
     weights: Dict[str, float] = Field(
-        default_factory=lambda: {"quality": 0.1, "cost": 0.9},
+        default_factory=lambda: {"quality": 0.5, "cost": 0.5},
         description="能力维度权重映射"
     )
     

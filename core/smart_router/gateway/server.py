@@ -187,10 +187,6 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                 )
                                 routed = True
             except Exception as e:
-                # _route_with_retry 中 call_next 会把 request._body 消费掉并设为 None
-                # 恢复原始请求体，确保后续 call_next 能正常读取
-                if 'body' in locals() and body:
-                    request._body = body
                 console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                 import traceback
                 console.print(traceback.format_exc())
@@ -354,27 +350,13 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         retry_history = getattr(request.state, 'smart_router_retry_history', [])
                         error_info = None
                         final_error_type = None
-
-                        if response.status_code >= 400:
-                            # 最终失败：记录最后一次错误信息
-                            if retry_history:
-                                last_error = retry_history[-1]
-                                if last_error.get("error"):
-                                    error_info = f"{last_error['model']}: {last_error['error']}"
-                                elif last_error.get("status_code"):
-                                    error_info = f"{last_error['model']}: HTTP {last_error['status_code']}"
-                                final_error_type = last_error.get("error_type")
-                            else:
-                                error_info = f"HTTP {response.status_code}"
-                                final_error_type = "HTTPError"
-                        else:
-                            # 最终成功
-                            if retry_history:
-                                error_info = f"Success (after {len(retry_history)} fallback attempts)"
-                                final_error_type = "Success"
-                            else:
-                                error_info = "Success"
-                                final_error_type = "Success"
+                        if retry_history:
+                            last_error = retry_history[-1]
+                            if last_error.get("error"):
+                                error_info = f"{last_error['model']}: {last_error['error']}"
+                            elif last_error.get("status_code"):
+                                error_info = f"{last_error['model']}: HTTP {last_error['status_code']}"
+                            final_error_type = last_error.get("error_type")
                         
                         entry = RequestRoutingEntry(
                             request_id=routing_info["request_id"],
@@ -576,17 +558,6 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 raise
             
             if _is_retryable_status(response.status_code):
-                # 必须先消费 response body，确保 call_next 内部的 task group 正确退出
-                # 否则残留的 stream 会干扰下一次 call_next，导致 AssertionError
-                try:
-                    if hasattr(response, "body_iterator"):
-                        async for _ in response.body_iterator:
-                            pass
-                    elif hasattr(response, "body"):
-                        _ = response.body
-                except Exception:
-                    pass
-                
                 # 提取错误类型（从响应体或状态码推断）
                 error_type = self._infer_error_type(response.status_code)
                 retry_history.append({
@@ -623,7 +594,6 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         
         # 所有候选耗尽
         console.print(f"[red]所有模型均失败，已尝试: {[r['model'] for r in retry_history]}[/red]")
-        request.state.smart_router_selected = retry_history[-1]["model"] if retry_history else ""
         request.state.smart_router_retry_history = retry_history
         return JSONResponse(
             status_code=503,
@@ -780,26 +750,6 @@ def start_server(config_path: Optional[Path] = None):
         
         if not available_models:
             console.print("[red]错误: 没有可用的模型，请检查 API Key 配置[/red]")
-            console.print(f"[dim]共配置 {len(config.models)} 个模型，0 个可用[/dim]")
-            
-            # 诊断：哪些 provider 缺少 API Key
-            missing_providers = []
-            for provider_name, provider in config.providers.items():
-                if not config.is_provider_available(provider_name):
-                    missing_providers.append(provider_name)
-            
-            if missing_providers:
-                console.print(f"[yellow]以下 provider 未配置 API Key（或环境变量未设置）:[/yellow]")
-                for p in missing_providers:
-                    console.print(f"  - [yellow]{p}[/yellow]")
-            
-            # 诊断：哪些模型因 provider 不可用被过滤
-            console.print("[dim]模型可用性详情:[/dim]")
-            for model_name, model in config.models.items():
-                provider_ok = config.is_provider_available(model.provider)
-                status = "[green]✓[/green]" if provider_ok else "[red]✗[/red]"
-                console.print(f"  {status} {model_name} (provider: {model.provider})")
-            
             sys.exit(1)
         
         console.print(f"[dim]可用模型: {len(available_models)} / {len(config.models)}[/dim]")
