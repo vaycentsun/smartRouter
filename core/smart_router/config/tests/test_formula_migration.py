@@ -177,8 +177,8 @@ models:
         loader = ConfigLoader(tmp_path)
         config = loader.load()
 
-        # 验证使用默认值
-        assert config.routing.formula.weights == {"quality": 0.5, "cost": 0.5}
+        # 验证使用默认值（成本优先）
+        assert config.routing.formula.weights == {"quality": 0.1, "cost": 0.9}
 
     def test_multiple_tasks_average_weights(self, tmp_path):
         """多任务的 capability_weights 按维度正确取平均"""

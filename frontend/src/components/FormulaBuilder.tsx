@@ -37,8 +37,8 @@ const DIMENSIONS = [
 ]
 
 const DEFAULT_WEIGHTS: Record<string, number> = {
-  quality: 0.5,
-  cost: 0.5,
+  quality: 0.1,
+  cost: 0.9,
 }
 
 export function FormulaBuilder() {
@@ -53,7 +53,7 @@ export function FormulaBuilder() {
 
   const [weights, setWeights] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS })
   const [originalWeights, setOriginalWeights] = useState<Record<string, number>>({ ...DEFAULT_WEIGHTS })
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>('cost_first')
   const [previewModels, setPreviewModels] = useState<Array<{ name: string; score: number }>>([])
   const [testPrompt, setTestPrompt] = useState('')
   const [loading, setLoading] = useState(false)

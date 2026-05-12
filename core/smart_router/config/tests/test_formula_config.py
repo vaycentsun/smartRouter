@@ -10,9 +10,9 @@ class TestFormulaConfigDefaults:
     """测试 FormulaConfig 默认值"""
 
     def test_default_weights_instantiation(self):
-        """默认权重实例化成功"""
+        """默认权重实例化成功（成本优先）"""
         formula = FormulaConfig()
-        assert formula.weights == {"quality": 0.5, "cost": 0.5}
+        assert formula.weights == {"quality": 0.1, "cost": 0.9}
 
 
 class TestFormulaConfigCustomWeights:
@@ -84,7 +84,7 @@ class TestRoutingConfigWithFormula:
         )
         assert routing.formula is not None
         assert isinstance(routing.formula, FormulaConfig)
-        assert routing.formula.weights == {"quality": 0.5, "cost": 0.5}
+        assert routing.formula.weights == {"quality": 0.1, "cost": 0.9}
 
     def test_routing_config_with_custom_formula(self):
         """RoutingConfig 可传入自定义 formula"""
