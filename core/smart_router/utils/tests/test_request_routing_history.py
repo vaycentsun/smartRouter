@@ -41,6 +41,7 @@ class TestRequestRoutingHistory:
             reasoning_tokens=30,
             cached_tokens=20,
             error_info=None,
+            retry_history=[],
         )
 
     @pytest.mark.asyncio
@@ -135,6 +136,7 @@ class TestRequestRoutingHistory:
             "reasoning_tokens",
             "cached_tokens",
             "error_info",
+            "retry_history",
         }
         assert set(result.keys()) == expected_keys
 

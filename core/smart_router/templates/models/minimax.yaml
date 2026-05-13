@@ -3,6 +3,7 @@ models:
   minimax-text-01:
     provider: minimax
     litellm_model: openai/MiniMax-Text-01
+        enabled: true
     capabilities:
       quality: 7
       cost: 7

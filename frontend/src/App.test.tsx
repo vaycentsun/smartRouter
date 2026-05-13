@@ -41,6 +41,9 @@ describe('App', () => {
     mockStoreState.clearLogError = vi.fn()
     mockStoreState.isCheckingHealth = {}
     mockStoreState.checkProviderHealth = vi.fn().mockResolvedValue(undefined)
+    mockStoreState.fetchErrorStats = vi.fn().mockResolvedValue(undefined)
+    mockStoreState.clearErrorStatsError = vi.fn()
+    mockStoreState.setLogLevel = vi.fn()
   })
 
   it('calls fetchAll on mount', () => {
@@ -94,7 +97,7 @@ describe('App', () => {
     expect(screen.getByText('暂无 Provider 数据')).toBeInTheDocument()
   })
 
-  it('stops periodic fetchAll when switching away from dashboard', () => {
+  it('continues periodic fetchAll when switching to other tabs', () => {
     vi.useFakeTimers()
     render(<App />)
     expect(mockStoreState.fetchAll).toHaveBeenCalledTimes(1)
@@ -103,9 +106,9 @@ describe('App', () => {
     fireEvent.click(screen.getByText('模型清单'))
     expect(screen.getByText('暂无 Provider 数据')).toBeInTheDocument()
 
-    // Advance time; fetchAll should NOT be called again
+    // Advance time; fetchAll should still be called on all pages
     vi.advanceTimersByTime(5000)
-    expect(mockStoreState.fetchAll).toHaveBeenCalledTimes(1)
+    expect(mockStoreState.fetchAll).toHaveBeenCalledTimes(2)
 
     vi.useRealTimers()
   })

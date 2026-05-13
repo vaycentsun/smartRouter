@@ -47,14 +47,12 @@ function App() {
   const { fetchAll, error, clearError } = useDashboardStore()
   const [location, setLocation] = useLocation()
 
-  // Auto refresh every 5 seconds only on dashboard
+  // Auto refresh every 5 seconds on all pages
   useEffect(() => {
-    if (location === '/dashboard') {
-      fetchAll()
-      const interval = setInterval(fetchAll, 5000)
-      return () => clearInterval(interval)
-    }
-  }, [fetchAll, location])
+    fetchAll()
+    const interval = setInterval(fetchAll, 5000)
+    return () => clearInterval(interval)
+  }, [fetchAll])
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] bg-tech-grid bg-tech-gradient relative">

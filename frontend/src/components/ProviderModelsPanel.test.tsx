@@ -16,9 +16,9 @@ const mockProviderWithoutKey: ProviderInfo = {
 }
 
 const mockModels: ModelInfo[] = [
-  { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat', 'completion'] },
-  { name: 'gpt-3.5', provider: 'openai', available: true, health_status: 'available', quality: 8, cost: 6, context: 4096, supported_tasks: ['chat'] },
-  { name: 'claude-3', provider: 'anthropic', available: true, health_status: 'available', quality: 10, cost: 4, context: 200000, supported_tasks: ['chat'] },
+  { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat', 'completion'], enabled: true },
+  { name: 'gpt-3.5', provider: 'openai', available: true, health_status: 'available', quality: 8, cost: 6, context: 4096, supported_tasks: ['chat'], enabled: true },
+  { name: 'claude-3', provider: 'anthropic', available: true, health_status: 'available', quality: 10, cost: 4, context: 200000, supported_tasks: ['chat'], enabled: false },
 ]
 
 describe('ProviderModelsPanel', () => {
@@ -151,7 +151,7 @@ describe('ProviderModelsPanel', () => {
 
   it('shows available status for healthy model', () => {
     const singleModel: ModelInfo[] = [
-      { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'] },
+      { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'], enabled: true },
     ]
     render(<ProviderModelsPanel provider={mockProvider} models={singleModel} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
     expect(screen.getByTitle('该模型在 Provider 端确认可用')).toBeInTheDocument()
@@ -159,7 +159,7 @@ describe('ProviderModelsPanel', () => {
 
   it('shows not_found status for model not in provider list', () => {
     const models: ModelInfo[] = [
-      { name: 'gpt-4', provider: 'openai', available: true, health_status: 'not_found', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'] },
+      { name: 'gpt-4', provider: 'openai', available: true, health_status: 'not_found', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'], enabled: true },
     ]
     render(<ProviderModelsPanel provider={mockProvider} models={models} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
     expect(screen.getByTitle('Provider 返回的模型列表中未找到此模型')).toBeInTheDocument()
@@ -167,7 +167,7 @@ describe('ProviderModelsPanel', () => {
 
   it('shows auth_error status for invalid key', () => {
     const models: ModelInfo[] = [
-      { name: 'gpt-4', provider: 'openai', available: true, health_status: 'auth_error', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'] },
+      { name: 'gpt-4', provider: 'openai', available: true, health_status: 'auth_error', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'], enabled: true },
     ]
     const provider: ProviderInfo = {
       ...mockProvider,
@@ -179,7 +179,7 @@ describe('ProviderModelsPanel', () => {
 
   it('shows unconfigured status when no key', () => {
     const models: ModelInfo[] = [
-      { name: 'gpt-4', provider: 'moonshot', available: false, health_status: 'unconfigured', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'] },
+      { name: 'gpt-4', provider: 'moonshot', available: false, health_status: 'unconfigured', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'], enabled: true },
     ]
     render(<ProviderModelsPanel provider={mockProviderWithoutKey} models={models} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
     expect(screen.getByTitle('API Key 未配置')).toBeInTheDocument()
@@ -187,7 +187,7 @@ describe('ProviderModelsPanel', () => {
 
   it('shows fallback status when health_status is unknown', () => {
     const models: ModelInfo[] = [
-      { name: 'gpt-4', provider: 'openai', available: true, health_status: 'unknown', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'] },
+      { name: 'gpt-4', provider: 'openai', available: true, health_status: 'unknown', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'], enabled: true },
     ]
     render(<ProviderModelsPanel provider={mockProvider} models={models} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
     expect(screen.getByTitle('健康检查失败')).toBeInTheDocument()

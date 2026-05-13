@@ -25,6 +25,7 @@ import type {
   FormulaPreviewRequest,
   FormulaPreviewResponse,
   RequestRoutingRecord,
+  ErrorStatsResponse,
 } from '../types'
 
 export interface AlertTestResult {
@@ -81,6 +82,11 @@ export const api = {
     }>(`/api/providers/${providerName}/health`).then((r) => r.data),
   getModelOverrides: () => client.get<ModelOverrideInfo>('/api/model-overrides').then((r) => r.data),
   getModelOverride: () => client.get<{ provider: string | null; model: string | null; enabled: boolean }>('/api/model-override').then((r) => r.data),
+  toggleModel: (provider: string, model: string, enabled: boolean) =>
+    client.put<{ success: boolean; provider: string; model: string; enabled: boolean }>(
+      `/api/models/${provider}/${model}`,
+      { enabled }
+    ).then((r) => r.data),
   setModelOverride: (provider: string, model: string) =>
     client.post<{ provider: string; model: string; enabled: boolean }>('/api/model-override', { provider, model }).then((r) => r.data),
   clearModelOverride: () => client.delete<{ provider: null; model: null; enabled: false }>('/api/model-override').then((r) => r.data),
@@ -103,6 +109,8 @@ export const api = {
     client.get<AnalyticsTopModelItem[]>('/api/analytics/top-models', { params: { limit, days } }).then((r) => r.data),
   getRecentRequests: (limit = 50) =>
     client.get<{ requests: RequestRoutingRecord[] }>('/api/analytics/recent-requests', { params: { limit } }).then((r) => r.data),
+  getErrorStats: (days = 7) =>
+    client.get<ErrorStatsResponse>('/api/analytics/error-stats', { params: { days } }).then((r) => r.data),
   postPlayground: (data: PlaygroundRequest) =>
     client.post<{ results: PlaygroundResult[] }>('/api/playground/completions', data).then((r) => r.data),
   getPlaygroundHistory: () =>

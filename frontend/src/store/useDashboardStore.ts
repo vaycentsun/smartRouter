@@ -20,6 +20,7 @@ import type {
   AlertRule,
   AlertHistoryItem,
   RequestRoutingRecord,
+  ErrorStatsResponse,
 } from '../types'
 import { api } from '../api/client'
 
@@ -60,6 +61,11 @@ interface DashboardState {
   isLoadingAnalytics: boolean
   analyticsError: string | null
 
+  // Error Stats
+  errorStats: ErrorStatsResponse | null
+  isLoadingErrorStats: boolean
+  errorStatsError: string | null
+
   // Playground
   playgroundResults: PlaygroundResult[]
   playgroundHistory: PlaygroundHistoryRecord[]
@@ -75,7 +81,11 @@ interface DashboardState {
   // Health Check
   isCheckingHealth: Record<string, boolean>
 
+  // Model Toggle
+  isTogglingModel: Record<string, boolean>
+
   // Actions
+  toggleModel: (provider: string, model: string, enabled: boolean) => Promise<void>
   fetchAll: () => Promise<void>
   checkProviderHealth: (providerName: string) => Promise<void>
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
@@ -104,6 +114,10 @@ interface DashboardState {
   fetchAlertHistory: () => Promise<void>
   testAlertRule: (rule: AlertRule) => Promise<{ triggered: boolean; triggers: Array<Pick<AlertHistoryItem, 'rule_id' | 'rule_name' | 'severity' | 'metric' | 'current_value' | 'threshold' | 'message'>> } | null>
   clearAlertsError: () => void
+
+  // Error Stats Actions
+  fetchErrorStats: (days?: number) => Promise<void>
+  clearErrorStatsError: () => void
 }
 
 const STORAGE_KEY = 'smart-router-model-override'
@@ -161,6 +175,11 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   isLoadingAnalytics: false,
   analyticsError: null,
 
+  // Error Stats
+  errorStats: null,
+  isLoadingErrorStats: false,
+  errorStatsError: null,
+
   // Playground
   playgroundResults: [],
   playgroundHistory: [],
@@ -175,6 +194,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   // Health Check
   isCheckingHealth: {},
+
+  // Model Toggle
+  isTogglingModel: {},
 
   fetchAll: async () => {
     set({ isLoading: true, error: null })
@@ -480,6 +502,18 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   clearAlertsError: () => set({ alertsError: null }),
 
+  fetchErrorStats: async (days = 7) => {
+    set({ isLoadingErrorStats: true, errorStatsError: null })
+    try {
+      const result = await api.getErrorStats(days)
+      set({ errorStats: result, isLoadingErrorStats: false })
+    } catch (err) {
+      set({ errorStatsError: (err as Error).message, isLoadingErrorStats: false })
+    }
+  },
+
+  clearErrorStatsError: () => set({ errorStatsError: null }),
+
   checkProviderHealth: async (providerName: string) => {
     set((state) => ({
       isCheckingHealth: { ...state.isCheckingHealth, [providerName]: true },
@@ -505,6 +539,24 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         error: (err as Error).message,
         isCheckingHealth: { ...state.isCheckingHealth, [providerName]: false },
       }))
+    }
+  },
+
+  toggleModel: async (provider: string, model: string, enabled: boolean) => {
+    const key = `${provider}/${model}`
+    set((state) => ({ isTogglingModel: { ...state.isTogglingModel, [key]: true } }))
+    try {
+      await api.toggleModel(provider, model, enabled)
+      set((state) => ({
+        models: state.models.map((m) =>
+          m.name === model && m.provider === provider ? { ...m, enabled } : m
+        ),
+        toast: { message: `模型 ${model} 已${enabled ? '启用' : '禁用'}`, type: 'success' },
+      }))
+    } catch (err) {
+      set({ error: (err as Error).message, toast: { message: '操作失败', type: 'error' } })
+    } finally {
+      set((state) => ({ isTogglingModel: { ...state.isTogglingModel, [key]: false } }))
     }
   },
 }))

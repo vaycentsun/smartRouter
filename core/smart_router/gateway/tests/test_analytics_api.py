@@ -466,3 +466,102 @@ class TestRecentRequests:
         # 验证是按时间倒序（最新的在前）
         assert data["requests"][0]["request_id"] == "req-059"
         assert data["requests"][49]["request_id"] == "req-010"
+
+
+class TestErrorStats:
+    def test_error_stats_empty(self, client):
+        """无历史记录时返回包含所有字段的空数据"""
+        response = client.get("/api/analytics/error-stats?days=7")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["models"] == []
+        assert data["error_types"] == []
+        assert data["provider_errors"] == []
+        assert data["total_requests"] == 0
+        assert data["total_failures"] == 0
+        # failure_rate 必须存在，前端依赖该字段
+        assert "failure_rate" in data
+        assert data["failure_rate"] == 0.0
+
+    def test_error_stats_with_data(self):
+        """有错误历史时正确聚合统计"""
+        import asyncio
+
+        try:
+            asyncio.get_event_loop()
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
+        app = build_dashboard_app(static_dir=None)
+        history = RequestRoutingHistory(max_size=50)
+
+        # 添加一条失败的请求记录（含 retry_history）
+        entry = RequestRoutingEntry(
+            request_id="fail-001",
+            timestamp="2024-01-01T00:00:00+00:00",
+            original_model="auto",
+            selected_model="gpt-4o",
+            actual_model="gpt-4o",
+            task_type="chat",
+            difficulty="medium",
+            strategy="auto",
+            fallback_chain=[],
+            did_fallback=False,
+            status_code=503,
+            error_info={"error_type": "RateLimitError", "message": "rate limited"},
+            retry_history=[
+                {"model": "gpt-4o", "provider": "openai", "error_type": "RateLimitError"},
+                {"model": "claude-3", "provider": "anthropic", "error_type": "TimeoutError"},
+            ],
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+        )
+        asyncio.run(history.record(entry))
+
+        # 添加一条成功的请求记录
+        entry2 = RequestRoutingEntry(
+            request_id="ok-001",
+            timestamp="2024-01-01T01:00:00+00:00",
+            original_model="auto",
+            selected_model="gpt-4o",
+            actual_model="gpt-4o",
+            task_type="chat",
+            difficulty="medium",
+            strategy="auto",
+            fallback_chain=[],
+            did_fallback=False,
+            status_code=200,
+            retry_history=[],
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+        )
+        asyncio.run(history.record(entry2))
+
+        app.state.request_routing_history = history
+
+        test_client = TestClient(app)
+        response = test_client.get("/api/analytics/error-stats?days=7")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["total_requests"] == 2
+        assert data["total_failures"] == 1
+        assert "failure_rate" in data
+        assert data["failure_rate"] == 50.0
+
+        # 模型统计
+        assert len(data["models"]) == 2
+        model_names = {m["model"] for m in data["models"]}
+        assert model_names == {"gpt-4o", "claude-3"}
+
+        # 错误类型统计
+        assert len(data["error_types"]) == 2
+        error_type_names = {et["error_type"] for et in data["error_types"]}
+        assert error_type_names == {"RateLimitError", "TimeoutError"}
+
+        # Provider 错误统计
+        assert len(data["provider_errors"]) == 2
+        provider_names = {pe["provider"] for pe in data["provider_errors"]}
+        assert provider_names == {"openai", "anthropic"}

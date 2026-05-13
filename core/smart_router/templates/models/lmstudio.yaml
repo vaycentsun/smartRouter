@@ -3,6 +3,7 @@ models:
   lmstudio-local:
     provider: lmstudio
     litellm_model: openai/lmstudio-model
+        enabled: true
     capabilities:
       quality: 5
       cost: 10

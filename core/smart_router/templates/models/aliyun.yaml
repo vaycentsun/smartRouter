@@ -1,48 +1,32 @@
 # Models Configuration - Aliyun (阿里通义千问)
+# 以下为阿里云百炼当前可用的免费模型
 models:
-  qwen3.6-plus:
+  qwen3.5-flash:
     provider: aliyun
-    litellm_model: openai/qwen3.6-plus
-    capabilities:
-      quality: 3
-      cost: 5
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard, expert]
-    
-  qwen3.5-plus:
-    provider: aliyun
-    litellm_model: openai/qwen3.5-plus
-    capabilities:
-      quality: 8
-      cost: 10
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard]
-    
-  qwen3.5-122b:
-    provider: aliyun
-    litellm_model: openai/qwen3.5-122b
-    capabilities:
-      quality: 9
-      cost: 10
-      context: 32000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
-    difficulty_support: [medium, hard, expert]
-    
-  qwen3.6-flash:
-    provider: aliyun
-    litellm_model: openai/qwen3.6-flash
+    litellm_model: openai/qwen3.5-flash
+        enabled: true
     capabilities:
       quality: 7
       cost: 10
       context: 128000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
     difficulty_support: [easy, medium]
-    
+
+  qwen3.5-plus:
+    provider: aliyun
+    litellm_model: openai/qwen3.5-plus
+        enabled: true
+    capabilities:
+      quality: 8
+      cost: 10
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard]
+
   qwen3.5-27b:
     provider: aliyun
     litellm_model: openai/qwen3.5-27b
+        enabled: true
     capabilities:
       quality: 7
       cost: 10
@@ -53,6 +37,7 @@ models:
   qwen3.5-397b-a17b:
     provider: aliyun
     litellm_model: openai/qwen3.5-397b-a17b
+        enabled: true
     capabilities:
       quality: 9
       cost: 10
@@ -60,59 +45,43 @@ models:
     supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
     difficulty_support: [medium, hard, expert]
 
-  gui-plus-2026-02-26:
+  qwen3.6-flash:
     provider: aliyun
-    litellm_model: openai/gui-plus-2026-02-26
-    capabilities:
-      quality: 9
-      cost: 10
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard, expert]
-
-  qwen-flash-character-2026-02-26:
-    provider: aliyun
-    litellm_model: openai/qwen-flash-character-2026-02-26
-    capabilities:
-      quality: 8
-      cost: 10
-      context: 64000
-    supported_tasks: [creative, writing, chat]
-    difficulty_support: [easy, medium, hard]
-    
-  tongyi-xiaomi-analysis:
-    provider: aliyun
-    litellm_model: openai/tongyi-xiaomi-analysis-flash
-    capabilities:
-      quality: 6
-      cost: 10
-      context: 8000
-    supported_tasks: [analysis, explanation, chat]
-    difficulty_support: [easy, medium]
-  
-  qwen3.5-flash:
-    provider: aliyun
-    litellm_model: openai/qwen3.5-flash
+    litellm_model: openai/qwen3.6-flash
+        enabled: true
     capabilities:
       quality: 7
       cost: 10
       context: 128000
     supported_tasks: [coding, writing, explanation, chat, brainstorming]
     difficulty_support: [easy, medium]
-  
-  qwen3.5-35b-a3b:
+
+  qwen-flash-character-2026-02-26:
     provider: aliyun
-    litellm_model: openai/qwen3.5-35b-a3b
+    litellm_model: openai/qwen-flash-character-2026-02-26
+        enabled: true
     capabilities:
       quality: 8
       cost: 10
-      context: 32000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat]
+      context: 64000
+    supported_tasks: [creative, writing, chat]
     difficulty_support: [easy, medium, hard]
-  
+
+  gui-plus-2026-02-26:
+    provider: aliyun
+    litellm_model: openai/gui-plus-2026-02-26
+        enabled: true
+    capabilities:
+      quality: 10
+      cost: 10
+      context: 128000
+    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, translation, chat, brainstorming]
+    difficulty_support: [easy, medium, hard, expert]
+
   deepseek-v4-flash:
     provider: aliyun
     litellm_model: openai/deepseek-v4-flash
+        enabled: true
     capabilities:
       quality: 8
       cost: 10
@@ -120,31 +89,10 @@ models:
     supported_tasks: [coding, code_review, writing, reasoning, analysis, explanation, chat]
     difficulty_support: [easy, medium, hard]
 
-  # 智谱 GLM (阿里部署)
-  glm-5.1:
-    provider: aliyun
-    litellm_model: openai/glm-5.1
-    capabilities:
-      quality: 9
-      cost: 10
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard, expert]
-    
-  glm-5:
-    provider: aliyun
-    litellm_model: openai/glm-5
-    capabilities:
-      quality: 8
-      cost: 10
-      context: 128000
-    supported_tasks: [coding, code_review, writing, creative, reasoning, analysis, explanation, chat, brainstorming]
-    difficulty_support: [easy, medium, hard]
-
-  # MiniMax (阿里云免费额度版本)
   minimax-m2.5:
     provider: aliyun
     litellm_model: openai/MiniMax-M2.5
+        enabled: true
     capabilities:
       quality: 8
       cost: 10

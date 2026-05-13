@@ -66,8 +66,17 @@ export function RecentRequestsPanel({ requests = [] }: RecentRequestsPanelProps)
                   </div>
                 </div>
 
-                {/* Status + Tokens */}
+                {/* Status + Retry Badge + Tokens */}
                 <div className="flex items-center gap-3 shrink-0">
+                  {req.retry_history && req.retry_history.length > 0 && (
+                    <span
+                      data-testid="retry-badge"
+                      className="text-xs font-mono px-2 py-0.5 rounded bg-[rgba(255,149,0,0.1)] text-[#FF9500]"
+                      title={`重试 ${req.retry_history.length} 次`}
+                    >
+                      ↻{req.retry_history.length}
+                    </span>
+                  )}
                   <span
                     data-testid="status-code"
                     className={`text-xs font-mono px-2 py-0.5 rounded ${
@@ -131,6 +140,37 @@ export function RecentRequestsPanel({ requests = [] }: RecentRequestsPanelProps)
                         ))}
                       </div>
                     </div>
+                    {req.retry_history && req.retry_history.length > 0 && (
+                      <div className="col-span-2">
+                        <span className="text-xs text-[#86868b] block">重试历史</span>
+                        <div data-testid="retry-history" className="mt-1 space-y-1">
+                          {req.retry_history.map((retry, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-2 text-xs bg-[rgba(255,59,48,0.05)] px-2 py-1 rounded"
+                            >
+                              <span className="text-[#86868b] font-mono">#{idx + 1}</span>
+                              <span className="text-[#1d1d1f] font-medium">{retry.model}</span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded font-mono ${
+                                  retry.status_code === 0
+                                    ? 'bg-[rgba(255,59,48,0.1)] text-[#FF3B30]'
+                                    : 'bg-[rgba(255,149,0,0.1)] text-[#FF9500]'
+                                }`}
+                              >
+                                {retry.status_code === 0 ? '异常' : retry.status_code}
+                              </span>
+                              {retry.error && (
+                                <span className="text-[#FF3B30] truncate">{retry.error}</span>
+                              )}
+                              <span className="text-[#86868b] ml-auto shrink-0">
+                                {new Date(retry.timestamp).toLocaleTimeString('zh-CN', { hour12: false })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="col-span-2">
                       <span className="text-xs text-[#86868b] block">request_id</span>
                       <span className="text-[#1d1d1f] font-mono text-xs">{req.request_id}</span>

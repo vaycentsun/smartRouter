@@ -443,6 +443,11 @@ class TestMiddlewareLogic:
             reason="test",
         )
         mock_router.get_fallback_chain.return_value = []
+        mock_router.sr_config = MagicMock()
+        mock_router.sr_config.models = {"gpt-4o": MagicMock(provider="openai")}
+        mock_router.sr_config.is_model_available.return_value = True
+        mock_router.sr_config.get_available_models.return_value = ["gpt-4o"]
+        mock_router.sr_config.routing.fallback.max_attempts = 3
 
         async def mock_call_next(request):
             body = await request.body()
@@ -1031,6 +1036,439 @@ class TestMiddlewareErrorCounter:
         assert app.state.error_counter.get_error_rate() == 2 / 3
 
 
+class TestMiddlewareStrategyFallback:
+    """测试非流式请求的策略排序重试逻辑"""
+
+    @pytest.fixture
+    def mock_router(self):
+        router = MagicMock()
+        config = MagicMock()
+        config.routing.fallback.max_attempts = 3
+        
+        # 默认模型配置，供 _build_fallback_candidates 使用
+        model_a = MagicMock()
+        model_a.provider = "openai"
+        model_b = MagicMock()
+        model_b.provider = "openai"
+        model_c = MagicMock()
+        model_c.provider = "openai"
+        config.models = {
+            "model-a": model_a,
+            "model-b": model_b,
+            "model-c": model_c,
+        }
+        config.is_model_available.return_value = True
+        config.get_available_models.return_value = ["model-a", "model-b", "model-c"]
+        router.sr_config = config
+        router.get_fallback_chain.return_value = []
+        return router
+
+    @pytest.mark.asyncio
+    async def test_non_stream_retry_on_502(self, mock_router):
+        """非流式请求，首个模型返回 502，应按策略排序 fallback 到次优模型"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a", "model-b", "model-c"]
+        )
+        mock_router.select_model.return_value = result
+
+        call_count = 0
+        async def mock_call_next(request):
+            nonlocal call_count
+            call_count += 1
+            body = await request.body()
+            data = json.loads(body)
+            model = data.get("model")
+            if model == "model-a":
+                return Response(content=b'error', status_code=502)
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        with patch("smart_router.gateway.server.asyncio.sleep", new_callable=AsyncMock):
+            response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert call_count == 2
+        assert request.state.smart_router_selected == "model-b"
+        assert request.state.smart_router_retry_count == 1
+        assert len(request.state.smart_router_retry_history) == 1
+        assert request.state.smart_router_retry_history[0]["model"] == "model-a"
+        assert request.state.smart_router_retry_history[0]["status_code"] == 502
+
+    @pytest.mark.asyncio
+    async def test_non_stream_retry_exhausted(self, mock_router):
+        """所有候选模型都失败时，应返回 503"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a", "model-b"]
+        )
+        mock_router.select_model.return_value = result
+        mock_router.sr_config.routing.fallback.max_attempts = 2
+
+        async def mock_call_next(request):
+            return Response(content=b'error', status_code=503)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        with patch("smart_router.gateway.server.asyncio.sleep", new_callable=AsyncMock):
+            response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 503
+        data = json.loads(response.body)
+        assert data["error"]["code"] == "503"
+        assert "model-a" in data["error"]["attempted_models"]
+        assert "model-b" in data["error"]["attempted_models"]
+
+    @pytest.mark.asyncio
+    async def test_stream_request_no_custom_retry(self, mock_router):
+        """流式请求不触发自建重试（单次调用）"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a", "model-b"]
+        )
+        mock_router.select_model.return_value = result
+
+        call_count = 0
+        async def mock_call_next(request):
+            nonlocal call_count
+            call_count += 1
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({
+            "model": "auto",
+            "messages": [{"role": "user", "content": "test"}],
+            "stream": True
+        }).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert call_count == 1
+        assert request.state.smart_router_retry_count == 0
+
+    @pytest.mark.asyncio
+    async def test_404_triggers_fallback_to_next_model(self, mock_router):
+        """404 模型不存在时应触发 fallback 到下一个候选模型"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        # 设置模型配置
+        model_a_config = MagicMock()
+        model_a_config.provider = "openai"
+        model_b_config = MagicMock()
+        model_b_config.provider = "openai"
+
+        mock_router.sr_config.models = {
+            "model-a": model_a_config,
+            "model-b": model_b_config,
+        }
+        mock_router.sr_config.is_model_available.return_value = True
+        mock_router.sr_config.get_available_models.return_value = ["model-a", "model-b"]
+        mock_router.get_fallback_chain.return_value = []
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a", "model-b"]
+        )
+        mock_router.select_model.return_value = result
+
+        call_count = 0
+        async def mock_call_next(request):
+            nonlocal call_count
+            call_count += 1
+            body = await request.body()
+            data = json.loads(body)
+            model = data.get("model")
+            if model == "model-a":
+                return Response(content=b'not found', status_code=404)
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        app.state.request_routing_history = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        with patch("smart_router.gateway.server.asyncio.sleep", new_callable=AsyncMock):
+            response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert call_count == 2
+        assert request.state.smart_router_selected == "model-b"
+        assert len(request.state.smart_router_retry_history) == 1
+        assert request.state.smart_router_retry_history[0]["status_code"] == 404
+        assert request.state.smart_router_retry_history[0]["error_type"] == "NotFoundError"
+
+    @pytest.mark.asyncio
+    async def test_401_retries_all_candidates(self, mock_router):
+        """401 认证错误时也应继续尝试所有候选（包括同 provider）"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        # 设置模型配置，让 model-a/model-b 同 provider，model-c 不同 provider
+        model_a_config = MagicMock()
+        model_a_config.provider = "openai"
+        model_b_config = MagicMock()
+        model_b_config.provider = "openai"
+        model_c_config = MagicMock()
+        model_c_config.provider = "aliyun"
+
+        mock_router.sr_config.models = {
+            "model-a": model_a_config,
+            "model-b": model_b_config,
+            "model-c": model_c_config,
+        }
+        mock_router.sr_config.is_model_available.return_value = True
+        mock_router.sr_config.get_available_models.return_value = ["model-a", "model-b", "model-c"]
+        mock_router.get_fallback_chain.return_value = ["model-b", "model-c"]
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a", "model-b", "model-c"]
+        )
+        mock_router.select_model.return_value = result
+
+        call_count = 0
+        async def mock_call_next(request):
+            nonlocal call_count
+            call_count += 1
+            body = await request.body()
+            data = json.loads(body)
+            model = data.get("model")
+            if model in ("model-a", "model-b"):
+                return Response(content=b'unauthorized', status_code=401)
+            return Response(content=b'ok', status_code=200)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        app.state.request_routing_history = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        with patch("smart_router.gateway.server.asyncio.sleep", new_callable=AsyncMock):
+            response = await middleware.dispatch(request, mock_call_next)
+
+        # model-a (401) -> model-b (401，同 provider也应尝试) -> model-c (200)
+        assert response.status_code == 200
+        assert call_count == 3  # 尝试了 model-a、model-b 和 model-c
+        assert request.state.smart_router_selected == "model-c"
+        retry_history = request.state.smart_router_retry_history
+        assert len(retry_history) == 2
+        assert retry_history[0]["model"] == "model-a"
+        assert retry_history[0]["error_type"] == "AuthenticationError"
+        assert retry_history[1]["model"] == "model-b"
+        assert retry_history[1]["error_type"] == "AuthenticationError"
+
+    @pytest.mark.asyncio
+    async def test_retry_history_includes_provider_and_error_type(self, mock_router):
+        """重试历史应包含 provider 和 error_type 字段"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+
+        model_a_config = MagicMock()
+        model_a_config.provider = "openai"
+
+        mock_router.sr_config.models = {"model-a": model_a_config}
+        mock_router.sr_config.is_model_available.return_value = True
+        mock_router.sr_config.get_available_models.return_value = ["model-a"]
+        mock_router.get_fallback_chain.return_value = []
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a"]
+        )
+        mock_router.select_model.return_value = result
+
+        async def mock_call_next(request):
+            return Response(content=b'rate limited', status_code=429)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        app.state.request_routing_history = None
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "test"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        with patch("smart_router.gateway.server.asyncio.sleep", new_callable=AsyncMock):
+            response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 503
+        retry_history = request.state.smart_router_retry_history
+        assert len(retry_history) == 1
+        assert retry_history[0]["model"] == "model-a"
+        assert retry_history[0]["provider"] == "openai"
+        assert retry_history[0]["error_type"] == "RateLimitError"
+        assert retry_history[0]["status_code"] == 429
+
+
 class TestGlobalModelOverride:
     @pytest.fixture
     def mock_router(self):
@@ -1195,7 +1633,14 @@ class TestRoutingHistoryMiddleware:
     @pytest.fixture
     def mock_router(self):
         router = MagicMock()
-        router.sr_config = MagicMock()
+        config = MagicMock()
+        gpt4o = MagicMock()
+        gpt4o.provider = "openai"
+        config.models = {"gpt-4o": gpt4o}
+        config.is_model_available.return_value = True
+        config.get_available_models.return_value = ["gpt-4o"]
+        config.routing.fallback.max_attempts = 3
+        router.sr_config = config
         return router
 
     @pytest.mark.asyncio
@@ -1273,6 +1718,7 @@ class TestRoutingHistoryMiddleware:
         assert record["difficulty"] == "easy"
         assert record["strategy"] == "auto"
         assert record["did_fallback"] is False
+        assert record["attempted_fallbacks"] == 0
         assert record["fallback_chain"] == ["gpt-4o-mini", "claude-3-haiku"]
         assert record["status_code"] == 200
         assert record["prompt_tokens"] == 10
@@ -1351,6 +1797,7 @@ class TestRoutingHistoryMiddleware:
         assert records[0]["selected_model"] == "gpt-4o"
         assert records[0]["actual_model"] == "claude-3-opus"
         assert records[0]["did_fallback"] is True
+        assert records[0]["attempted_fallbacks"] == 0
 
     @pytest.mark.asyncio
     async def test_middleware_no_fallback(self, mock_router):
@@ -1420,6 +1867,7 @@ class TestRoutingHistoryMiddleware:
         assert records[0]["selected_model"] == "gpt-4o"
         assert records[0]["actual_model"] == "gpt-4o"
         assert records[0]["did_fallback"] is False
+        assert records[0]["attempted_fallbacks"] == 0
 
     @pytest.mark.asyncio
     async def test_middleware_records_routing_info_for_header_override(self, mock_router):
@@ -1486,6 +1934,7 @@ class TestRoutingHistoryMiddleware:
         assert record["task_type"] == "override"
         assert record["strategy"] == "override"
         assert record["did_fallback"] is False
+        assert record["attempted_fallbacks"] == 0
         assert record["fallback_chain"] == []
         assert record["status_code"] == 200
         assert "request_id" in record
@@ -1557,7 +2006,200 @@ class TestRoutingHistoryMiddleware:
         assert record["task_type"] == "override"
         assert record["strategy"] == "override"
         assert record["did_fallback"] is False
+        assert record["attempted_fallbacks"] == 0
         assert record["fallback_chain"] == []
         assert record["status_code"] == 200
         assert "request_id" in record
         assert "timestamp" in record
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_fallback_with_attempted_count(self, mock_router):
+        """验证 fallback 场景下 attempted_fallbacks 与 retry_history 一致"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+        from unittest.mock import patch, MagicMock
+
+        model_a_config = MagicMock()
+        model_a_config.provider = "aliyun"
+        model_b_config = MagicMock()
+        model_b_config.provider = "aliyun"
+
+        mock_router.sr_config.models = {
+            "testfailed": model_a_config,
+            "gui-plus-2026-02-26": model_b_config,
+        }
+        mock_router.sr_config.is_model_available.return_value = True
+        mock_router.sr_config.get_available_models.return_value = ["testfailed", "gui-plus-2026-02-26"]
+        mock_router.get_fallback_chain.return_value = []
+
+        result = SelectionResult(
+            model_name="testfailed",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["testfailed", "gui-plus-2026-02-26"]
+        )
+        mock_router.select_model.return_value = result
+
+        call_count = 0
+        async def mock_call_next(request):
+            nonlocal call_count
+            call_count += 1
+            body = await request.body()
+            data = json.loads(body)
+            model = data.get("model")
+            if model == "testfailed":
+                return Response(
+                    content=json.dumps({
+                        "error": {"message": "NotFoundError", "code": "404"}
+                    }).encode(),
+                    status_code=404,
+                    headers={"content-type": "application/json"},
+                )
+            return Response(
+                content=json.dumps({
+                    "model": "gui-plus-2026-02-26",
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+                }).encode(),
+                status_code=200,
+                headers={"content-type": "application/json"},
+            )
+
+        history = RequestRoutingHistory(max_size=50)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        app.state.token_stats = AsyncMock()
+        app.state.request_routing_history = history
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "Hello"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        with patch("smart_router.gateway.server.asyncio.sleep", new_callable=AsyncMock):
+            response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert call_count == 2
+
+        records = history.get_recent()
+        assert len(records) == 1
+
+        record = records[0]
+        # selected_model 应为策略首选（testfailed），而不是最终成功模型
+        assert record["selected_model"] == "testfailed"
+        assert record["actual_model"] == "gui-plus-2026-02-26"
+        assert record["did_fallback"] is True
+        # attempted_fallbacks 等于 retry_history 长度（1 次失败尝试）
+        assert record["attempted_fallbacks"] == 1
+        assert len(record["retry_history"]) == 1
+        assert record["retry_history"][0]["model"] == "testfailed"
+        assert record["retry_history"][0]["status_code"] == 404
+        assert record["retry_history"][0]["error_type"] == "NotFoundError"
+
+    @pytest.mark.asyncio
+    async def test_middleware_records_all_failed_503(self, mock_router):
+        """验证所有候选模型均失败（503）时也能正确记录路由历史"""
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
+        from smart_router.selector.v3_selector import SelectionResult
+        from starlette.requests import Request
+        from starlette.responses import Response
+        from unittest.mock import patch, MagicMock
+
+        model_a_config = MagicMock()
+        model_a_config.provider = "openai"
+        model_b_config = MagicMock()
+        model_b_config.provider = "openai"
+
+        mock_router.sr_config.models = {
+            "model-a": model_a_config,
+            "model-b": model_b_config,
+        }
+        mock_router.sr_config.is_model_available.return_value = True
+        mock_router.sr_config.get_available_models.return_value = ["model-a", "model-b"]
+        mock_router.sr_config.routing.fallback.max_attempts = 2
+        mock_router.get_fallback_chain.return_value = []
+
+        result = SelectionResult(
+            model_name="model-a",
+            task_type="chat",
+            difficulty="easy",
+            strategy="auto",
+            score=6.0,
+            reason="test",
+            ranked_models=["model-a", "model-b"]
+        )
+        mock_router.select_model.return_value = result
+
+        async def mock_call_next(request):
+            return Response(content=b'error', status_code=503)
+
+        history = RequestRoutingHistory(max_size=50)
+
+        app = MagicMock()
+        app.state = MagicMock()
+        app.state.global_model_override = None
+        app.state.token_stats = AsyncMock()
+        app.state.request_routing_history = history
+
+        middleware = SmartRouterMiddleware(app, router=mock_router)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "Hello"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+
+        with patch("smart_router.gateway.server.asyncio.sleep", new_callable=AsyncMock):
+            response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 503
+
+        records = history.get_recent()
+        assert len(records) == 1
+
+        record = records[0]
+        # 即使全部失败，也应记录策略首选模型
+        assert record["selected_model"] == "model-a"
+        assert record["actual_model"] is None  # 503 响应体中解析不到模型名
+        assert record["did_fallback"] is False  # 因为没有 actual_model
+        assert record["attempted_fallbacks"] == 2  # 尝试了 model-a 和 model-b
+        assert len(record["retry_history"]) == 2
+        assert record["retry_history"][0]["model"] == "model-a"
+        assert record["retry_history"][1]["model"] == "model-b"
+        assert record["status_code"] == 503

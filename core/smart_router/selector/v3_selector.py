@@ -6,7 +6,7 @@
 
 import warnings
 from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..config.schema import Config
 from ..exceptions import NoModelAvailableError
@@ -21,6 +21,7 @@ class SelectionResult:
     strategy: str
     score: float
     reason: str
+    ranked_models: List[str] = field(default_factory=list)
 
 
 class V3ModelSelector:
@@ -83,6 +84,36 @@ class V3ModelSelector:
             reason=f"Formula score: {best_score:.2f}"
         )
     
+    def select_ranked(
+        self,
+        task_type: str,
+        difficulty: str,
+        required_context: int = 0,
+        requires_vision: bool = False
+    ) -> List[Tuple[str, float]]:
+        """返回按公式得分降序排列的候选模型列表
+        
+        用于自建重试逻辑，按策略排序依次尝试 fallback。
+        
+        Args:
+            task_type: 任务类型
+            difficulty: 难度等级
+            required_context: 所需的上下文窗口大小（token 数）
+            requires_vision: 是否需要视觉能力
+            
+        Returns:
+            [(model_name, score), ...] 按得分降序排列
+        """
+        candidates = self._filter_candidates(task_type, difficulty, required_context, requires_vision)
+        
+        scored = []
+        for name, model in candidates:
+            score = self.evaluator.evaluate(model.capabilities)
+            scored.append((name, score))
+        
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored
+    
     def _filter_candidates(
         self,
         task_type: str,
@@ -117,7 +148,11 @@ class V3ModelSelector:
             # 检查视觉能力
             if requires_vision and not getattr(model.capabilities, 'vision', False):
                 continue
-            
+
+            # 检查模型是否被禁用
+            if not getattr(model, 'enabled', True):
+                continue
+
             candidates.append((name, model))
         
         return candidates

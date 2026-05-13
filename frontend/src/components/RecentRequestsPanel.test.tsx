@@ -48,6 +48,30 @@ const mockRequests: RequestRoutingRecord[] = [
     cached_tokens: 40,
     error_info: null,
   },
+  {
+    request_id: 'req-003',
+    timestamp: '2024-01-15T14:34:00Z',
+    original_model: 'auto',
+    selected_model: 'gpt-4o',
+    actual_model: 'gpt-4o-mini',
+    task_type: 'chat',
+    difficulty: 'easy',
+    strategy: 'auto',
+    fallback_chain: ['gpt-4o', 'gpt-4o-mini'],
+    attempted_fallbacks: 0,
+    did_fallback: false,
+    status_code: 200,
+    prompt_tokens: 100,
+    completion_tokens: 50,
+    total_tokens: 150,
+    reasoning_tokens: 10,
+    cached_tokens: 5,
+    error_info: null,
+    retry_history: [
+      { model: 'gpt-4o', status_code: 502, error: null, timestamp: '2024-01-15T14:34:00Z' },
+      { model: 'gpt-4o-mini', status_code: 0, error: 'TimeoutError', timestamp: '2024-01-15T14:34:10Z' },
+    ],
+  },
 ]
 
 describe('RecentRequestsPanel', () => {
@@ -72,7 +96,7 @@ describe('RecentRequestsPanel', () => {
   it('shows model chain for non-fallback request with checkmark', () => {
     render(<RecentRequestsPanel requests={mockRequests} />)
     expect(screen.getByText('gpt-4')).toBeInTheDocument()
-    expect(screen.getByText('gpt-4o')).toBeInTheDocument()
+    expect(screen.getAllByText('gpt-4o')).toHaveLength(2)
   })
 
   it('shows model chain for fallback request with actual model', () => {
@@ -94,12 +118,14 @@ describe('RecentRequestsPanel', () => {
   it('displays status code and total tokens', () => {
     render(<RecentRequestsPanel requests={mockRequests} />)
     const statusCodes = screen.getAllByTestId('status-code')
-    expect(statusCodes).toHaveLength(2)
+    expect(statusCodes).toHaveLength(3)
     expect(statusCodes[0]).toHaveTextContent('200')
     expect(statusCodes[1]).toHaveTextContent('200')
+    expect(statusCodes[2]).toHaveTextContent('200')
     const tokens = screen.getAllByTestId('total-tokens')
     expect(tokens[0]).toHaveTextContent('230')
     expect(tokens[1]).toHaveTextContent('800')
+    expect(tokens[2]).toHaveTextContent('150')
   })
 
   it('expands detail card on click', () => {
@@ -133,5 +159,32 @@ describe('RecentRequestsPanel', () => {
     expect(chainContainer).toHaveTextContent('claude-3-sonnet')
     expect(chainContainer).toHaveTextContent('claude-3-haiku')
     expect(screen.getByText('1')).toBeInTheDocument()
+  })
+
+  it('shows retry badge for requests with retry history', () => {
+    render(<RecentRequestsPanel requests={mockRequests} />)
+    const retryBadges = screen.getAllByTestId('retry-badge')
+    expect(retryBadges).toHaveLength(1)
+    expect(retryBadges[0]).toHaveTextContent('↻2')
+  })
+
+  it('shows retry history in detail card', () => {
+    render(<RecentRequestsPanel requests={mockRequests} />)
+    const rows = screen.getAllByTestId('request-row')
+    fireEvent.click(rows[2])
+    expect(screen.getByText('重试历史')).toBeInTheDocument()
+    const historyContainer = screen.getByTestId('retry-history')
+    expect(historyContainer).toHaveTextContent('gpt-4o')
+    expect(historyContainer).toHaveTextContent('502')
+    expect(historyContainer).toHaveTextContent('gpt-4o-mini')
+    expect(historyContainer).toHaveTextContent('TimeoutError')
+    expect(historyContainer).toHaveTextContent('异常')
+  })
+
+  it('does not show retry history section when empty', () => {
+    render(<RecentRequestsPanel requests={mockRequests} />)
+    const rows = screen.getAllByTestId('request-row')
+    fireEvent.click(rows[0])
+    expect(screen.queryByText('重试历史')).not.toBeInTheDocument()
   })
 })

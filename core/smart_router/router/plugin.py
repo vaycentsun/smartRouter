@@ -169,6 +169,14 @@ class SmartRouter(Router):
                 required_context=required_context,
                 requires_vision=requires_vision
             )
+            # 填充策略排序列表，用于自建重试逻辑
+            ranked = self.selector.select_ranked(
+                task_type=classification.task_type,
+                difficulty=classification.estimated_difficulty,
+                required_context=required_context,
+                requires_vision=requires_vision
+            )
+            result.ranked_models = [name for name, _ in ranked]
         except NoModelAvailableError:
             # Graceful fallback: 当没有模型匹配时，选择第一个可用模型
             available = self.sr_config.get_available_models()
@@ -179,7 +187,8 @@ class SmartRouter(Router):
                     difficulty=classification.estimated_difficulty,
                     strategy="fallback",
                     score=0.0,
-                    reason=f"No model supports {classification.task_type}/{classification.estimated_difficulty}, using fallback"
+                    reason=f"No model supports {classification.task_type}/{classification.estimated_difficulty}, using fallback",
+                    ranked_models=available
                 )
             else:
                 raise
