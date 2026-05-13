@@ -3,6 +3,7 @@ models:
   glm-4-plus:
     provider: zhipu
     litellm_model: openai/glm-4-plus
+        enabled: true
     capabilities:
       quality: 8
       cost: 5
@@ -13,6 +14,7 @@ models:
   glm-4-flash:
     provider: zhipu
     litellm_model: openai/glm-4-flash
+        enabled: true
     capabilities:
       quality: 6
       cost: 9

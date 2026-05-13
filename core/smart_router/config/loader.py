@@ -268,6 +268,79 @@ class ConfigLoader:
                     pass
             raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
 
+    def save_model(self, provider_name: str, model_name: str, enabled: bool) -> None:
+        """保存单个模型的 enabled 状态到对应 YAML 文件
+
+        Args:
+            provider_name: Provider 名称，用于定位文件 models/{provider_name}.yaml
+            model_name: 模型名称
+            enabled: 开关状态
+
+        Raises:
+            ConfigError: 文件不存在、模型不存在、写入失败或验证失败
+        """
+        filepath = self.config_dir / "models" / f"{provider_name}.yaml"
+        if not filepath.exists():
+            raise ConfigError(f"Configuration file not found: {filepath}")
+
+        # 备份原文件
+        backup_path = filepath.with_suffix(".yaml.bak")
+        if filepath.exists():
+            try:
+                backup_path.write_text(filepath.read_text(encoding="utf-8"), encoding="utf-8")
+            except IOError:
+                pass
+
+        # 读取并修改
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        except Exception as e:
+            raise ConfigError(f"Failed to read {filepath}: {e}") from e
+
+        models = data.get("models", {})
+        if model_name not in models:
+            raise ConfigError(f"Model '{model_name}' not found in {filepath.name}")
+
+        models[model_name]["enabled"] = enabled
+
+        # 尝试使用 ruamel.yaml 保留注释
+        try:
+            from ruamel.yaml import YAML
+            yaml_inst = YAML()
+            yaml_inst.preserve_quotes = True
+            yaml_inst.default_flow_style = False
+
+            with open(filepath, "r", encoding="utf-8") as f:
+                existing = yaml_inst.load(f)
+            existing["models"][model_name]["enabled"] = enabled
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                yaml_inst.dump(existing, f)
+        except ImportError:
+            # 回退到标准 yaml
+            try:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    yaml.safe_dump(
+                        data,
+                        f,
+                        allow_unicode=True,
+                        sort_keys=False,
+                        default_flow_style=False,
+                    )
+            except Exception as e:
+                raise ConfigError(f"Failed to write {filepath}: {e}") from e
+
+        # 写入后验证
+        errors = self.validate()
+        if errors:
+            if backup_path.exists():
+                try:
+                    filepath.write_text(backup_path.read_text(encoding="utf-8"), encoding="utf-8")
+                except IOError:
+                    pass
+            raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
+
 
 class ConfigError(Exception):
     """配置错误"""

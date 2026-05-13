@@ -31,6 +31,7 @@ export interface ModelInfo {
   cost: number
   context: number
   supported_tasks: string[]
+  enabled: boolean
 }
 
 export interface ModelsResponse {

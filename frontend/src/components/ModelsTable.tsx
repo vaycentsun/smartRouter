@@ -108,7 +108,12 @@ export function ModelsTable() {
                 </td>
                 <td className="px-4 py-3 text-[#86868b]">{model.provider}</td>
                 <td className="px-4 py-3">
-                  {model.available ? (
+                  {!model.enabled ? (
+                    <span className="inline-flex items-center gap-1.5 text-[#86868b] text-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#86868b]" />
+                      已禁用
+                    </span>
+                  ) : model.available ? (
                     <span className="inline-flex items-center gap-1.5 text-[#34C759] text-sm">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#34C759] pulse-glow" />
                       在线

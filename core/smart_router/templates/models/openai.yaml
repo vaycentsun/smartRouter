@@ -3,6 +3,7 @@ models:
   gpt-4o:
     provider: openai
     litellm_model: openai/gpt-4o
+        enabled: true
     capabilities:
       quality: 9
       cost: 3
@@ -18,6 +19,7 @@ models:
   gpt-4o-mini:
     provider: openai
     litellm_model: openai/gpt-4o-mini
+        enabled: true
     capabilities:
       quality: 6
       cost: 9

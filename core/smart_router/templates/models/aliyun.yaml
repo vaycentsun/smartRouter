@@ -4,6 +4,7 @@ models:
   qwen3.5-flash:
     provider: aliyun
     litellm_model: openai/qwen3.5-flash
+        enabled: true
     capabilities:
       quality: 7
       cost: 10
@@ -14,6 +15,7 @@ models:
   qwen3.5-plus:
     provider: aliyun
     litellm_model: openai/qwen3.5-plus
+        enabled: true
     capabilities:
       quality: 8
       cost: 10
@@ -24,6 +26,7 @@ models:
   qwen3.5-27b:
     provider: aliyun
     litellm_model: openai/qwen3.5-27b
+        enabled: true
     capabilities:
       quality: 7
       cost: 10
@@ -34,6 +37,7 @@ models:
   qwen3.5-397b-a17b:
     provider: aliyun
     litellm_model: openai/qwen3.5-397b-a17b
+        enabled: true
     capabilities:
       quality: 9
       cost: 10
@@ -44,6 +48,7 @@ models:
   qwen3.6-flash:
     provider: aliyun
     litellm_model: openai/qwen3.6-flash
+        enabled: true
     capabilities:
       quality: 7
       cost: 10
@@ -54,6 +59,7 @@ models:
   qwen-flash-character-2026-02-26:
     provider: aliyun
     litellm_model: openai/qwen-flash-character-2026-02-26
+        enabled: true
     capabilities:
       quality: 8
       cost: 10
@@ -64,6 +70,7 @@ models:
   gui-plus-2026-02-26:
     provider: aliyun
     litellm_model: openai/gui-plus-2026-02-26
+        enabled: true
     capabilities:
       quality: 10
       cost: 10
@@ -74,6 +81,7 @@ models:
   deepseek-v4-flash:
     provider: aliyun
     litellm_model: openai/deepseek-v4-flash
+        enabled: true
     capabilities:
       quality: 8
       cost: 10
@@ -84,6 +92,7 @@ models:
   minimax-m2.5:
     provider: aliyun
     litellm_model: openai/MiniMax-M2.5
+        enabled: true
     capabilities:
       quality: 8
       cost: 10

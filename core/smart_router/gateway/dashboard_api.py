@@ -170,6 +170,10 @@ class ModelOverrideResponse(BaseModel):
     enabled: bool = False
 
 
+class ModelToggleRequest(BaseModel):
+    enabled: bool
+
+
 LOG_FILE_MAP = {
     "service": DEFAULT_PID_DIR / "smart-router.log",
     "dashboard": DEFAULT_PID_DIR / "dashboard.log",
@@ -325,6 +329,7 @@ async def models(request: Request):
             "cost": caps.cost,
             "context": caps.context,
             "supported_tasks": model.supported_tasks,
+            "enabled": getattr(model, 'enabled', True),
         })
 
     available_count = sum(1 for m in result if m["available"])
@@ -469,6 +474,60 @@ async def provider_models(request: Request, provider_name: str):
         "provider_models": result.models,
         "checked_at": result.checked_at,
         "error": result.error,
+    }
+
+
+async def toggle_model(request: Request, provider_name: str, model_name: str, body: ModelToggleRequest):
+    """切换模型启用/禁用状态
+
+    Args:
+        provider_name: Provider 名称
+        model_name: 模型名称
+        body: { enabled: bool }
+
+    Returns:
+        { "success": True, "provider": str, "model": str, "enabled": bool }
+
+    Raises:
+        HTTPException(404): Provider 或 Model 不存在
+        HTTPException(500): 保存或验证失败
+    """
+    config_dir = Path.home() / ".smart-router"
+    loader = ConfigLoader(config_dir)
+
+    try:
+        cfg = loader.load()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"配置加载失败: {e}")
+
+    if provider_name not in cfg.providers:
+        raise HTTPException(status_code=404, detail=f"Provider not found: {provider_name}")
+
+    if model_name not in cfg.models:
+        raise HTTPException(status_code=404, detail=f"Model not found: {model_name}")
+
+    model = cfg.models[model_name]
+    if model.provider != provider_name:
+        raise HTTPException(status_code=404, detail=f"Model '{model_name}' does not belong to provider '{provider_name}'")
+
+    try:
+        loader.save_model(provider_name, model_name, body.enabled)
+    except ConfigError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # 触发配置热重载
+    router = getattr(request.app.state, "router", None)
+    if router and hasattr(router, "reload_config"):
+        try:
+            router.reload_config()
+        except Exception:
+            pass  # 热重载失败不阻塞 API 响应
+
+    return {
+        "success": True,
+        "provider": provider_name,
+        "model": model_name,
+        "enabled": body.enabled,
     }
 
 
@@ -1225,6 +1284,7 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.get("/api/providers")(providers)
     app.get("/api/providers/{provider_name}/health")(provider_health)
     app.get("/api/providers/{provider_name}/models")(provider_models)
+    app.put("/api/models/{provider_name}/{model_name}")(toggle_model)
     app.put("/api/providers")(update_providers)
     app.get("/api/model-overrides")(model_overrides)
     app.get("/api/model-override")(get_model_override)

@@ -625,3 +625,141 @@ class TestProviderHealthAPI:
                     assert checker.config is new_cfg
                     # 由于 config 已更新，check 被调用时使用的是新配置
                     mock_check.assert_called_once_with("openai", force=True)
+
+
+class TestToggleModel:
+    """测试 PUT /api/models/{provider}/{model}"""
+
+    def test_toggle_model_success(self, client, tmp_path):
+        """成功切换模型状态"""
+        from smart_router.config.loader import ConfigLoader
+
+        # 创建临时配置目录
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "providers.yaml").write_text("""
+providers:
+  openai:
+    api_base: https://api.openai.com
+    api_key: sk-test
+    timeout: 30
+  _virtual:
+    api_base: ""
+    api_key: ""
+    timeout: 30
+""")
+        (config_dir / "routing.yaml").write_text("""
+tasks:
+  chat:
+    name: "聊天"
+    description: "日常对话"
+    capability_weights:
+      quality: 0.5
+      cost: 0.5
+difficulties:
+  easy:
+    description: "简单"
+    max_tokens: 2000
+strategies:
+  auto:
+    description: "自动"
+fallback:
+  mode: auto
+  similarity_threshold: 2
+  provider_isolation: false
+  max_attempts: 3
+""")
+        models_dir = config_dir / "models"
+        models_dir.mkdir()
+        (models_dir / "openai.yaml").write_text("""
+models:
+  gpt-4o:
+    provider: openai
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9
+      cost: 3
+      context: 128000
+    supported_tasks: [chat]
+    difficulty_support: [easy]
+""")
+
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_loader.side_effect = lambda path: ConfigLoader(config_dir)
+            mock_loader.return_value = ConfigLoader(config_dir)
+
+            response = client.put("/api/models/openai/gpt-4o", json={"enabled": False})
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["provider"] == "openai"
+            assert data["model"] == "gpt-4o"
+            assert data["enabled"] is False
+
+    def test_toggle_model_provider_not_found(self, client):
+        """Provider 不存在返回 404"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.providers = {}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.put("/api/models/unknown/gpt-4o", json={"enabled": False})
+            assert response.status_code == 404
+            assert "Provider not found" in response.json()["detail"]
+
+    def test_toggle_model_model_not_found(self, client):
+        """Model 不存在返回 404"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.put("/api/models/openai/unknown", json={"enabled": False})
+            assert response.status_code == 404
+            assert "Model not found" in response.json()["detail"]
+
+    def test_toggle_model_wrong_provider(self, client):
+        """Model 不属于该 Provider 返回 404"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            mock_cfg.providers = {"openai": provider, "anthropic": provider}
+            model = MagicMock()
+            model.provider = "anthropic"
+            mock_cfg.models = {"claude-3": model}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.put("/api/models/openai/claude-3", json={"enabled": False})
+            assert response.status_code == 404
+            assert "does not belong to provider" in response.json()["detail"]
+
+    def test_models_returns_enabled(self, client):
+        """GET /api/models 返回包含 enabled 字段"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            provider.api_key = "sk-test"
+            provider.api_base = "https://api.openai.com/v1"
+            provider.timeout = 30
+            mock_cfg.providers = {"openai": provider}
+
+            model = MagicMock()
+            model.provider = "openai"
+            model.litellm_model = "openai/gpt-4o"
+            model.capabilities = MagicMock(
+                quality=9, cost=3, context=128000
+            )
+            model.supported_tasks = ["coding"]
+            model.enabled = False
+            mock_cfg.models = {"gpt-4o": model}
+            mock_cfg.is_model_available.return_value = True
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.get("/api/models")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["models"]) == 1
+            assert data["models"][0]["enabled"] is False

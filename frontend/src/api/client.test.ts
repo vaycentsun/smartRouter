@@ -121,4 +121,16 @@ describe('api client', () => {
       expect(result).toEqual(data)
     })
   })
+
+  describe('toggleModel', () => {
+    it('puts enabled state to /api/models/{provider}/{model}', async () => {
+      const data = { success: true, provider: 'openai', model: 'gpt-4o', enabled: false }
+      mockPut.mockResolvedValue({ data })
+
+      const result = await api.toggleModel('openai', 'gpt-4o', false)
+
+      expect(mockPut).toHaveBeenCalledWith('/api/models/openai/gpt-4o', { enabled: false })
+      expect(result).toEqual(data)
+    })
+  })
 })

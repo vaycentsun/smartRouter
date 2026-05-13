@@ -148,7 +148,11 @@ class V3ModelSelector:
             # 检查视觉能力
             if requires_vision and not getattr(model.capabilities, 'vision', False):
                 continue
-            
+
+            # 检查模型是否被禁用
+            if not getattr(model, 'enabled', True):
+                continue
+
             candidates.append((name, model))
         
         return candidates

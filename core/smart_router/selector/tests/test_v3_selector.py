@@ -481,3 +481,134 @@ class TestV3ModelSelector:
         model_names = [name for name, _ in ranked]
         # sample_config 中没有 vision=True 的模型
         assert model_names == []
+
+    def test_filter_candidates_excludes_disabled_models(self):
+        """_filter_candidates 应排除 enabled=False 的模型"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "model-enabled": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/enabled",
+                    capabilities=ModelCapabilities(quality=8, cost=5, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                    enabled=True,
+                ),
+                "model-disabled": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/disabled",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                    enabled=False,
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                formula=FormulaConfig(weights={"quality": 0.5, "cost": 0.5}),
+                fallback=FallbackConfig()
+            )
+        )
+        
+        selector = V3ModelSelector(config)
+        candidates = selector._filter_candidates("chat", "easy")
+        model_names = [name for name, _ in candidates]
+        
+        assert "model-enabled" in model_names
+        assert "model-disabled" not in model_names
+
+    def test_filter_candidates_defaults_enabled_to_true(self):
+        """旧配置无 enabled 字段时默认视为启用"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "model-old": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/old",
+                    capabilities=ModelCapabilities(quality=8, cost=5, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                    # 不显式设置 enabled，应默认 True
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                formula=FormulaConfig(weights={"quality": 0.5, "cost": 0.5}),
+                fallback=FallbackConfig()
+            )
+        )
+        
+        selector = V3ModelSelector(config)
+        candidates = selector._filter_candidates("chat", "easy")
+        model_names = [name for name, _ in candidates]
+        
+        assert "model-old" in model_names
+
+    def test_select_excludes_disabled_models(self):
+        """select() 不应选中被禁用的模型"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "model-a": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/a",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                    enabled=True,
+                ),
+                "model-b": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/b",
+                    capabilities=ModelCapabilities(quality=6, cost=9, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                    enabled=False,
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                formula=FormulaConfig(weights={"quality": 0.5, "cost": 0.5}),
+                fallback=FallbackConfig()
+            )
+        )
+        
+        selector = V3ModelSelector(config)
+        result = selector.select("chat", "easy")
+        
+        assert result.model_name == "model-a"
+
+    def test_no_model_available_when_all_disabled(self):
+        """所有模型被禁用时抛出 NoModelAvailableError"""
+        config = Config(
+            providers={"openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")},
+            models={
+                "model-a": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/a",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                    enabled=False,
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={"chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})},
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                formula=FormulaConfig(weights={"quality": 0.5, "cost": 0.5}),
+                fallback=FallbackConfig()
+            )
+        )
+        
+        selector = V3ModelSelector(config)
+        
+        with pytest.raises(NoModelAvailableError):
+            selector.select("chat", "easy")

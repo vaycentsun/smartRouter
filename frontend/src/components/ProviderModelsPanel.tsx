@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDashboardStore } from '../store/useDashboardStore'
 import type { ModelInfo, ProviderInfo } from '../types'
 
 function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
@@ -72,6 +73,8 @@ export function ProviderModelsPanel({
   const [keyInput, setKeyInput] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [sortConfig, setSortConfig] = useState<{ key: string; asc: boolean }>({ key: 'name', asc: true })
+  const toggleModel = useDashboardStore((state) => state.toggleModel)
+  const isTogglingModel = useDashboardStore((state) => state.isTogglingModel)
 
   const handleSort = (key: string) => {
     setSortConfig((prev) => ({
@@ -213,6 +216,7 @@ export function ProviderModelsPanel({
                 <th onClick={() => handleSort('status')} className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-[#007AFF] select-none transition-colors">
                   状态<SortIcon active={sortConfig.key === 'status'} asc={sortConfig.asc} />
                 </th>
+                <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">启用</th>
                 {/* <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">Quality</th> */}
                 {/* <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">Cost</th> */}
                 <th onClick={() => handleSort('context')} className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-[#007AFF] select-none transition-colors">
@@ -224,6 +228,8 @@ export function ProviderModelsPanel({
             <tbody className="divide-y divide-[rgba(0,0,0,0.04)]">
               {sortedModels.map((model) => {
                 const display = getModelHealthDisplay(model, providerHealth)
+                const toggleKey = `${model.provider}/${model.name}`
+                const isToggling = isTogglingModel[toggleKey] || false
                 return (
                   <tr key={model.name} className="table-row-hover">
                     <td className="px-4 py-3 font-medium text-[#1d1d1f]">{model.name}</td>
@@ -235,6 +241,18 @@ export function ProviderModelsPanel({
                         <span className={`w-1.5 h-1.5 rounded-full ${display.dotColor} ${display.label === '检测中...' ? 'animate-pulse' : ''}`} />
                         {display.label}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={model.enabled}
+                          onChange={() => toggleModel(model.provider, model.name, !model.enabled)}
+                          disabled={isToggling}
+                        />
+                        <div className={`w-9 h-5 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${model.enabled ? 'bg-[#34C759] after:translate-x-full after:border-white' : 'bg-gray-200 after:border-gray-300'} ${isToggling ? 'opacity-50' : ''}`} />
+                      </label>
                     </td>
                     {/* <td className="px-4 py-3"><StarRating value={model.quality} colorClass="text-[#FF9500]" /></td> */}
                     {/* <td className="px-4 py-3"><StarRating value={model.cost} colorClass="text-[#FF9500]" /></td> */}

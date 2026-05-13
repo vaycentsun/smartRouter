@@ -71,6 +71,7 @@ class ModelConfig(BaseModel):
     supported_tasks: List[str]
     difficulty_support: List[Literal["easy", "medium", "hard", "expert"]]
     price: Optional[ModelPrice] = Field(default=None, description="模型单价（可选）")
+    enabled: bool = Field(default=True, description="模型是否启用")
 
 
 class TaskConfig(BaseModel):

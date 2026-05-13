@@ -538,3 +538,42 @@ class TestModelPrice:
             currency="CNY"
         )
         assert price.currency == "CNY"
+
+
+class TestModelConfigEnabled:
+    """测试 ModelConfig 的 enabled 字段"""
+
+    def test_enabled_defaults_to_true(self):
+        """未传入 enabled 时默认值为 True"""
+        model = ModelConfig(
+            provider="openai",
+            litellm_model="openai/gpt-4o",
+            capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+            supported_tasks=["chat"],
+            difficulty_support=["easy"],
+        )
+        assert model.enabled is True
+
+    def test_enabled_explicit_false(self):
+        """显式传入 enabled=False 时生效"""
+        model = ModelConfig(
+            provider="openai",
+            litellm_model="openai/gpt-4o",
+            capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+            supported_tasks=["chat"],
+            difficulty_support=["easy"],
+            enabled=False,
+        )
+        assert model.enabled is False
+
+    def test_enabled_explicit_true(self):
+        """显式传入 enabled=True 时生效"""
+        model = ModelConfig(
+            provider="openai",
+            litellm_model="openai/gpt-4o",
+            capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+            supported_tasks=["chat"],
+            difficulty_support=["easy"],
+            enabled=True,
+        )
+        assert model.enabled is True

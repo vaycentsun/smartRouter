@@ -82,6 +82,11 @@ export const api = {
     }>(`/api/providers/${providerName}/health`).then((r) => r.data),
   getModelOverrides: () => client.get<ModelOverrideInfo>('/api/model-overrides').then((r) => r.data),
   getModelOverride: () => client.get<{ provider: string | null; model: string | null; enabled: boolean }>('/api/model-override').then((r) => r.data),
+  toggleModel: (provider: string, model: string, enabled: boolean) =>
+    client.put<{ success: boolean; provider: string; model: string; enabled: boolean }>(
+      `/api/models/${provider}/${model}`,
+      { enabled }
+    ).then((r) => r.data),
   setModelOverride: (provider: string, model: string) =>
     client.post<{ provider: string; model: string; enabled: boolean }>('/api/model-override', { provider, model }).then((r) => r.data),
   clearModelOverride: () => client.delete<{ provider: null; model: null; enabled: false }>('/api/model-override').then((r) => r.data),

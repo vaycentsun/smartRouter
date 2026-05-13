@@ -81,6 +81,9 @@ interface DashboardState {
   // Health Check
   isCheckingHealth: Record<string, boolean>
 
+  // Model Toggle
+  isTogglingModel: Record<string, boolean>
+
   // Actions
   fetchAll: () => Promise<void>
   checkProviderHealth: (providerName: string) => Promise<void>
@@ -190,6 +193,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   // Health Check
   isCheckingHealth: {},
+
+  // Model Toggle
+  isTogglingModel: {},
 
   fetchAll: async () => {
     set({ isLoading: true, error: null })
@@ -532,6 +538,24 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         error: (err as Error).message,
         isCheckingHealth: { ...state.isCheckingHealth, [providerName]: false },
       }))
+    }
+  },
+
+  toggleModel: async (provider: string, model: string, enabled: boolean) => {
+    const key = `${provider}/${model}`
+    set((state) => ({ isTogglingModel: { ...state.isTogglingModel, [key]: true } }))
+    try {
+      await api.toggleModel(provider, model, enabled)
+      set((state) => ({
+        models: state.models.map((m) =>
+          m.name === model && m.provider === provider ? { ...m, enabled } : m
+        ),
+        toast: { message: `模型 ${model} 已${enabled ? '启用' : '禁用'}`, type: 'success' },
+      }))
+    } catch (err) {
+      set({ error: (err as Error).message, toast: { message: '操作失败', type: 'error' } })
+    } finally {
+      set((state) => ({ isTogglingModel: { ...state.isTogglingModel, [key]: false } }))
     }
   },
 }))

@@ -177,3 +177,78 @@ fallback:
             result = selector.select(task, difficulty, strategy)
             assert result.model_name == expected, \
                 f"Failed for {task}/{difficulty}/{strategy}"
+
+    def test_disabled_model_not_selected(self, complete_config_dir):
+        """禁用模型后不应被选中"""
+        from smart_router.config.schema import Config, ProviderConfig, ModelConfig, ModelCapabilities, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, RoutingConfig, FormulaConfig
+        from smart_router.exceptions import NoModelAvailableError
+
+        # 创建包含禁用模型的配置
+        config = Config(
+            providers={
+                "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                    enabled=True,
+                ),
+                "gpt-4o-mini": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o-mini",
+                    capabilities=ModelCapabilities(quality=6, cost=9, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                    enabled=False,
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})
+                },
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                formula=FormulaConfig(weights={"quality": 0.5, "cost": 0.5}),
+                fallback=FallbackConfig()
+            )
+        )
+
+        selector = V3ModelSelector(config)
+
+        # 禁用模型不应被选中
+        result = selector.select("chat", "easy")
+        assert result.model_name == "gpt-4o"
+
+        # 全部禁用时抛出异常
+        config_all_disabled = Config(
+            providers={
+                "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="sk-test")
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                    enabled=False,
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={
+                    "chat": TaskConfig(name="Chat", description="Chat", capability_weights={"quality": 0.5, "cost": 0.5})
+                },
+                difficulties={"easy": DifficultyConfig(description="Easy", max_tokens=2000)},
+                strategies={"auto": StrategyConfig(description="Auto")},
+                formula=FormulaConfig(weights={"quality": 0.5, "cost": 0.5}),
+                fallback=FallbackConfig()
+            )
+        )
+
+        selector_all_disabled = V3ModelSelector(config_all_disabled)
+        with pytest.raises(NoModelAvailableError):
+            selector_all_disabled.select("chat", "easy")

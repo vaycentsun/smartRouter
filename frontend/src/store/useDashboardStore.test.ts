@@ -5,18 +5,19 @@ vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>()
   return {
     ...actual,
-    api: {
-      getStatus: vi.fn(),
-      getModels: vi.fn(),
-      getProviders: vi.fn(),
-      getModelOverrides: vi.fn(),
-      getModelOverride: vi.fn(),
-      getTokenStats: vi.fn(),
-      dryRun: vi.fn(),
-      stopService: vi.fn(),
-      putProviders: vi.fn(),
-      getLogs: vi.fn(),
-    },
+      api: {
+        getStatus: vi.fn(),
+        getModels: vi.fn(),
+        getProviders: vi.fn(),
+        getModelOverrides: vi.fn(),
+        getModelOverride: vi.fn(),
+        getTokenStats: vi.fn(),
+        dryRun: vi.fn(),
+        stopService: vi.fn(),
+        putProviders: vi.fn(),
+        getLogs: vi.fn(),
+        toggleModel: vi.fn(),
+      },
   }
 })
 
@@ -35,6 +36,7 @@ describe('useDashboardStore', () => {
       toast: null,
       modelsFilter: '',
       modelsSort: { key: 'name', asc: true },
+      isTogglingModel: {},
     })
     vi.clearAllMocks()
   })
@@ -214,6 +216,34 @@ describe('useDashboardStore', () => {
       useDashboardStore.setState({ toast: { message: 'hi', type: 'success' } })
       useDashboardStore.getState().clearToast()
       expect(useDashboardStore.getState().toast).toBeNull()
+    })
+  })
+
+  describe('toggleModel', () => {
+    it('updates model enabled state and shows success toast', async () => {
+      const mockModel = { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 9, cost: 3, context: 8192, supported_tasks: ['chat'], enabled: true }
+      useDashboardStore.setState({ models: [mockModel] })
+      ;(api.toggleModel as Mock).mockResolvedValue({ success: true, provider: 'openai', model: 'gpt-4', enabled: false })
+
+      await useDashboardStore.getState().toggleModel('openai', 'gpt-4', false)
+
+      const state = useDashboardStore.getState()
+      expect(state.models[0].enabled).toBe(false)
+      expect(state.toast).toEqual({ message: '模型 gpt-4 已禁用', type: 'success' })
+      expect(state.isTogglingModel).toEqual({})
+    })
+
+    it('shows error toast on failure', async () => {
+      const mockModel = { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 9, cost: 3, context: 8192, supported_tasks: ['chat'], enabled: true }
+      useDashboardStore.setState({ models: [mockModel] })
+      ;(api.toggleModel as Mock).mockRejectedValue(new Error('save failed'))
+
+      await useDashboardStore.getState().toggleModel('openai', 'gpt-4', false)
+
+      const state = useDashboardStore.getState()
+      expect(state.models[0].enabled).toBe(true)
+      expect(state.toast).toEqual({ message: '操作失败', type: 'error' })
+      expect(state.isTogglingModel).toEqual({})
     })
   })
 })

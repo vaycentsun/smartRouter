@@ -16,9 +16,9 @@ const mockProviderWithoutKey: ProviderInfo = {
 }
 
 const mockModels: ModelInfo[] = [
-  { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat', 'completion'] },
-  { name: 'gpt-3.5', provider: 'openai', available: true, health_status: 'available', quality: 8, cost: 6, context: 4096, supported_tasks: ['chat'] },
-  { name: 'claude-3', provider: 'anthropic', available: true, health_status: 'available', quality: 10, cost: 4, context: 200000, supported_tasks: ['chat'] },
+  { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat', 'completion'], enabled: true },
+  { name: 'gpt-3.5', provider: 'openai', available: true, health_status: 'available', quality: 8, cost: 6, context: 4096, supported_tasks: ['chat'], enabled: true },
+  { name: 'claude-3', provider: 'anthropic', available: true, health_status: 'available', quality: 10, cost: 4, context: 200000, supported_tasks: ['chat'], enabled: false },
 ]
 
 describe('ProviderModelsPanel', () => {
