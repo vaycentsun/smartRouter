@@ -268,7 +268,7 @@ class TestServiceCommands:
         
         result = runner.invoke(app, ["start"])
         assert result.exit_code == 0
-        mock_start.assert_called_once_with(config_path=None)
+        mock_start.assert_called_once_with(config_path=None, log_level='INFO')
     
     def test_start_with_config(self, monkeypatch):
         """测试 start --config 传递正确路径"""
@@ -281,7 +281,7 @@ class TestServiceCommands:
         
         result = runner.invoke(app, ["start", "--config", config_path])
         assert result.exit_code == 0
-        mock_start.assert_called_once_with(config_path=Path(config_path))
+        mock_start.assert_called_once_with(config_path=Path(config_path), log_level='INFO')
     
     def test_start_foreground(self, monkeypatch):
         """测试 start --foreground 调用 start_server"""
@@ -292,7 +292,7 @@ class TestServiceCommands:
         
         result = runner.invoke(app, ["start", "--foreground"])
         assert result.exit_code == 0
-        mock_server.assert_called_once_with(config_path=None)
+        mock_server.assert_called_once_with(config_path=None, log_level='INFO')
     
     def test_start_foreground_with_config(self, monkeypatch):
         """测试 start --foreground --config 传递正确路径"""
@@ -306,7 +306,7 @@ class TestServiceCommands:
         
         result = runner.invoke(app, ["start", "--foreground", "--config", config_path])
         assert result.exit_code == 0
-        mock_server.assert_called_once_with(config_path=Path(config_path))
+        mock_server.assert_called_once_with(config_path=Path(config_path), log_level='INFO')
     
     def test_stop_calls_stop_daemon(self, monkeypatch):
         """测试 stop 命令调用 stop_daemon"""
