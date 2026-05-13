@@ -221,7 +221,7 @@ describe('useDashboardStore', () => {
 
   describe('toggleModel', () => {
     it('updates model enabled state and shows success toast', async () => {
-      const mockModel = { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 9, cost: 3, context: 8192, supported_tasks: ['chat'], enabled: true }
+      const mockModel = { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available' as const, quality: 9, cost: 3, context: 8192, supported_tasks: ['chat'], enabled: true }
       useDashboardStore.setState({ models: [mockModel] })
       ;(api.toggleModel as Mock).mockResolvedValue({ success: true, provider: 'openai', model: 'gpt-4', enabled: false })
 
@@ -234,7 +234,7 @@ describe('useDashboardStore', () => {
     })
 
     it('shows error toast on failure', async () => {
-      const mockModel = { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 9, cost: 3, context: 8192, supported_tasks: ['chat'], enabled: true }
+      const mockModel = { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available' as const, quality: 9, cost: 3, context: 8192, supported_tasks: ['chat'], enabled: true }
       useDashboardStore.setState({ models: [mockModel] })
       ;(api.toggleModel as Mock).mockRejectedValue(new Error('save failed'))
 

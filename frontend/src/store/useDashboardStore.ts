@@ -85,6 +85,7 @@ interface DashboardState {
   isTogglingModel: Record<string, boolean>
 
   // Actions
+  toggleModel: (provider: string, model: string, enabled: boolean) => Promise<void>
   fetchAll: () => Promise<void>
   checkProviderHealth: (providerName: string) => Promise<void>
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
