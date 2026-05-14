@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useDashboardStore } from '../store/useDashboardStore'
 import type { ModelInfo, ProviderInfo } from '../types'
+import { useTranslation } from '../i18n/I18nProvider'
 
 function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
-  if (!active) return <span className="text-[rgba(0,0,0,0.12)] ml-1 text-xs">↕</span>
-  return <span className="text-[#007AFF] ml-1 text-xs">{asc ? '↑' : '↓'}</span>
+  if (!active) return <span className="text-[#636366] ml-1 text-xs font-mono">↕</span>
+  return <span className="text-[#00d4aa] ml-1 text-xs font-mono">{asc ? '▲' : '▼'}</span>
 }
 
 function TaskBadge({ task }: { task: string }) {
   return (
-    <span className="inline-block px-2 py-0.5 bg-[rgba(0,122,255,0.06)] text-[#007AFF]/80 text-xs rounded border border-[rgba(0,122,255,0.12)] mr-1">
+    <span className="inline-block px-2 py-0.5 bg-[rgba(52,152,219,0.06)] text-[#3498db]/80 text-[10px] rounded-sm border border-[rgba(52,152,219,0.12)] mr-1 font-mono uppercase tracking-wider">
       {task}
     </span>
   )
@@ -26,39 +27,35 @@ interface ProviderModelsPanelProps {
 }
 
 const healthStatusMap: Record<string, { label: string; color: string; dotColor: string; tooltip: string }> = {
-  available: { label: '可用', color: 'text-[#34C759]', dotColor: 'bg-[#34C759]', tooltip: '该模型在 Provider 端确认可用' },
-  not_found: { label: '未上架', color: 'text-[#FF9500]', dotColor: 'bg-[#FF9500]', tooltip: 'Provider 返回的模型列表中未找到此模型' },
-  unconfigured: { label: '未配置', color: 'text-[#86868b]', dotColor: 'bg-[#86868b]', tooltip: 'API Key 未配置' },
-  auth_error: { label: 'Key 无效', color: 'text-[#FF3B30]', dotColor: 'bg-[#FF3B30]', tooltip: 'API Key 无效或权限不足' },
-  rate_limited: { label: '频率限制', color: 'text-[#FF9500]', dotColor: 'bg-[#FF9500]', tooltip: '请求频率超限' },
-  network_error: { label: '网络异常', color: 'text-[#FF3B30]', dotColor: 'bg-[#FF3B30]', tooltip: '网络连接失败' },
-  unknown: { label: '检查失败', color: 'text-[#FF3B30]', dotColor: 'bg-[#FF3B30]', tooltip: '健康检查失败' },
-  checking: { label: '检测中...', color: 'text-[#007AFF]', dotColor: 'bg-[#007AFF]', tooltip: '正在检测 Provider 连通性' },
+  available: { label: 'ONLINE', color: 'text-[#00d4aa]', dotColor: 'bg-[#00d4aa]', tooltip: 'Model confirmed available' },
+  not_found: { label: 'NOT FOUND', color: 'text-[#f39c12]', dotColor: 'bg-[#f39c12]', tooltip: 'Model not found in provider list' },
+  unconfigured: { label: 'UNCONFIGURED', color: 'text-[#636366]', dotColor: 'bg-[#636366]', tooltip: 'API Key not configured' },
+  auth_error: { label: 'AUTH ERROR', color: 'text-[#e74c3c]', dotColor: 'bg-[#e74c3c]', tooltip: 'API Key invalid or insufficient permissions' },
+  rate_limited: { label: 'RATE LIMITED', color: 'text-[#f39c12]', dotColor: 'bg-[#f39c12]', tooltip: 'Rate limit exceeded' },
+  network_error: { label: 'NETWORK ERR', color: 'text-[#e74c3c]', dotColor: 'bg-[#e74c3c]', tooltip: 'Network connection failed' },
+  unknown: { label: 'CHECK FAILED', color: 'text-[#e74c3c]', dotColor: 'bg-[#e74c3c]', tooltip: 'Health check failed' },
+  checking: { label: 'CHECKING', color: 'text-[#3498db]', dotColor: 'bg-[#3498db]', tooltip: 'Checking provider connectivity' },
 }
 
 function getModelHealthDisplay(model: ModelInfo, providerHealth?: { status: string; error?: string | null }) {
   const status = model.health_status
 
-  // 如果正在检查中
   if (providerHealth?.status === 'checking' || status === 'checking') {
     return healthStatusMap.checking
   }
 
-  // 优先使用模型级的 health_status
   if (status && healthStatusMap[status]) {
     const mapping = healthStatusMap[status]
-    // 如果有具体的错误信息，追加到 tooltip
     if (providerHealth?.error && status !== 'available' && status !== 'not_found') {
       return { ...mapping, tooltip: providerHealth.error }
     }
     return mapping
   }
 
-  // 兜底：按 available 字段显示旧状态
   if (model.available) {
-    return { label: '已配置', color: 'text-[#34C759]', dotColor: 'bg-[#34C759]', tooltip: 'API Key 已配置（尚未检查连通性）' }
+    return { label: 'CONFIGURED', color: 'text-[#00d4aa]', dotColor: 'bg-[#00d4aa]', tooltip: 'API Key configured (not yet checked)' }
   }
-  return { label: '未配置', color: 'text-[#86868b]', dotColor: 'bg-[#86868b]', tooltip: 'API Key 未配置' }
+  return { label: 'UNCONFIGURED', color: 'text-[#636366]', dotColor: 'bg-[#636366]', tooltip: 'API Key not configured' }
 }
 
 export function ProviderModelsPanel({
@@ -70,6 +67,7 @@ export function ProviderModelsPanel({
   onCheckHealth,
   isCheckingHealth = false,
 }: ProviderModelsPanelProps) {
+  const { t } = useTranslation()
   const [keyInput, setKeyInput] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [sortConfig, setSortConfig] = useState<{ key: string; asc: boolean }>({ key: 'name', asc: true })
@@ -85,8 +83,8 @@ export function ProviderModelsPanel({
 
   if (!provider) {
     return (
-      <div className="glass-card rounded-2xl p-8 flex items-center justify-center min-h-[300px]">
-        <p className="text-[#a1a1a6]">请选择一个 Provider</p>
+      <div className="tech-card rounded-sm p-8 flex items-center justify-center min-h-[300px]">
+        <p className="text-[#636366] font-mono">{t('SELECT A PROVIDER')}</p>
       </div>
     )
   }
@@ -118,52 +116,52 @@ export function ProviderModelsPanel({
   })
 
   return (
-    <div className="glass-card rounded-2xl overflow-hidden">
-      <div className="p-4 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between">
+    <div className="tech-card rounded-sm overflow-hidden">
+      <div className="p-4 border-b border-[#1a1a2e] flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-[#1d1d1f]">{provider.name}</h2>
-          <p className="text-xs text-[#a1a1a6] font-mono mt-0.5">{providerModels.length} 个模型</p>
+          <h2 className="text-base font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{provider.name}</h2>
+          <p className="text-xs text-[#636366] font-mono mt-0.5">{providerModels.length} {t('MODELS')}</p>
         </div>
         <div className="flex items-center gap-2">
           {onCheckHealth && (
             <button
               onClick={() => onCheckHealth(provider.name)}
               disabled={isCheckingHealth}
-              className="px-3 py-2 bg-[rgba(0,122,255,0.08)] text-[#007AFF] border border-[rgba(0,122,255,0.15)] rounded-xl hover:bg-[rgba(0,122,255,0.12)] text-sm font-medium transition-all disabled:opacity-50 flex items-center gap-1.5"
+              className="tech-btn px-3 py-2 rounded-sm text-xs disabled:opacity-50 flex items-center gap-1.5"
             >
               {isCheckingHealth ? (
                 <>
-                  <span className="w-3.5 h-3.5 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
-                  检测中...
+                  <span className="w-3.5 h-3.5 border-2 border-[#636366] border-t-transparent rounded-full animate-spin" />
+                  {t('CHECKING')}
                 </>
               ) : (
                 <>
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  检查连通性
+                  {t('CHECK')}
                 </>
               )}
             </button>
           )}
           <button
             onClick={onEdit}
-            className="px-4 py-2 bg-[rgba(0,122,255,0.08)] text-[#007AFF] border border-[rgba(0,122,255,0.15)] rounded-xl hover:bg-[rgba(0,122,255,0.12)] text-sm font-medium transition-all"
+            className="tech-btn tech-btn-primary px-3 py-2 rounded-sm text-xs"
           >
-            编辑配置
+            {t('EDIT')}
           </button>
         </div>
       </div>
 
       {/* API Key 编辑区域 */}
-      <div className="px-4 py-3 border-b border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.015)]">
+      <div className="px-4 py-3 border-b border-[#1a1a2e] bg-[#0a0a0f]">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-[#86868b] uppercase tracking-wider whitespace-nowrap">
-            API Key
+          <span className="text-[10px] font-mono text-[#636366] uppercase tracking-widest whitespace-nowrap">
+            {t('API KEY')}
           </span>
           {provider.key_type.startsWith('env:') ? (
-            <span className="text-sm text-[#a1a1a6]">
-              通过环境变量配置（{provider.key_type}）
+            <span className="text-sm text-[#636366] font-mono">
+              {t('ENV')}: {provider.key_type}
             </span>
           ) : (
             <>
@@ -171,75 +169,73 @@ export function ProviderModelsPanel({
                 <input
                   type={showKey ? 'text' : 'password'}
                   value={keyInput}
-                  placeholder={provider.masked_key || '未设置'}
+                  placeholder={provider.masked_key || t('NOT SET')}
                   onChange={(e) => setKeyInput(e.target.value)}
-                  className="flex-1 min-w-0 px-3 py-1.5 rounded-xl text-sm text-[#1d1d1f] input-glow placeholder-[#a1a1a6]"
+                  className="flex-1 min-w-0 px-3 py-1.5 rounded-sm text-sm text-[#e8e8ed] tech-input placeholder-[#636366]"
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey(!showKey)}
-                  className="text-[#a1a1a6] hover:text-[#007AFF] text-xs px-2 transition-colors"
-                  title={showKey ? '隐藏' : '显示'}
+                  className="text-[#636366] hover:text-[#00d4aa] text-xs px-2 transition-colors font-mono"
+                  title={showKey ? t('HIDE') : t('SHOW')}
                 >
-                  {showKey ? '🙈' : '👁'}
+                  {showKey ? t('HIDE') : t('SHOW')}
                 </button>
               </div>
               <button
                 onClick={() => { onSaveKey(keyInput); setKeyInput('') }}
                 disabled={isSaving}
-                className="px-3 py-1.5 bg-[#007AFF] text-white rounded-xl text-sm font-medium hover:bg-[#0051D5] disabled:opacity-50 transition-all whitespace-nowrap"
+                className="tech-btn tech-btn-primary px-3 py-1.5 rounded-sm text-xs disabled:opacity-50"
               >
-                {isSaving ? '保存中...' : '保存'}
+                {isSaving ? t('SAVING') : t('SAVE')}
               </button>
             </>
           )}
         </div>
         {!provider.key_type.startsWith('env:') && (
-          <p className="text-xs text-[#a1a1a6] mt-1.5">
-            {provider.has_key ? '输入新值覆盖当前 Key，留空保存表示删除' : '输入 Key 并保存以启用该 Provider'}
+          <p className="text-xs text-[#636366] mt-1.5 font-mono">
+            {provider.has_key ? t('saveHint1') : t('saveHint2')}
           </p>
         )}
       </div>
 
       {providerModels.length === 0 ? (
-        <div className="p-8 text-center text-[#a1a1a6]">
-          该 Provider 暂无模型数据
+        <div className="p-8 text-center text-[#636366] font-mono">
+          {t('NO MODELS')}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-[rgba(0,0,0,0.02)] text-[#86868b]">
+            <thead className="border-b border-[#1a1a2e]">
               <tr>
-                <th onClick={() => handleSort('name')} className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-[#007AFF] select-none transition-colors">
-                  模型名称<SortIcon active={sortConfig.key === 'name'} asc={sortConfig.asc} />
+                <th onClick={() => handleSort('name')} className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer hover:text-[#00d4aa] select-none transition-colors">
+                  {t('MODEL')}<SortIcon active={sortConfig.key === 'name'} asc={sortConfig.asc} />
                 </th>
-                <th onClick={() => handleSort('status')} className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-[#007AFF] select-none transition-colors">
-                  状态<SortIcon active={sortConfig.key === 'status'} asc={sortConfig.asc} />
+                <th onClick={() => handleSort('status')} className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer hover:text-[#00d4aa] select-none transition-colors">
+                  {t('STATUS')}<SortIcon active={sortConfig.key === 'status'} asc={sortConfig.asc} />
                 </th>
-                <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">启用</th>
-                {/* <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">Quality</th> */}
-                {/* <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">Cost</th> */}
-                <th onClick={() => handleSort('context')} className="px-4 py-3 font-mono text-xs uppercase tracking-wider cursor-pointer hover:text-[#007AFF] select-none transition-colors">
-                  Context<SortIcon active={sortConfig.key === 'context'} asc={sortConfig.asc} />
+                <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest">{t('ENABLED')}</th>
+                <th onClick={() => handleSort('context')} className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer hover:text-[#00d4aa] select-none transition-colors">
+                  {t('CTX')}<SortIcon active={sortConfig.key === 'context'} asc={sortConfig.asc} />
                 </th>
-                <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">支持任务</th>
+                <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest">{t('TASKS')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[rgba(0,0,0,0.04)]">
+            <tbody className="divide-y divide-[#1a1a2e]">
               {sortedModels.map((model) => {
                 const display = getModelHealthDisplay(model, providerHealth)
                 const toggleKey = `${model.provider}/${model.name}`
                 const isToggling = isTogglingModel[toggleKey] || false
                 return (
-                  <tr key={model.name} className="table-row-hover">
-                    <td className="px-4 py-3 font-medium text-[#1d1d1f]">{model.name}</td>
+                  <tr key={model.name} className="data-row">
+                    <td className="px-4 py-3 font-medium text-[#e8e8ed] font-mono text-xs">{model.name}</td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center gap-1.5 ${display.color} text-sm cursor-help`}
+                        className={`inline-flex items-center gap-1.5 ${display.color} text-xs cursor-help font-mono`}
                         title={display.tooltip}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full ${display.dotColor} ${display.label === '检测中...' ? 'animate-pulse' : ''}`} />
-                        {display.label}
+                        <span className={`w-1.5 h-1.5 rounded-sm ${display.dotColor} ${display.label === 'CHECKING' ? 'animate-pulse' : ''}`} />
+                        {t(display.label)}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -251,12 +247,12 @@ export function ProviderModelsPanel({
                           onChange={() => toggleModel(model.provider, model.name, !model.enabled)}
                           disabled={isToggling}
                         />
-                        <div className={`w-9 h-5 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${model.enabled ? 'bg-[#34C759] after:translate-x-full after:border-white' : 'bg-gray-200 after:border-gray-300'} ${isToggling ? 'opacity-50' : ''}`} />
+                        <div className={`w-9 h-5 rounded-sm peer relative border transition-all ${model.enabled ? 'bg-[rgba(0,212,170,0.15)] border-[rgba(0,212,170,0.3)]' : 'bg-[#1a1a2e] border-[#2a2a3e]'} ${isToggling ? 'opacity-50' : ''}`}>
+                          <div className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-sm transition-all ${model.enabled ? 'translate-x-4 bg-[#00d4aa]' : 'bg-[#636366]'}`} />
+                        </div>
                       </label>
                     </td>
-                    {/* <td className="px-4 py-3"><StarRating value={model.quality} colorClass="text-[#FF9500]" /></td> */}
-                    {/* <td className="px-4 py-3"><StarRating value={model.cost} colorClass="text-[#FF9500]" /></td> */}
-                    <td className="px-4 py-3 text-[#86868b] font-mono text-xs">
+                    <td className="px-4 py-3 text-[#636366] font-mono text-xs">
                       {model.context >= 1000 ? `${Math.floor(model.context / 1000)}k` : model.context}
                     </td>
                     <td className="px-4 py-3">
@@ -265,7 +261,7 @@ export function ProviderModelsPanel({
                           <TaskBadge key={task} task={task} />
                         ))}
                         {model.supported_tasks.length > 3 && (
-                          <span className="text-xs text-[#a1a1a6]">+{model.supported_tasks.length - 3}</span>
+                          <span className="text-[10px] text-[#636366] font-mono">+{model.supported_tasks.length - 3}</span>
                         )}
                       </div>
                     </td>

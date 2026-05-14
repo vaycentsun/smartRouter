@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 import type { PlaygroundRequest } from '../types'
 
@@ -7,6 +8,7 @@ interface PlaygroundInputProps {
 }
 
 export function PlaygroundInput({ onSubmit }: PlaygroundInputProps) {
+  const { t } = useTranslation()
   const { models, isLoadingPlayground } = useDashboardStore()
   const [prompt, setPrompt] = useState('')
   const [mode, setMode] = useState<'single' | 'compare'>('single')
@@ -30,77 +32,77 @@ export function PlaygroundInput({ onSubmit }: PlaygroundInputProps) {
   }
 
   return (
-    <div className="glass-card rounded-2xl">
-      <div className="p-4 border-b border-[rgba(0,0,0,0.06)] flex items-center gap-2">
-        <div className="w-1 h-5 bg-[#007AFF] rounded-full" />
-        <h2 className="text-base font-semibold text-[#1d1d1f] tracking-wide">Playground</h2>
+    <div className="tech-card rounded-sm">
+      <div className="p-4 border-b border-[#1a1a2e] flex items-center gap-2">
+        <div className="w-1 h-4 bg-[#00d4aa]" />
+        <h2 className="text-base font-semibold text-[#e8e8ed] uppercase tracking-wider font-mono">{t('Playground')}</h2>
       </div>
       <div className="p-5 space-y-4">
         {/* Mode Switch */}
         <div>
-          <label className="block text-xs font-mono text-[#86868b] uppercase tracking-wider mb-2">
-            模式
+          <label className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-2">
+            {t('MODE')}
           </label>
           <div className="flex gap-2">
             <button
               onClick={() => setMode('single')}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              className={`px-4 py-1.5 rounded-sm text-sm font-medium transition-all ${
                 mode === 'single'
                   ? 'strategy-btn-active'
-                  : 'strategy-btn text-[#86868b] hover:text-[#1d1d1f]'
+                  : 'strategy-btn text-[#636366] hover:text-[#e8e8ed]'
               }`}
             >
-              单模型
+              {t('Single')}
             </button>
             <button
               onClick={() => setMode('compare')}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              className={`px-4 py-1.5 rounded-sm text-sm font-medium transition-all ${
                 mode === 'compare'
                   ? 'strategy-btn-active'
-                  : 'strategy-btn text-[#86868b] hover:text-[#1d1d1f]'
+                  : 'strategy-btn text-[#636366] hover:text-[#e8e8ed]'
               }`}
             >
-              对比模式
+              {t('Compare')}
             </button>
           </div>
         </div>
 
         {/* Model Selection */}
         <div>
-          <label className="block text-xs font-mono text-[#86868b] uppercase tracking-wider mb-2">
-            选择模型（最多3个）
+          <label className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-2">
+            {t('MODELS (MAX 3)')}
           </label>
           <div className="flex flex-wrap gap-2">
             {availableModels.map((m) => (
               <button
                 key={m.name}
                 onClick={() => toggleModel(m.name)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                className={`px-3 py-1.5 rounded-sm text-sm font-medium transition-all border ${
                   selectedModels.includes(m.name)
-                    ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] border-[rgba(0,122,255,0.15)]'
-                    : 'text-[#86868b] border-transparent hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+                    ? 'bg-[rgba(0,212,170,0.08)] text-[#00d4aa] border-[rgba(0,212,170,0.15)]'
+                    : 'text-[#636366] border-transparent hover:text-[#e8e8ed] hover:bg-[rgba(255,255,255,0.02)]'
                 }`}
               >
                 {m.name}
               </button>
             ))}
             {availableModels.length === 0 && (
-              <span className="text-sm text-[#86868b]">暂无可用模型</span>
+              <span className="text-sm text-[#636366]">{t('NO MODELS AVAILABLE')}</span>
             )}
           </div>
         </div>
 
         {/* Prompt Input */}
         <div>
-          <label className="block text-xs font-mono text-[#86868b] uppercase tracking-wider mb-2">
-            输入提示词
+          <label className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-2">
+            {t('PROMPT')}
           </label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="例如：帮我写一个快速排序算法"
+            placeholder={t('Enter prompt...')}
             rows={4}
-            className="w-full px-3 py-2 rounded-xl text-sm input-glow resize-none"
+            className="w-full px-3 py-2 rounded-sm text-sm input-glow resize-none"
           />
         </div>
 
@@ -108,9 +110,9 @@ export function PlaygroundInput({ onSubmit }: PlaygroundInputProps) {
         <button
           onClick={handleSubmit}
           disabled={isLoadingPlayground || !prompt.trim() || selectedModels.length === 0}
-          className="w-full px-4 py-2.5 bg-[rgba(0,122,255,0.08)] text-[#007AFF] border border-[rgba(0,122,255,0.15)] rounded-xl hover:bg-[rgba(0,122,255,0.12)] hover:border-[rgba(0,122,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium backdrop-blur-sm"
+          className="w-full px-4 py-2.5 tech-btn-primary rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
         >
-          {isLoadingPlayground ? '请求中...' : '提交'}
+          {isLoadingPlayground ? t('LOADING...') : t('SUBMIT')}
         </button>
       </div>
     </div>

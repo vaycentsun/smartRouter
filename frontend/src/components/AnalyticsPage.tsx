@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { SummaryCards } from './SummaryCards'
 import { CostTrendChart } from './CostTrendChart'
@@ -14,6 +15,7 @@ export function AnalyticsPage() {
     fetchAnalytics,
     recentRequests,
   } = useDashboardStore()
+  const { t } = useTranslation()
 
   useEffect(() => {
     fetchAnalytics(7)
@@ -22,8 +24,8 @@ export function AnalyticsPage() {
   if (isLoadingAnalytics && !analyticsError) {
     return (
       <div className="space-y-6">
-        <div className="glass-card rounded-2xl p-8 text-center">
-          <p className="text-sm text-[#86868b]">加载中...</p>
+        <div className="tech-card rounded-sm p-8 text-center">
+          <p className="text-sm text-[#636366] font-mono">{t('LOADING')}</p>
         </div>
       </div>
     )
@@ -32,8 +34,8 @@ export function AnalyticsPage() {
   return (
     <div className="space-y-6">
       {analyticsError && (
-        <div className="glass-card rounded-2xl p-4 border border-red-400/20">
-          <p className="text-sm text-[#FF3B30]">{analyticsError}</p>
+        <div className="tech-card rounded-sm p-4 border border-[rgba(231,76,60,0.2)]">
+          <p className="text-sm text-[#e74c3c] font-mono">{analyticsError}</p>
         </div>
       )}
       <SummaryCards />

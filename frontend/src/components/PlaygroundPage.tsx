@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
+import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { PlaygroundInput } from './PlaygroundInput'
 import { PlaygroundResult } from './PlaygroundResult'
 import { PlaygroundCompare } from './PlaygroundCompare'
 
 export function PlaygroundPage() {
+  const { t } = useTranslation()
   const {
     playgroundResults,
     playgroundError,
@@ -29,13 +31,13 @@ export function PlaygroundPage() {
       <PlaygroundInput onSubmit={handleSubmit} />
 
       {playgroundError && (
-        <div className="glass-card rounded-2xl p-4 flex items-center justify-between border border-red-400/20">
-          <p className="text-sm text-[#FF3B30]">{playgroundError}</p>
+        <div className="tech-card rounded-sm p-4 flex items-center justify-between border border-[rgba(231,76,60,0.2)]">
+          <p className="text-sm text-[#e74c3c]">{playgroundError}</p>
           <button
             onClick={clearPlaygroundError}
-            className="text-sm text-[#FF3B30] hover:text-[#FF3B30]/70 transition-colors"
+            className="text-sm text-[#e74c3c] hover:text-[#e74c3c]/70 transition-colors"
           >
-            关闭
+            {t('DISMISS')}
           </button>
         </div>
       )}

@@ -12,22 +12,27 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts'
+import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 
 const COLORS = [
-  '#007AFF', '#AF52DE', '#34C759', '#FF9500',
-  '#FF3B30', '#5856D6', '#FF2D55', '#5AC8FA',
+  '#00d4aa', '#9b59b6', '#3498db', '#f39c12',
+  '#e74c3c', '#6c5ce7', '#e84393', '#00cec9',
 ]
 
 export function ModelUsageChart() {
   const { analyticsByModel } = useDashboardStore()
   const [chartType, setChartType] = useState<'pie' | 'bar'>('pie')
+  const { t } = useTranslation()
 
   if (analyticsByModel.length === 0) {
     return (
-      <div className="glass-card rounded-2xl p-5">
-        <h3 className="text-sm font-medium text-[#86868b] mb-4">模型使用分布</h3>
-        <div className="text-center py-8 text-[#a1a1a6] text-sm">暂无数据</div>
+      <div className="tech-card rounded-sm p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-1 h-4 bg-[#3498db]" />
+          <h3 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Model Usage')}</h3>
+        </div>
+        <div className="text-center py-8 text-[#636366] text-sm font-mono">{t('NO DATA')}</div>
       </div>
     )
   }
@@ -44,29 +49,32 @@ export function ModelUsageChart() {
   }))
 
   return (
-    <div className="glass-card rounded-2xl p-5">
+    <div className="tech-card rounded-sm p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-[#86868b]">模型使用分布</h3>
-        <div className="flex gap-1 bg-[rgba(0,0,0,0.03)] rounded-lg p-0.5">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-4 bg-[#3498db]" />
+          <h3 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Model Usage')}</h3>
+        </div>
+        <div className="flex gap-1 border border-[#1a1a2e] rounded-sm p-0.5">
           <button
             onClick={() => setChartType('pie')}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+            className={`px-3 py-1 rounded-sm text-xs font-mono uppercase tracking-wider transition-all ${
               chartType === 'pie'
-                ? 'bg-[rgba(0,122,255,0.1)] text-[#007AFF]'
-                : 'text-[#86868b] hover:text-[#1d1d1f]'
+                ? 'bg-[rgba(0,212,170,0.08)] text-[#00d4aa] border border-[rgba(0,212,170,0.2)]'
+                : 'text-[#636366] hover:text-[#8e8e93]'
             }`}
           >
-            饼图
+            {t('PIE')}
           </button>
           <button
             onClick={() => setChartType('bar')}
-            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+            className={`px-3 py-1 rounded-sm text-xs font-mono uppercase tracking-wider transition-all ${
               chartType === 'bar'
-                ? 'bg-[rgba(0,122,255,0.1)] text-[#007AFF]'
-                : 'text-[#86868b] hover:text-[#1d1d1f]'
+                ? 'bg-[rgba(0,212,170,0.08)] text-[#00d4aa] border border-[rgba(0,212,170,0.2)]'
+                : 'text-[#636366] hover:text-[#8e8e93]'
             }`}
           >
-            柱状图
+            {t('BAR')}
           </button>
         </div>
       </div>
@@ -87,42 +95,44 @@ export function ModelUsageChart() {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value) => [Number(value).toLocaleString(), 'Token']}
+              formatter={(value) => [Number(value).toLocaleString(), t('Token')]}
               contentStyle={{
-                background: 'rgba(255,255,255,0.9)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(0,0,0,0.06)',
-                borderRadius: '8px',
+                background: '#111118',
+                border: '1px solid #1a1a2e',
+                borderRadius: '4px',
                 fontSize: '12px',
+                fontFamily: 'JetBrains Mono',
+                color: '#e8e8ed',
               }}
             />
             <Legend />
           </PieChart>
         ) : (
           <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.04)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 11, fill: '#86868b' }}
-              axisLine={{ stroke: 'rgba(0,0,0,0.06)' }}
+              tick={{ fontSize: 10, fill: '#636366', fontFamily: 'JetBrains Mono' }}
+              axisLine={{ stroke: '#1a1a2e' }}
               tickLine={false}
             />
             <YAxis
-              tick={{ fontSize: 12, fill: '#86868b' }}
+              tick={{ fontSize: 11, fill: '#636366', fontFamily: 'JetBrains Mono' }}
               axisLine={false}
               tickLine={false}
             />
             <Tooltip
-              formatter={(value) => [Number(value).toLocaleString(), 'Token']}
+              formatter={(value) => [Number(value).toLocaleString(), t('Token')]}
               contentStyle={{
-                background: 'rgba(255,255,255,0.9)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(0,0,0,0.06)',
-                borderRadius: '8px',
+                background: '#111118',
+                border: '1px solid #1a1a2e',
+                borderRadius: '4px',
                 fontSize: '12px',
+                fontFamily: 'JetBrains Mono',
+                color: '#e8e8ed',
               }}
             />
-            <Bar dataKey="value" fill="#007AFF" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="value" fill="#00d4aa" radius={[2, 2, 0, 0]} />
           </BarChart>
         )}
       </ResponsiveContainer>

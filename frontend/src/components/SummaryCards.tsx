@@ -1,70 +1,72 @@
+import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 
 export function SummaryCards() {
   const { analyticsSummary, isLoadingAnalytics } = useDashboardStore()
+  const { t } = useTranslation()
 
   const stats = [
     {
-      label: '总成本',
+      label: t('Total Cost'),
       value: analyticsSummary?.total_cost,
       format: (v: number) => `¥${v.toFixed(2)}`,
-      sub: '累计费用',
+      sub: t('ACCUMULATED'),
       accent: 'blue',
       showIncomplete: analyticsSummary?.incomplete && analyticsSummary?.total_cost !== null,
     },
     {
-      label: '日均成本',
+      label: t('Daily Avg'),
       value: analyticsSummary?.avg_daily_cost,
       format: (v: number) => `¥${v.toFixed(2)}`,
-      sub: '平均每天',
+      sub: t('PER DAY'),
       accent: 'orange',
       showIncomplete: analyticsSummary?.incomplete && analyticsSummary?.avg_daily_cost !== null,
     },
     {
-      label: '总请求数',
+      label: t('Total Requests'),
       value: analyticsSummary?.total_requests,
       format: (v: number) => v.toLocaleString(),
-      sub: '次 API 调用',
+      sub: t('API CALLS'),
       accent: 'purple',
       showIncomplete: false,
     },
     {
-      label: '总 Token 数',
+      label: t('Total Tokens'),
       value: analyticsSummary?.total_tokens,
       format: (v: number) => v.toLocaleString(),
-      sub: 'Token 消耗',
+      sub: t('CONSUMED'),
       accent: 'green',
       showIncomplete: false,
     },
     {
-      label: '输入 Token',
+      label: t('Input Tokens'),
       value: analyticsSummary?.total_prompt_tokens,
       format: (v: number) => v.toLocaleString(),
-      sub: 'Prompt 消耗',
+      sub: t('PROMPT'),
       accent: 'indigo',
       showIncomplete: false,
     },
     {
-      label: '推理 Token',
+      label: t('Reasoning Tokens'),
       value: analyticsSummary?.total_reasoning_tokens,
       format: (v: number) => v.toLocaleString(),
-      sub: 'Reasoning 消耗',
+      sub: t('REASONING'),
       accent: 'pink',
       showIncomplete: false,
     },
     {
-      label: '输出 Token',
+      label: t('Output Tokens'),
       value: analyticsSummary?.total_completion_tokens,
       format: (v: number) => v.toLocaleString(),
-      sub: 'Completion 消耗',
+      sub: t('COMPLETION'),
       accent: 'teal',
       showIncomplete: false,
     },
     {
-      label: '缓存命中',
+      label: t('Cache Hits'),
       value: analyticsSummary?.total_cached_tokens,
       format: (v: number) => v.toLocaleString(),
-      sub: 'Cached 命中',
+      sub: t('CACHED'),
       accent: 'cyan',
       showIncomplete: false,
     },
@@ -72,52 +74,52 @@ export function SummaryCards() {
 
   const accentMap: Record<string, { border: string; text: string; glow: string; bg: string }> = {
     blue: {
-      border: 'border-[rgba(0,122,255,0.12)]',
-      text: 'text-[#007AFF]',
-      glow: 'shadow-[rgba(0,122,255,0.06)]',
-      bg: 'bg-[rgba(0,122,255,0.05)]',
+      border: 'border-[rgba(52,152,219,0.12)]',
+      text: 'text-[#3498db]',
+      glow: 'shadow-[rgba(52,152,219,0.06)]',
+      bg: 'bg-[rgba(52,152,219,0.05)]',
     },
     purple: {
-      border: 'border-[rgba(175,82,222,0.12)]',
-      text: 'text-[#AF52DE]',
-      glow: 'shadow-[rgba(175,82,222,0.06)]',
-      bg: 'bg-[rgba(175,82,222,0.05)]',
+      border: 'border-[rgba(155,89,182,0.12)]',
+      text: 'text-[#9b59b6]',
+      glow: 'shadow-[rgba(155,89,182,0.06)]',
+      bg: 'bg-[rgba(155,89,182,0.05)]',
     },
     green: {
-      border: 'border-[rgba(52,199,89,0.12)]',
-      text: 'text-[#34C759]',
-      glow: 'shadow-[rgba(52,199,89,0.06)]',
-      bg: 'bg-[rgba(52,199,89,0.05)]',
+      border: 'border-[rgba(0,212,170,0.12)]',
+      text: 'text-[#00d4aa]',
+      glow: 'shadow-[rgba(0,212,170,0.06)]',
+      bg: 'bg-[rgba(0,212,170,0.05)]',
     },
     orange: {
-      border: 'border-[rgba(255,149,0,0.12)]',
-      text: 'text-[#FF9500]',
-      glow: 'shadow-[rgba(255,149,0,0.06)]',
-      bg: 'bg-[rgba(255,149,0,0.05)]',
+      border: 'border-[rgba(243,156,18,0.12)]',
+      text: 'text-[#f39c12]',
+      glow: 'shadow-[rgba(243,156,18,0.06)]',
+      bg: 'bg-[rgba(243,156,18,0.05)]',
     },
     pink: {
-      border: 'border-[rgba(255,45,85,0.12)]',
-      text: 'text-[#FF2D55]',
-      glow: 'shadow-[rgba(255,45,85,0.06)]',
-      bg: 'bg-[rgba(255,45,85,0.05)]',
+      border: 'border-[rgba(232,67,147,0.12)]',
+      text: 'text-[#e84393]',
+      glow: 'shadow-[rgba(232,67,147,0.06)]',
+      bg: 'bg-[rgba(232,67,147,0.05)]',
     },
     cyan: {
-      border: 'border-[rgba(0,199,204,0.12)]',
-      text: 'text-[#00C7CC]',
-      glow: 'shadow-[rgba(0,199,204,0.06)]',
-      bg: 'bg-[rgba(0,199,204,0.05)]',
+      border: 'border-[rgba(0,206,201,0.12)]',
+      text: 'text-[#00cec9]',
+      glow: 'shadow-[rgba(0,206,201,0.06)]',
+      bg: 'bg-[rgba(0,206,201,0.05)]',
     },
     indigo: {
-      border: 'border-[rgba(88,86,214,0.12)]',
-      text: 'text-[#5856D6]',
-      glow: 'shadow-[rgba(88,86,214,0.06)]',
-      bg: 'bg-[rgba(88,86,214,0.05)]',
+      border: 'border-[rgba(108,92,231,0.12)]',
+      text: 'text-[#6c5ce7]',
+      glow: 'shadow-[rgba(108,92,231,0.06)]',
+      bg: 'bg-[rgba(108,92,231,0.05)]',
     },
     teal: {
-      border: 'border-[rgba(48,209,88,0.12)]',
-      text: 'text-[#30D158]',
-      glow: 'shadow-[rgba(48,209,88,0.06)]',
-      bg: 'bg-[rgba(48,209,88,0.05)]',
+      border: 'border-[rgba(26,188,156,0.12)]',
+      text: 'text-[#1abc9c]',
+      glow: 'shadow-[rgba(26,188,156,0.06)]',
+      bg: 'bg-[rgba(26,188,156,0.05)]',
     },
   }
 
@@ -129,22 +131,22 @@ export function SummaryCards() {
         return (
           <div
             key={stat.label}
-            className={`glass-card rounded-2xl p-5 ${style.border} hover:shadow-lg ${style.glow}`}
+            className={`tech-card p-5 relative corner-bracket ${style.border} hover:shadow-lg ${style.glow}`}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-[#86868b] font-mono uppercase tracking-wider">
+              <span className="text-[10px] text-[#636366] font-mono uppercase tracking-widest">
                 {stat.label}
               </span>
               {stat.showIncomplete && (
-                <span className="text-[#FF9500] text-sm font-bold" title="部分模型未配置单价">
+                <span className="text-[#f39c12] text-sm font-bold font-mono" title="部分模型未配置单价">
                   *
                 </span>
               )}
             </div>
-            <p className={`text-3xl font-bold ${style.text} tracking-tight`}>
+            <p className={`text-3xl font-bold ${style.text} mono-num tracking-tight`}>
               {hasValue ? stat.format(stat.value as number) : '--'}
             </p>
-            <p className="text-xs text-[#a1a1a6] mt-1 font-mono">{stat.sub}</p>
+            <p className="text-xs text-[#636366] mt-1 font-mono">{stat.sub}</p>
           </div>
         )
       })}

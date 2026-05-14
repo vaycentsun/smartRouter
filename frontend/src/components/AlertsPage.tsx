@@ -5,8 +5,10 @@ import { AlertRulesTable } from './AlertRulesTable'
 import { AlertRuleEditor } from './AlertRuleEditor'
 import { AlertHistoryTable } from './AlertHistoryTable'
 import type { AlertRule } from '../types'
+import { useTranslation } from '../i18n/I18nProvider'
 
 export function AlertsPage() {
+  const { t } = useTranslation()
   const { alertsError, fetchAlertRules, fetchAlertHistory, clearAlertsError } = useDashboardStore()
   const [editingRule, setEditingRule] = useState<AlertRule | null>(null)
   const [showEditor, setShowEditor] = useState(false)
@@ -34,13 +36,13 @@ export function AlertsPage() {
   return (
     <div className="space-y-6">
       {alertsError && (
-        <div className="glass-card rounded-2xl p-4 border border-red-400/20">
-          <p className="text-sm text-[#FF3B30]">{alertsError}</p>
+        <div className="tech-card rounded-sm p-4 border border-[rgba(231,76,60,0.2)]">
+          <p className="text-sm text-[#e74c3c] font-mono">{alertsError}</p>
           <button
             onClick={clearAlertsError}
-            className="text-sm text-[#FF3B30] hover:text-[#FF3B30]/70 transition-colors mt-1"
+            className="text-sm text-[#e74c3c] hover:opacity-70 transition-opacity mt-1 font-mono uppercase"
           >
-            关闭
+            {t('DISMISS')}
           </button>
         </div>
       )}
@@ -48,12 +50,12 @@ export function AlertsPage() {
       <AlertSummaryCard />
 
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-[#1d1d1f]">告警规则</h2>
+        <h2 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Alert Rules')}</h2>
         <button
           onClick={handleNew}
-          className="px-4 py-2 rounded-xl bg-[#007AFF] text-white text-sm font-medium hover:bg-[#007AFF]/90 transition-colors"
+          className="tech-btn tech-btn-primary px-4 py-2 rounded-sm text-xs"
         >
-          + 新建规则
+          {t('+ NEW RULE')}
         </button>
       </div>
 

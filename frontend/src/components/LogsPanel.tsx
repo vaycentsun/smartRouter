@@ -1,35 +1,37 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useDashboardStore } from '../store/useDashboardStore'
 import type { LogSource } from '../types'
+import { useTranslation } from '../i18n/I18nProvider'
 
 const LOG_SOURCES: { key: LogSource; label: string }[] = [
-  { key: 'service', label: '服务日志' },
-  { key: 'dashboard', label: 'Dashboard 日志' },
+  { key: 'service', label: 'SERVICE' },
+  { key: 'dashboard', label: 'DASHBOARD log' },
 ]
 
 const LOG_LEVELS = [
-  { key: 'ALL', label: '全部' },
+  { key: 'ALL', label: 'ALL' },
   { key: 'DEBUG', label: 'DEBUG' },
   { key: 'INFO', label: 'INFO' },
-  { key: 'WARNING', label: 'WARNING' },
+  { key: 'WARNING', label: 'WARN' },
   { key: 'ERROR', label: 'ERROR' },
 ]
 
 function getLineColor(line: string): string {
   const upper = line.toUpperCase()
   if (upper.includes('ERROR') || upper.includes('CRITICAL') || upper.includes('FATAL')) {
-    return 'text-[#FF3B30]'
+    return 'text-[#e74c3c]'
   }
   if (upper.includes('WARNING') || upper.includes('WARN')) {
-    return 'text-[#FF9500]'
+    return 'text-[#f39c12]'
   }
   if (upper.includes('INFO')) {
-    return 'text-[#34C759]'
+    return 'text-[#00d4aa]'
   }
-  return 'text-[#e5e5ea]'
+  return 'text-[#8e8e93]'
 }
 
 export function LogsPanel() {
+  const { t } = useTranslation()
   const { logs, fetchLogs, setLogSource, setLogLevel, logError, clearLogError } = useDashboardStore()
   const [activeSource, setActiveSource] = useState<LogSource>('service')
   const [activeLevel, setActiveLevel] = useState('ALL')
@@ -81,35 +83,35 @@ export function LogsPanel() {
     <div className="space-y-4">
       {/* Error Alert */}
       {logError && (
-        <div className="glass-card rounded-2xl p-4 flex items-center justify-between border border-red-400/20">
-          <p className="text-sm text-[#FF3B30]">{logError}</p>
+        <div className="tech-card rounded-sm p-4 flex items-center justify-between border border-[rgba(231,76,60,0.2)]">
+          <p className="text-sm text-[#e74c3c] font-mono">{logError}</p>
           <button
             onClick={clearLogError}
-            className="text-sm text-[#FF3B30] hover:text-[#FF3B30]/70 transition-colors"
+            className="text-sm text-[#e74c3c] hover:opacity-70 transition-opacity font-mono uppercase"
           >
-            关闭
+            {t('DISMISS')}
           </button>
         </div>
       )}
 
-      <div className="glass-card rounded-2xl overflow-hidden">
+      <div className="tech-card rounded-sm overflow-hidden">
         {/* Header with source tabs and level filter */}
-        <div className="p-4 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between">
+        <div className="p-4 border-b border-[#1a1a2e] flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-4">
-            <div className="w-1 h-5 bg-[#007AFF] rounded-full" />
-            <h2 className="text-base font-semibold text-[#1d1d1f] tracking-wide">实时日志</h2>
+            <div className="w-1 h-4 bg-[#00d4aa]" />
+            <h2 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Live Logs')}</h2>
             <div className="flex gap-1 ml-4">
               {LOG_SOURCES.map((s) => (
                 <button
                   key={s.key}
                   onClick={() => handleSwitch(s.key)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3 py-1 rounded-sm text-xs font-mono uppercase tracking-wider transition-all ${
                     activeSource === s.key
-                      ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF]'
-                      : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+                      ? 'tech-tab-active'
+                      : 'tech-tab'
                   }`}
                 >
-                  {s.label}
+                  {t(s.label)}
                 </button>
               ))}
             </div>
@@ -120,18 +122,18 @@ export function LogsPanel() {
                 <button
                   key={l.key}
                   onClick={() => handleLevelSwitch(l.key)}
-                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-2 py-1 rounded-sm text-xs font-mono uppercase tracking-wider transition-all ${
                     activeLevel === l.key
-                      ? 'bg-[rgba(255,149,0,0.08)] text-[#FF9500]'
-                      : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+                      ? 'bg-[rgba(243,156,18,0.08)] text-[#f39c12] border border-[rgba(243,156,18,0.15)]'
+                      : 'text-[#636366] hover:text-[#8e8e93]'
                   }`}
                 >
-                  {l.label}
+                  {t(l.label)}
                 </button>
               ))}
             </div>
-            <span className="text-xs text-[#86868b] font-mono border-l border-[rgba(0,0,0,0.1)] pl-3">
-              {logs.lines.length} 行
+            <span className="text-xs text-[#636366] font-mono border-l border-[#1a1a2e] pl-3">
+              {logs.lines.length} {t('LINES')}
             </span>
           </div>
         </div>
@@ -140,11 +142,11 @@ export function LogsPanel() {
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="bg-[#1c1c1e] p-4 overflow-auto"
+          className="bg-[#0a0a0f] p-4 overflow-auto border-b border-[#1a1a2e]"
           style={{ maxHeight: '60vh', minHeight: '400px' }}
         >
           {logs.lines.length === 0 ? (
-            <p className="text-sm text-[#86868b] font-mono text-center py-8">暂无日志</p>
+            <p className="text-sm text-[#636366] font-mono text-center py-8">{t('NO LOGS')}</p>
           ) : (
             <div className="space-y-0.5">
               {logs.lines.map((line, index) => (
@@ -160,12 +162,12 @@ export function LogsPanel() {
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 border-t border-[rgba(0,0,0,0.06)] flex items-center justify-between">
-          <span className="text-xs text-[#86868b]">
-            {autoScroll ? '自动滚动中' : '已暂停自动滚动'}
+        <div className="px-4 py-2 flex items-center justify-between">
+          <span className="text-xs text-[#636366] font-mono">
+            {autoScroll ? t('AUTO SCROLL') : t('PAUSED')}
           </span>
-          <span className="text-xs text-[#86868b] font-mono">
-            offset: {logs.offset} bytes
+          <span className="text-xs text-[#636366] font-mono">
+            {t('OFFSET')}: {logs.offset} {t('BYTES')}
           </span>
         </div>
       </div>

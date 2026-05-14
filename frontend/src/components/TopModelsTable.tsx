@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 import type { AnalyticsTopModelItem } from '../types'
 
@@ -8,6 +9,7 @@ export function TopModelsTable() {
   const { analyticsTopModels } = useDashboardStore()
   const [sortKey, setSortKey] = useState<SortKey>('total_tokens')
   const [sortAsc, setSortAsc] = useState(false)
+  const { t } = useTranslation()
 
   const sorted = [...analyticsTopModels].sort((a, b) => {
     const aVal = a[sortKey]
@@ -28,74 +30,80 @@ export function TopModelsTable() {
   }
 
   const SortIcon = ({ column }: { column: SortKey }) => {
-    if (sortKey !== column) return <span className="text-[#c7c7cc] ml-1">↕</span>
-    return <span className="text-[#007AFF] ml-1">{sortAsc ? '▲' : '▼'}</span>
+    if (sortKey !== column) return <span className="text-[#636366] ml-1 font-mono text-xs">↕</span>
+    return <span className="text-[#00d4aa] ml-1 font-mono text-xs">{sortAsc ? '▲' : '▼'}</span>
   }
 
   if (analyticsTopModels.length === 0) {
     return (
-      <div className="glass-card rounded-2xl p-5">
-        <h3 className="text-sm font-medium text-[#86868b] mb-4">热门模型排行</h3>
-        <div className="text-center py-8 text-[#a1a1a6] text-sm">暂无数据</div>
+      <div className="tech-card rounded-sm p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-1 h-4 bg-[#e84393]" />
+          <h3 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Top Models')}</h3>
+        </div>
+        <div className="text-center py-8 text-[#636366] text-sm font-mono">{t('NO DATA')}</div>
       </div>
     )
   }
 
   return (
-    <div className="glass-card rounded-2xl p-5">
-      <h3 className="text-sm font-medium text-[#86868b] mb-4">热门模型排行</h3>
+    <div className="tech-card rounded-sm p-5">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-1 h-4 bg-[#e84393]" />
+        <h3 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Top Models')}</h3>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-[rgba(0,0,0,0.06)]">
-              <th className="text-left py-3 px-2 font-medium text-[#86868b]">排名</th>
+            <tr className="border-b border-[#1a1a2e]">
+              <th className="text-left py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest">#</th>
               <th
-                className="text-left py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                className="text-left py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('model')}
               >
-                模型名 <SortIcon column="model" />
+                {t('Model')} <SortIcon column="model" />
               </th>
               <th
-                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('prompt_tokens')}
               >
-                输入 <SortIcon column="prompt_tokens" />
+                {t('Input')} <SortIcon column="prompt_tokens" />
               </th>
               <th
-                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('completion_tokens')}
               >
-                输出 <SortIcon column="completion_tokens" />
+                {t('Output')} <SortIcon column="completion_tokens" />
               </th>
               <th
-                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('reasoning_tokens')}
               >
-                推理 <SortIcon column="reasoning_tokens" />
+                {t('Reason')} <SortIcon column="reasoning_tokens" />
               </th>
               <th
-                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('cached_tokens')}
               >
-                缓存 <SortIcon column="cached_tokens" />
+                {t('Cache')} <SortIcon column="cached_tokens" />
               </th>
               <th
-                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('total_tokens')}
               >
-                总计 <SortIcon column="total_tokens" />
+                {t('Total')} <SortIcon column="total_tokens" />
               </th>
               <th
-                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('cost')}
               >
-                成本 <SortIcon column="cost" />
+                {t('Cost')} <SortIcon column="cost" />
               </th>
               <th
-                className="text-right py-3 px-2 font-medium text-[#86868b] cursor-pointer select-none"
+                className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('request_count')}
               >
-                请求数 <SortIcon column="request_count" />
+                {t('Req')} <SortIcon column="request_count" />
               </th>
             </tr>
           </thead>
@@ -103,29 +111,29 @@ export function TopModelsTable() {
             {sorted.map((item, index) => (
               <tr
                 key={item.model}
-                className="border-b border-[rgba(0,0,0,0.04)] hover:bg-[rgba(0,0,0,0.02)] transition-colors"
+                className="data-row"
               >
-                <td className="py-3 px-2 text-[#86868b] font-mono">{index + 1}</td>
-                <td className="py-3 px-2 font-medium text-[#1d1d1f]">{item.model}</td>
-                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                <td className="py-3 px-2 text-[#636366] font-mono text-xs">{index + 1}</td>
+                <td className="py-3 px-2 font-medium text-[#e8e8ed] font-mono text-xs">{item.model}</td>
+                <td className="py-3 px-2 text-right text-[#e8e8ed] font-mono text-xs">
                   {item.prompt_tokens.toLocaleString()}
                 </td>
-                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                <td className="py-3 px-2 text-right text-[#e8e8ed] font-mono text-xs">
                   {item.completion_tokens.toLocaleString()}
                 </td>
-                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                <td className="py-3 px-2 text-right text-[#e8e8ed] font-mono text-xs">
                   {item.reasoning_tokens.toLocaleString()}
                 </td>
-                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                <td className="py-3 px-2 text-right text-[#e8e8ed] font-mono text-xs">
                   {item.cached_tokens.toLocaleString()}
                 </td>
-                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono font-medium">
+                <td className="py-3 px-2 text-right text-[#00d4aa] font-mono text-xs font-medium">
                   {item.total_tokens.toLocaleString()}
                 </td>
-                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                <td className="py-3 px-2 text-right text-[#e8e8ed] font-mono text-xs">
                   ¥{item.cost.toFixed(2)}
                 </td>
-                <td className="py-3 px-2 text-right text-[#1d1d1f] font-mono">
+                <td className="py-3 px-2 text-right text-[#e8e8ed] font-mono text-xs">
                   {item.request_count.toLocaleString()}
                 </td>
               </tr>
