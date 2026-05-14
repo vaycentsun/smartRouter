@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 
 export function DryRunPanel() {
+  const { t } = useTranslation()
   const [prompt, setPrompt] = useState('')
   const { runDryRun, dryRunResult, isLoading, error, clearError } =
     useDashboardStore()
@@ -13,23 +15,23 @@ export function DryRunPanel() {
   }
 
   return (
-    <div className="glass-card rounded-2xl">
-      <div className="p-4 border-b border-[rgba(0,0,0,0.06)] flex items-center gap-2">
-        <div className="w-1 h-5 bg-[#007AFF] rounded-full" />
-        <h2 className="text-base font-semibold text-[#1d1d1f] tracking-wide">快速路由测试</h2>
+    <div className="tech-card rounded-sm">
+      <div className="p-4 border-b border-[#1a1a2e] flex items-center gap-3">
+        <div className="w-1 h-4 bg-[#00d4aa]" />
+        <h2 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Route Test')}</h2>
       </div>
       <div className="p-5 space-y-4">
         {/* Prompt Input */}
         <div>
-          <label className="block text-xs font-mono text-[#86868b] uppercase tracking-wider mb-2">
-            输入提示词
+          <label className="block text-[10px] text-[#636366] font-mono uppercase tracking-widest mb-2">
+            {t('Input Prompt')}
           </label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="例如：帮我写一个快速排序算法"
             rows={3}
-            className="w-full px-3 py-2 rounded-xl text-sm input-glow resize-none"
+            className="w-full px-3 py-2 rounded-sm text-sm tech-input resize-none"
           />
         </div>
 
@@ -37,58 +39,60 @@ export function DryRunPanel() {
         <button
           onClick={handleSubmit}
           disabled={isLoading || !prompt.trim()}
-          className="w-full px-4 py-2.5 bg-[rgba(0,122,255,0.08)] text-[#007AFF] border border-[rgba(0,122,255,0.15)] rounded-xl hover:bg-[rgba(0,122,255,0.12)] hover:border-[rgba(0,122,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium backdrop-blur-sm"
+          className="tech-btn tech-btn-primary w-full px-4 py-2.5 rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? '测试中...' : '测试路由'}
+          {isLoading ? t('TESTING') : t('EXECUTE TEST')}
         </button>
 
         {/* Error */}
         {error && (
-          <div className="p-3 bg-[rgba(255,59,48,0.04)] border border-[rgba(255,59,48,0.12)] rounded-xl">
-            <p className="text-sm text-[#FF3B30]">{error}</p>
+          <div className="p-3 bg-[rgba(231,76,60,0.04)] border border-[rgba(231,76,60,0.12)] rounded-sm">
+            <p className="text-sm text-[#e74c3c] font-mono">{error}</p>
           </div>
         )}
 
         {/* Result */}
         {dryRunResult && !dryRunResult.error && (
-          <div className="p-4 bg-[rgba(0,0,0,0.02)] border border-[rgba(0,0,0,0.06)] rounded-xl space-y-3">
-            <h3 className="text-xs font-mono text-[#007AFF] uppercase tracking-wider">路由结果</h3>
+          <div className="p-4 bg-[#0a0a0f] border border-[#1a1a2e] rounded-sm space-y-3">
+            <h3 className="text-[10px] text-[#00d4aa] font-mono uppercase tracking-widest">{t('Routing Result')}</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="flex justify-between py-1 border-b border-[rgba(0,0,0,0.06)]">
-                <span className="text-[#86868b]">任务类型</span>
-                <span className="font-medium text-[#1d1d1f]">{dryRunResult.task_type}</span>
+              <div className="flex justify-between py-1 border-b border-[#1a1a2e]">
+                <span className="text-[#636366] text-xs font-mono">{t('TASK_TYPE')}</span>
+                <span className="font-medium text-[#e8e8ed] font-mono">{dryRunResult.task_type}</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-[rgba(0,0,0,0.06)]">
-                <span className="text-[#86868b]">置信度</span>
-                <span className="font-medium text-[#1d1d1f]">{dryRunResult.task_confidence}</span>
+              <div className="flex justify-between py-1 border-b border-[#1a1a2e]">
+                <span className="text-[#636366] text-xs font-mono">{t('CONFIDENCE')}</span>
+                <span className="font-medium text-[#e8e8ed] font-mono">{dryRunResult.task_confidence}</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-[rgba(0,0,0,0.06)]">
-                <span className="text-[#86868b]">难度</span>
-                <span className="font-medium text-[#1d1d1f]">{dryRunResult.difficulty}</span>
+              <div className="flex justify-between py-1 border-b border-[#1a1a2e]">
+                <span className="text-[#636366] text-xs font-mono">{t('DIFFICULTY')}</span>
+                <span className="font-medium text-[#e8e8ed] font-mono">{dryRunResult.difficulty}</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-[rgba(0,0,0,0.06)]">
-                <span className="text-[#86868b]">选中模型</span>
-                <span className="font-medium text-[#007AFF]">{dryRunResult.selected_model}</span>
+              <div className="flex justify-between py-1 border-b border-[#1a1a2e]">
+                <span className="text-[#636366] text-xs font-mono">{t('MODEL')}</span>
+                <span className="font-medium text-[#00d4aa] font-mono">{dryRunResult.selected_model}</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-[rgba(0,0,0,0.06)]">
-                <span className="text-[#86868b]">策略</span>
-                <span className="font-medium text-[#1d1d1f]">{dryRunResult.strategy}</span>
+              <div className="flex justify-between py-1 border-b border-[#1a1a2e]">
+                <span className="text-[#636366] text-xs font-mono">{t('STRATEGY')}</span>
+                <span className="font-medium text-[#e8e8ed] font-mono">{dryRunResult.strategy}</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-[rgba(0,0,0,0.06)]">
-                <span className="text-[#86868b]">得分</span>
-                <span className="font-medium text-[#1d1d1f]">{dryRunResult.score}</span>
+              <div className="flex justify-between py-1 border-b border-[#1a1a2e]">
+                <span className="text-[#636366] text-xs font-mono">{t('SCORE')}</span>
+                <span className="font-medium text-[#e8e8ed] font-mono">{dryRunResult.score}</span>
               </div>
             </div>
             <div className="pt-2">
-              <span className="text-[#86868b] text-xs font-mono uppercase">原因</span>
-              <p className="text-sm text-[#1d1d1f] mt-1 leading-relaxed">{dryRunResult.reason}</p>
+              <span className="text-[#636366] text-[10px] font-mono uppercase tracking-widest">{t('REASON')}</span>
+              <p className="text-sm text-[#e8e8ed] mt-1 leading-relaxed font-mono text-xs">
+                {dryRunResult.reason}
+              </p>
             </div>
             {dryRunResult.fallback_chain && dryRunResult.fallback_chain.length > 0 && (
-              <div className="pt-2 border-t border-[rgba(0,0,0,0.06)]">
-                <span className="text-[#86868b] text-xs font-mono uppercase">Fallback 链</span>
-                <p className="text-sm text-[#1d1d1f] mt-1 leading-relaxed font-medium">
+              <div className="pt-2 border-t border-[#1a1a2e]">
+                <span className="text-[#636366] text-[10px] font-mono uppercase tracking-widest">{t('FALLBACK CHAIN')}</span>
+                <p className="text-sm text-[#e8e8ed] mt-1 leading-relaxed font-medium font-mono">
                   {dryRunResult.selected_model}
-                  <span className="text-[#a1a1a6] mx-1">→</span>
+                  <span className="text-[#636366] mx-1">→</span>
                   {dryRunResult.fallback_chain.join(' → ')}
                 </p>
               </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 
 interface EditableProvider {
@@ -11,17 +12,19 @@ interface EditableProvider {
 }
 
 function StatusDot({ hasKey }: { hasKey: boolean }) {
+  const { t } = useTranslation()
   return (
     <span
-      className={`inline-block w-2.5 h-2.5 rounded-full ${
-        hasKey ? 'bg-emerald-400 pulse-glow' : 'bg-red-400 pulse-glow-red'
+      className={`inline-block w-2.5 h-2.5 rounded-sm ${
+        hasKey ? 'bg-[#00d4aa] pulse-glow' : 'bg-[#e74c3c] pulse-glow'
       }`}
-      title={hasKey ? 'Key 已配置' : 'Key 缺失'}
+      title={hasKey ? t('KEY CONFIGURED') : t('KEY MISSING')}
     />
   )
 }
 
 export function ProvidersTable() {
+  const { t } = useTranslation()
   const { providers, saveProviders, isSavingProviders, toast, clearToast } = useDashboardStore()
   const [edits, setEdits] = useState<Record<string, EditableProvider>>({})
   const [hasChanges, setHasChanges] = useState(false)
@@ -75,7 +78,6 @@ export function ProvidersTable() {
           api_base: edit.api_base,
           timeout: edit.timeout,
         }
-        // 只有 api_key 字段被用户修改过，才提交 api_key（支持清空为空字符串）
         if (edit.apiKeyDirty) {
           entry.api_key = edit.api_key
         }
@@ -95,30 +97,30 @@ export function ProvidersTable() {
 
   if (providers.length === 0) {
     return (
-      <div className="glass-card rounded-xl p-6">
+      <div className="tech-card rounded-sm p-6">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-1 h-5 bg-[#007AFF] rounded-full" />
-          <h2 className="text-base font-semibold text-[#1d1d1f] tracking-wide">Provider 配置</h2>
+          <div className="w-1 h-4 bg-[#00d4aa]" />
+          <h2 className="text-base font-semibold text-[#e8e8ed] uppercase tracking-wider font-mono">{t('PROVIDERS')}</h2>
         </div>
-        <p className="text-[#a1a1a6] text-sm">暂无 Provider 数据</p>
+        <p className="text-[#636366] text-sm">{t('NO PROVIDER DATA')}</p>
       </div>
     )
   }
 
   return (
-    <div className="glass-card rounded-xl">
-      <div className="p-4 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between">
+    <div className="tech-card rounded-sm">
+      <div className="p-4 border-b border-[#1a1a2e] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-1 h-5 bg-[#007AFF] rounded-full" />
-          <h2 className="text-base font-semibold text-[#1d1d1f] tracking-wide">Provider 配置</h2>
+          <div className="w-1 h-4 bg-[#00d4aa]" />
+          <h2 className="text-base font-semibold text-[#e8e8ed] uppercase tracking-wider font-mono">{t('PROVIDERS')}</h2>
         </div>
         <div className="flex items-center gap-3">
           {toast && (
             <span
-              className={`text-xs px-3 py-1 rounded-full font-mono ${
+              className={`text-xs px-3 py-1 rounded-sm font-mono ${
                 toast.type === 'success'
-                  ? 'bg-[rgba(52,199,89,0.08)] text-[#34C759] border border-[rgba(52,199,89,0.15)]'
-                  : 'bg-[rgba(255,59,48,0.08)] text-[#FF3B30] border border-[rgba(255,59,48,0.15)]'
+                  ? 'tech-tag tech-tag-accent'
+                  : 'tech-tag tech-tag-danger'
               }`}
             >
               {toast.message}
@@ -127,29 +129,29 @@ export function ProvidersTable() {
           <button
             onClick={handleSave}
             disabled={!hasChanges || isSavingProviders}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`px-4 py-2 rounded-sm text-sm font-medium transition-all ${
               hasChanges && !isSavingProviders
-                ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] border border-[rgba(0,122,255,0.25)] hover:bg-[rgba(0,122,255,0.12)] hover:border-[rgba(0,122,255,0.4)]'
-                : 'bg-[rgba(0,0,0,0.03)] text-[#a1a1a6] border border-[rgba(0,0,0,0.06)] cursor-not-allowed'
+                ? 'tech-btn-primary'
+                : 'tech-btn-muted cursor-not-allowed'
             }`}
           >
-            {isSavingProviders ? '保存中...' : '保存所有修改'}
+            {isSavingProviders ? t('SAVING...') : t('SAVE CHANGES')}
           </button>
         </div>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="bg-[rgba(0,0,0,0.02)] text-[#86868b]">
+          <thead className="bg-[#0a0a0f] text-[#636366]">
             <tr>
-              <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider w-10">状态</th>
-              <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">名称</th>
-              <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">API Base</th>
-              <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider">API Key</th>
-              <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider w-24">Timeout</th>
+              <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest w-10">{t('STATUS')}</th>
+              <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest">{t('NAME')}</th>
+              <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest">{t('API BASE')}</th>
+              <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest">{t('API KEY')}</th>
+              <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest w-24">{t('TIMEOUT')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[rgba(0,0,0,0.04)]">
+          <tbody className="divide-y divide-[#1a1a2e]">
             {providers.map((provider) => {
               const edit = edits[provider.name]
               if (!edit) return null
@@ -157,23 +159,23 @@ export function ProvidersTable() {
               const isEnvKey = provider.key_type.startsWith('env:')
               const keyPlaceholder = isEnvKey
                 ? ''
-                : provider.masked_key || '未配置 API Key'
+                : provider.masked_key || t('NO API KEY')
 
               return (
                 <tr
                   key={provider.name}
-                  className={`table-row-hover ${edit.dirty ? 'bg-[rgba(0,122,255,0.03)]' : ''}`}
+                  className={`data-row ${edit.dirty ? 'bg-[rgba(0,212,170,0.03)]' : ''}`}
                 >
                   <td className="px-4 py-3">
                     <StatusDot hasKey={provider.has_key} />
                   </td>
-                  <td className="px-4 py-3 font-medium text-[#1d1d1f]">{provider.name}</td>
+                  <td className="px-4 py-3 font-medium text-[#e8e8ed]">{provider.name}</td>
                   <td className="px-4 py-3">
                     <input
                       type="text"
                       value={edit.api_base}
                       onChange={(e) => handleChange(provider.name, 'api_base', e.target.value)}
-                      className="w-full px-2 py-1 rounded text-sm text-[#1d1d1f] input-glow"
+                      className="w-full px-2 py-1 rounded-sm text-sm text-[#e8e8ed] input-glow"
                     />
                   </td>
                   <td className="px-4 py-3">
@@ -183,13 +185,13 @@ export function ProvidersTable() {
                         value={edit.api_key}
                         placeholder={keyPlaceholder}
                         onChange={(e) => handleChange(provider.name, 'api_key', e.target.value)}
-                        className="flex-1 min-w-0 px-2 py-1 rounded text-sm text-[#1d1d1f] input-glow placeholder-[#a1a1a6]"
+                        className="flex-1 min-w-0 px-2 py-1 rounded-sm text-sm text-[#e8e8ed] input-glow placeholder-[#636366]"
                       />
                       <button
                         type="button"
                         onClick={() => handleChange(provider.name, 'showKey', !edit.showKey)}
-                        className="text-[#a1a1a6] hover:text-[#007AFF] text-xs px-1 transition-colors"
-                        title={edit.showKey ? '隐藏' : '显示'}
+                        className="text-[#636366] hover:text-[#00d4aa] text-xs px-1 transition-colors"
+                        title={edit.showKey ? t('HIDE') : t('SHOW')}
                       >
                         {edit.showKey ? '🙈' : '👁'}
                       </button>
@@ -200,7 +202,7 @@ export function ProvidersTable() {
                       type="number"
                       value={edit.timeout}
                       onChange={(e) => handleChange(provider.name, 'timeout', parseInt(e.target.value) || 30)}
-                      className="w-20 px-2 py-1 rounded text-sm text-[#1d1d1f] input-glow"
+                      className="w-20 px-2 py-1 rounded-sm text-sm text-[#e8e8ed] input-glow"
                     />
                   </td>
                 </tr>

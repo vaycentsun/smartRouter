@@ -1,173 +1,262 @@
 @import "tailwindcss";
 
 @theme {
-  --color-glass-bg: rgba(255, 255, 255, 0.65);
-  --color-glass-border: rgba(255, 255, 255, 0.5);
-  --color-glass-border-hover: rgba(255, 255, 255, 0.7);
-  --color-blue-glow: rgba(0, 122, 255, 0.15);
-  --color-green-glow: rgba(52, 199, 89, 0.15);
-  --color-red-glow: rgba(255, 59, 48, 0.15);
-  --color-text-primary: #1d1d1f;
-  --color-text-secondary: #86868b;
-  --color-text-muted: #a1a1a6;
+  /* 深色科技主题色彩系统 */
+  --color-tech-bg: #0a0a0f;
+  --color-tech-bg-secondary: #111118;
+  --color-tech-bg-tertiary: #1a1a24;
+  --color-tech-border: #1a1a2e;
+  --color-tech-border-hover: #2a2a3e;
+  --color-tech-accent: #00d4aa;
+  --color-tech-accent-dim: rgba(0, 212, 170, 0.1);
+  --color-tech-accent-glow: rgba(0, 212, 170, 0.15);
+  --color-tech-text: #e8e8ed;
+  --color-tech-text-secondary: #8e8e93;
+  --color-tech-text-muted: #636366;
+  --color-tech-red: #e74c3c;
+  --color-tech-red-dim: rgba(231, 76, 60, 0.1);
+  --color-tech-orange: #f39c12;
+  --color-tech-orange-dim: rgba(243, 156, 18, 0.1);
+  --color-tech-blue: #3498db;
+  --color-tech-blue-dim: rgba(52, 152, 219, 0.1);
+  --color-tech-purple: #9b59b6;
+  --color-tech-purple-dim: rgba(155, 89, 182, 0.1);
+  --color-tech-green: #27ae60;
+  --color-tech-green-dim: rgba(39, 174, 96, 0.1);
+  --color-tech-pink: #e84393;
+  --color-tech-pink-dim: rgba(232, 67, 147, 0.1);
+  --color-tech-cyan: #00cec9;
+  --color-tech-cyan-dim: rgba(0, 206, 201, 0.1);
+  --color-tech-indigo: #6c5ce7;
+  --color-tech-indigo-dim: rgba(108, 92, 231, 0.1);
+  --color-tech-teal: #1abc9c;
+  --color-tech-teal-dim: rgba(26, 188, 156, 0.1);
 }
 
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: #f5f5f7;
-  color: #1d1d1f;
+  background-color: #0a0a0f;
+  color: #e8e8ed;
 }
 
-/* 浅灰空间网格背景 */
+/* 等宽字体 */
+.font-mono {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+}
+
+/* 暗色网格背景 */
 .bg-tech-grid {
   background-image:
-    radial-gradient(circle at 1px 1px, rgba(120, 120, 128, 0.06) 1px, transparent 0);
-  background-size: 32px 32px;
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
-/* 浅灰径向渐变背景 */
-.bg-tech-gradient {
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(120, 120, 128, 0.04), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(120, 120, 128, 0.03), transparent),
-    radial-gradient(ellipse 50% 50% at 20% 80%, rgba(120, 120, 128, 0.02), transparent);
+/* 顶部装饰线 */
+.top-accent-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 212, 170, 0.3), transparent);
 }
 
-/* 水晶玻璃卡片基础 */
-.glass-card {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.02),
-    0 4px 12px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* 科技卡片 */
+.tech-card {
+  background: #111118;
+  border: 1px solid #1a1a2e;
+  border-radius: 4px;
+  transition: border-color 0.2s ease;
 }
 
-.glass-card:hover {
-  background: rgba(255, 255, 255, 0.75);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.02),
-    0 8px 24px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border-color: rgba(255, 255, 255, 0.7);
+.tech-card:hover {
+  border-color: #2a2a3e;
 }
 
-/* 水晶玻璃头部 */
-.glass-header {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+/* 科技头部 */
+.tech-header {
+  background: #0a0a0f;
+  border-bottom: 1px solid #1a1a2e;
 }
 
-/* macOS 风格按钮 */
-.btn-glow {
-  position: relative;
-  overflow: hidden;
+/* 科技按钮 */
+.tech-btn {
+  background: transparent;
+  border: 1px solid #1a1a2e;
+  color: #8e8e93;
+  transition: all 0.2s ease;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+
+.tech-btn:hover {
+  border-color: #00d4aa;
+  color: #00d4aa;
+  background: rgba(0, 212, 170, 0.05);
+}
+
+.tech-btn-primary {
+  background: rgba(0, 212, 170, 0.1);
+  border: 1px solid rgba(0, 212, 170, 0.3);
+  color: #00d4aa;
+}
+
+.tech-btn-primary:hover {
+  background: rgba(0, 212, 170, 0.15);
+  border-color: rgba(0, 212, 170, 0.5);
+  box-shadow: 0 0 12px rgba(0, 212, 170, 0.1);
+}
+
+.tech-btn-danger {
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  color: #e74c3c;
+}
+
+.tech-btn-danger:hover {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: rgba(231, 76, 60, 0.5);
+}
+
+.tech-btn-warning {
+  background: rgba(243, 156, 18, 0.1);
+  border: 1px solid rgba(243, 156, 18, 0.3);
+  color: #f39c12;
+}
+
+.tech-btn-warning:hover {
+  background: rgba(243, 156, 18, 0.15);
+  border-color: rgba(243, 156, 18, 0.5);
+}
+
+.tech-btn-muted {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #636366;
+}
+
+/* 科技输入框 */
+.tech-input {
+  background: #0a0a0f;
+  border: 1px solid #1a1a2e;
+  color: #e8e8ed;
+  font-family: 'JetBrains Mono', monospace;
   transition: all 0.2s ease;
 }
 
-.btn-glow::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(0, 122, 255, 0.1), rgba(0, 122, 255, 0.05));
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.btn-glow:hover::before {
-  opacity: 1;
-}
-
-.btn-glow:hover {
-  box-shadow: 0 0 12px rgba(0, 122, 255, 0.15);
-  transform: translateY(-0.5px);
-}
-
-/* 柔和脉冲动画 */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 4px rgba(52, 199, 89, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 8px rgba(52, 199, 89, 0.5);
-  }
-}
-
-.pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-@keyframes pulse-glow-red {
-  0%, 100% {
-    box-shadow: 0 0 4px rgba(255, 59, 48, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 8px rgba(255, 59, 48, 0.5);
-  }
-}
-
-.pulse-glow-red {
-  animation: pulse-glow-red 2s ease-in-out infinite;
-}
-
-/* 输入框水晶玻璃 */
-.input-glow {
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  color: #1d1d1f;
-  transition: all 0.2s ease;
-}
-
-.input-glow:focus {
-  border-color: rgba(0, 122, 255, 0.4);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.08);
+.tech-input:focus {
+  border-color: rgba(0, 212, 170, 0.4);
+  box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.05);
   outline: none;
-  background: rgba(255, 255, 255, 0.8);
 }
 
-.input-glow::placeholder {
-  color: #a1a1a6;
+.tech-input::placeholder {
+  color: #636366;
 }
 
-/* 策略按钮 */
-.strategy-btn {
-  background: rgba(0, 0, 0, 0.03);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+.tech-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 科技 Tab */
+.tech-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #636366;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.7rem;
   transition: all 0.2s ease;
 }
 
-.strategy-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #1d1d1f;
+.tech-tab:hover {
+  color: #8e8e93;
+  border-color: #1a1a2e;
 }
 
-.strategy-btn-active {
-  background: rgba(0, 122, 255, 0.1);
-  border-color: rgba(0, 122, 255, 0.25);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.06);
-  color: #007AFF;
+.tech-tab-active {
+  background: rgba(0, 212, 170, 0.08);
+  border-color: rgba(0, 212, 170, 0.25);
+  color: #00d4aa;
 }
 
-/* 表格行悬停 */
-.table-row-hover {
-  transition: background 0.2s ease;
-}
-
-.table-row-hover:hover {
-  background: rgba(0, 122, 255, 0.03);
-}
-
-/* 滚动条 - 浅色风格 */
-::-webkit-scrollbar {
+/* 状态指示器 */
+.status-indicator {
   width: 6px;
   height: 6px;
+  border-radius: 1px;
+}
+
+.status-online {
+  background: #00d4aa;
+  box-shadow: 0 0 6px rgba(0, 212, 170, 0.4);
+}
+
+.status-offline {
+  background: #e74c3c;
+  box-shadow: 0 0 6px rgba(231, 76, 60, 0.4);
+}
+
+.status-warning {
+  background: #f39c12;
+  box-shadow: 0 0 6px rgba(243, 156, 18, 0.4);
+}
+
+/* 数据行 */
+.data-row {
+  border-bottom: 1px solid #1a1a2e;
+  transition: background 0.15s ease;
+}
+
+.data-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.data-row:last-child {
+  border-bottom: none;
+}
+
+/* 角标装饰 */
+.corner-bracket {
+  position: relative;
+}
+
+.corner-bracket::before,
+.corner-bracket::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-color: #00d4aa;
+  border-style: solid;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.corner-bracket::before {
+  top: -1px;
+  left: -1px;
+  border-width: 1px 0 0 1px;
+}
+
+.corner-bracket::after {
+  bottom: -1px;
+  right: -1px;
+  border-width: 0 1px 1px 0;
+}
+
+/* 等宽数字 */
+.mono-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -175,10 +264,220 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 3px;
+  background: #2a2a3e;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: #3a3a4e;
+}
+
+/* 选择高亮 */
+::selection {
+  background: rgba(0, 212, 170, 0.2);
+  color: #e8e8ed;
+}
+
+/* 玻璃拟态（保留但仅用于特殊场景，淡化使用） */
+.glass-card {
+  background: #111118;
+  border: 1px solid #1a1a2e;
+  border-radius: 4px;
+  transition: border-color 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: #2a2a3e;
+}
+
+.glass-header {
+  background: #0a0a0f;
+  border-bottom: 1px solid #1a1a2e;
+}
+
+/* 策略按钮 */
+.strategy-btn {
+  background: transparent;
+  border: 1px solid #1a1a2e;
+  color: #8e8e93;
+  transition: all 0.2s ease;
+}
+
+.strategy-btn:hover {
+  background: rgba(255, 255, 255, 0.02);
+  color: #e8e8ed;
+  border-color: #2a2a3e;
+}
+
+.strategy-btn-active {
+  background: rgba(0, 212, 170, 0.08);
+  border-color: rgba(0, 212, 170, 0.25);
+  color: #00d4aa;
+}
+
+/* 输入框水晶玻璃（改为科技风格） */
+.input-glow {
+  background: #0a0a0f;
+  border: 1px solid #1a1a2e;
+  color: #e8e8ed;
+  transition: all 0.2s ease;
+}
+
+.input-glow:focus {
+  border-color: rgba(0, 212, 170, 0.4);
+  box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.05);
+  outline: none;
+}
+
+.input-glow::placeholder {
+  color: #636366;
+}
+
+/* 表格行悬停 */
+.table-row-hover {
+  transition: background 0.15s ease;
+}
+
+.table-row-hover:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* 脉冲动画 - 改为淡化的版本 */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* 代码块样式 */
+.tech-code {
+  background: #0a0a0f;
+  border: 1px solid #1a1a2e;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+/* 标签样式 */
+.tech-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tech-tag-accent {
+  background: rgba(0, 212, 170, 0.1);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  color: #00d4aa;
+}
+
+.tech-tag-danger {
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+.tech-tag-warning {
+  background: rgba(243, 156, 18, 0.1);
+  border: 1px solid rgba(243, 156, 18, 0.2);
+  color: #f39c12;
+}
+
+.tech-tag-muted {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #636366;
+}
+
+/* 分割线 */
+.tech-divider {
+  height: 1px;
+  background: #1a1a2e;
+}
+
+/* 垂直分割线 */
+.tech-divider-v {
+  width: 1px;
+  background: #1a1a2e;
+}
+
+/* 禁用状态 */
+.tech-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 聚焦环 */
+.tech-focus:focus {
+  outline: none;
+  border-color: rgba(0, 212, 170, 0.4);
+  box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.05);
+}
+
+/* Toast 样式 */
+.tech-toast-success {
+  background: rgba(0, 212, 170, 0.05);
+  border: 1px solid rgba(0, 212, 170, 0.15);
+}
+
+.tech-toast-error {
+  background: rgba(231, 76, 60, 0.05);
+  border: 1px solid rgba(231, 76, 60, 0.15);
+}
+
+/* 链接样式 */
+.tech-link {
+  color: #00d4aa;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.tech-link:hover {
+  opacity: 0.7;
+}
+
+/* 开关样式 */
+.tech-switch {
+  appearance: none;
+  width: 36px;
+  height: 20px;
+  background: #1a1a2e;
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.tech-switch::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: #636366;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: all 0.2s ease;
+}
+
+.tech-switch:checked {
+  background: rgba(0, 212, 170, 0.2);
+}
+
+.tech-switch:checked::after {
+  background: #00d4aa;
+  left: 18px;
 }

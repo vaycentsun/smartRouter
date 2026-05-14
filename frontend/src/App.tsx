@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Route, Switch, useLocation, Redirect } from 'wouter'
 import { useDashboardStore } from './store/useDashboardStore'
+import { useTranslation } from './i18n/I18nProvider'
 import { Header } from './components/Header'
 import { ModelOverrideBar } from './components/ModelOverrideBar'
 import { DashboardPage } from './components/DashboardPage'
@@ -10,42 +11,43 @@ import { AnalyticsPage } from './components/AnalyticsPage'
 import { AlertsPage } from './components/AlertsPage'
 import { FormulaBuilder } from './components/FormulaBuilder'
 
-const tabs = [
-  { key: 'dashboard', label: '仪表盘', path: '/dashboard', icon: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-    </svg>
-  )},
-  { key: 'models', label: '模型清单', path: '/models', icon: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
-    </svg>
-  )},
-  { key: 'formula', label: '路由策略', path: '/formula', icon: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-    </svg>
-  )},
-  { key: 'analytics', label: '数据分析', path: '/analytics', icon: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
-    </svg>
-  )},
-  { key: 'logs', label: '日志', path: '/logs', icon: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-  )},
-  { key: 'alerts', label: '告警', path: '/alerts', icon: (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-    </svg>
-  )},
-] as const
-
 function App() {
   const { fetchAll, error, clearError } = useDashboardStore()
   const [location, setLocation] = useLocation()
+  const { t } = useTranslation()
+
+  const tabs = [
+    { key: 'dashboard', label: t('DASHBOARD'), path: '/dashboard', icon: (
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+      </svg>
+    )},
+    { key: 'models', label: t('MODELS'), path: '/models', icon: (
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+      </svg>
+    )},
+    { key: 'formula', label: t('ROUTING'), path: '/formula', icon: (
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      </svg>
+    )},
+    { key: 'analytics', label: t('ANALYTICS'), path: '/analytics', icon: (
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
+      </svg>
+    )},
+    { key: 'logs', label: t('LOGS'), path: '/logs', icon: (
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    )},
+    { key: 'alerts', label: t('ALERTS'), path: '/alerts', icon: (
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+      </svg>
+    )},
+  ]
 
   // Auto refresh every 5 seconds on all pages
   useEffect(() => {
@@ -55,37 +57,38 @@ function App() {
   }, [fetchAll])
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] bg-tech-grid bg-tech-gradient relative">
-      {/* 顶部极细分隔阴影 */}
-      <div className="fixed top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-black/5 to-transparent pointer-events-none" />
+    <div className="min-h-screen bg-[#0a0a0f] bg-tech-grid relative">
+      {/* 顶部装饰线 */}
+      <div className="top-accent-line fixed top-0 left-0 right-0 z-50" />
 
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 relative z-10">
+      <main className="max-w-7xl mx-auto px-6 py-6 space-y-6 relative z-10">
         <ModelOverrideBar />
+
         {/* Error Alert */}
         {error && (
-          <div className="glass-card rounded-2xl p-4 flex items-center justify-between border border-red-400/20">
-            <p className="text-sm text-[#FF3B30]">{error}</p>
+          <div className="tech-card rounded-sm p-4 flex items-center justify-between border border-[rgba(231,76,60,0.2)]">
+            <p className="text-sm text-[#e74c3c] font-mono">{error}</p>
             <button
               onClick={clearError}
-              className="text-sm text-[#FF3B30] hover:text-[#FF3B30]/70 transition-colors"
+              className="text-sm text-[#e74c3c] hover:opacity-70 transition-opacity font-mono uppercase"
             >
-              关闭
+              {t('DISMISS')}
             </button>
           </div>
         )}
 
         {/* Tab Navigation */}
-        <div className="glass-card rounded-2xl p-1.5 inline-flex gap-1">
+        <div className="flex gap-1 p-1 border border-[#1a1a2e] rounded-sm bg-[#111118]">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setLocation(tab.path)}
-              className={`px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-sm text-sm transition-all duration-200 flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] ${
                 location === tab.path
-                  ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] shadow-sm'
-                  : 'text-[#86868b] hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+                  ? 'tech-tab-active'
+                  : 'tech-tab'
               }`}
             >
               {tab.icon}
@@ -109,8 +112,8 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm text-[#a1a1a6] relative z-10">
-        Smart Router Dashboard
+      <footer className="max-w-7xl mx-auto px-6 py-4 text-center text-xs text-[#636366] font-mono relative z-10">
+        <span className="text-[#00d4aa]">SMART ROUTER</span> DASHBOARD
       </footer>
     </div>
   )

@@ -7,16 +7,21 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 
 export function RequestTrendChart() {
   const { analyticsDaily } = useDashboardStore()
+  const { t } = useTranslation()
 
   if (analyticsDaily.length === 0) {
     return (
-      <div className="glass-card rounded-2xl p-5">
-        <h3 className="text-sm font-medium text-[#86868b] mb-4">请求趋势</h3>
-        <div className="text-center py-8 text-[#a1a1a6] text-sm">暂无数据</div>
+      <div className="tech-card rounded-sm p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-1 h-4 bg-[#9b59b6]" />
+          <h3 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Request Trend')}</h3>
+        </div>
+        <div className="text-center py-8 text-[#636366] text-sm font-mono">{t('NO DATA')}</div>
       </div>
     )
   }
@@ -27,43 +32,47 @@ export function RequestTrendChart() {
   }))
 
   return (
-    <div className="glass-card rounded-2xl p-5">
-      <h3 className="text-sm font-medium text-[#86868b] mb-4">请求趋势</h3>
+    <div className="tech-card rounded-sm p-5">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-1 h-4 bg-[#9b59b6]" />
+        <h3 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Request Trend')}</h3>
+      </div>
       <ResponsiveContainer width="100%" height={250}>
         <AreaChart data={data}>
           <defs>
             <linearGradient id="reqGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#AF52DE" stopOpacity={0.15} />
-              <stop offset="95%" stopColor="#AF52DE" stopOpacity={0} />
+              <stop offset="5%" stopColor="#9b59b6" stopOpacity={0.15} />
+              <stop offset="95%" stopColor="#9b59b6" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.04)" />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 12, fill: '#86868b' }}
-            axisLine={{ stroke: 'rgba(0,0,0,0.06)' }}
+            tick={{ fontSize: 11, fill: '#636366', fontFamily: 'JetBrains Mono' }}
+            axisLine={{ stroke: '#1a1a2e' }}
             tickLine={false}
           />
           <YAxis
-            tick={{ fontSize: 12, fill: '#86868b' }}
+            tick={{ fontSize: 11, fill: '#636366', fontFamily: 'JetBrains Mono' }}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip
-            formatter={(value) => [Number(value).toLocaleString(), '请求数']}
+            formatter={(value) => [Number(value).toLocaleString(), t('Requests')]}
             contentStyle={{
-              background: 'rgba(255,255,255,0.9)',
-              backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(0,0,0,0.06)',
-              borderRadius: '8px',
+              background: '#111118',
+              border: '1px solid #1a1a2e',
+              borderRadius: '4px',
               fontSize: '12px',
+              fontFamily: 'JetBrains Mono',
+              color: '#e8e8ed',
             }}
           />
           <Area
             type="monotone"
             dataKey="requests"
-            stroke="#AF52DE"
-            strokeWidth={2}
+            stroke="#9b59b6"
+            strokeWidth={1.5}
             fill="url(#reqGradient)"
           />
         </AreaChart>

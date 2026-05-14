@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { ProviderInfo } from '../types'
+import { useTranslation } from '../i18n/I18nProvider'
 
 interface ProviderSidebarProps {
   providers: ProviderInfo[]
@@ -9,17 +10,19 @@ interface ProviderSidebarProps {
 }
 
 function StatusDot({ hasKey }: { hasKey: boolean }) {
+  const { t } = useTranslation()
   return (
     <span
-      className={`inline-block w-2 h-2 rounded-full ${
-        hasKey ? 'bg-emerald-400' : 'bg-red-400'
+      className={`inline-block w-1.5 h-1.5 rounded-sm ${
+        hasKey ? 'bg-[#00d4aa]' : 'bg-[#e74c3c]'
       }`}
-      title={hasKey ? 'Key 已配置' : 'Key 缺失'}
+      title={hasKey ? t('Key configured') : t('Key missing')}
     />
   )
 }
 
 export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSelect }: ProviderSidebarProps) {
+  const { t } = useTranslation()
   const sortedProviders = useMemo(() => {
     return [...providers].sort((a, b) => {
       if (a.has_key !== b.has_key) {
@@ -31,14 +34,14 @@ export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSe
 
   if (providers.length === 0) {
     return (
-      <div className="glass-card rounded-2xl p-6">
-        <p className="text-[#a1a1a6] text-sm">暂无 Provider 数据</p>
+      <div className="tech-card rounded-sm p-6">
+        <p className="text-[#636366] text-sm font-mono">{t('NO PROVIDERS')}</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {sortedProviders.map((provider) => {
         const isSelected = selectedProvider === provider.name
         const count = modelsCount[provider.name] || 0
@@ -46,29 +49,29 @@ export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSe
           <button
             key={provider.name}
             onClick={() => onSelect(provider.name)}
-            className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 ${
+            className={`w-full text-left p-3 rounded-sm border transition-all duration-200 ${
               isSelected
-                ? 'bg-[rgba(0,122,255,0.06)] border-[rgba(0,122,255,0.2)] shadow-sm'
-                : 'bg-white/60 border-transparent hover:bg-white/80 hover:border-[rgba(0,0,0,0.06)]'
+                ? 'bg-[rgba(0,212,170,0.04)] border-[rgba(0,212,170,0.2)]'
+                : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-[#1a1a2e]'
             }`}
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
                 <StatusDot hasKey={provider.has_key} />
-                <span className="font-semibold text-[#1d1d1f] text-sm">{provider.name}</span>
+                <span className="font-semibold text-[#e8e8ed] text-sm font-mono">{provider.name}</span>
               </div>
-              <span className="text-xs bg-[rgba(0,0,0,0.04)] text-[#86868b] px-2 py-0.5 rounded-full font-mono">
-                {count} 模型
+              <span className="text-xs bg-[#0a0a0f] text-[#636366] px-2 py-0.5 rounded-sm font-mono border border-[#1a1a2e]">
+                {count}
               </span>
             </div>
-            <p className="text-xs text-[#a1a1a6] truncate font-mono">{provider.api_base}</p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className={`text-xs px-2 py-0.5 rounded-full border ${
+            <p className="text-xs text-[#636366] truncate font-mono">{provider.api_base}</p>
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className={`text-[10px] px-2 py-0.5 rounded-sm border font-mono uppercase tracking-wider ${
                 provider.has_key
-                  ? 'bg-[rgba(52,199,89,0.06)] text-[#34C759] border-[rgba(52,199,89,0.12)]'
-                  : 'bg-[rgba(255,59,48,0.06)] text-[#FF3B30] border-[rgba(255,59,48,0.12)]'
+                  ? 'bg-[rgba(0,212,170,0.06)] text-[#00d4aa] border-[rgba(0,212,170,0.12)]'
+                  : 'bg-[rgba(231,76,60,0.06)] text-[#e74c3c] border-[rgba(231,76,60,0.12)]'
               }`}>
-                {provider.has_key ? 'Key 已配置' : 'Key 缺失'}
+                {provider.has_key ? t('CONFIGURED') : t('MISSING')}
               </span>
             </div>
           </button>

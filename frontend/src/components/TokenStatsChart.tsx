@@ -1,18 +1,20 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 
 const COLORS = [
-  '#007AFF', '#AF52DE', '#34C759', '#FF9500',
-  '#FF3B30', '#5856D6', '#FF2D55', '#5AC8FA',
+  '#00d4aa', '#9b59b6', '#00d4aa', '#f39c12',
+  '#e74c3c', '#6c5ce7', '#e84393', '#00cec9',
 ]
 
 export function TokenStatsChart() {
+  const { t } = useTranslation()
   const { tokenStats } = useDashboardStore()
 
   if (tokenStats.length === 0) {
     return (
-      <div className="text-center py-8 text-[#a1a1a6] text-sm">
-        暂无数据，发送请求后将自动统计
+      <div className="text-center py-8 text-[#636366] text-sm">
+        {t('NO DATA. SEND REQUESTS TO GENERATE STATISTICS.')}
       </div>
     )
   }
@@ -41,7 +43,7 @@ export function TokenStatsChart() {
         <Tooltip
           formatter={(value) => {
             const num = typeof value === 'number' ? value : 0
-            return [num.toLocaleString(), 'Token']
+            return [num.toLocaleString(), t('Token')]
           }}
         />
         <Legend />

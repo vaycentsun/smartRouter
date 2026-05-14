@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from '../i18n/I18nProvider'
 import { api } from '../api/client'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { PlaygroundModelCard } from './PlaygroundModelCard'
@@ -13,27 +14,27 @@ interface FormulaTemplate {
 const FORMULA_TEMPLATES: FormulaTemplate[] = [
   {
     id: 'quality_first',
-    name: '质量优先',
-    description: '优先选择高质量模型',
+    name: 'QUALITY FIRST',
+    description: 'qualityDesc',
     weights: { quality: 0.9, cost: 0.1 },
   },
   {
     id: 'cost_first',
-    name: '成本优先',
-    description: '优先选择便宜模型',
+    name: 'COST FIRST',
+    description: 'costDesc',
     weights: { quality: 0.1, cost: 0.9 },
   },
   {
     id: 'balanced',
-    name: '均衡',
-    description: '质量与成本兼顾',
+    name: 'BALANCED',
+    description: 'balancedDesc',
     weights: { quality: 0.5, cost: 0.5 },
   },
 ]
 
 const DIMENSIONS = [
-  { key: 'quality', name: '质量', description: '代码质量、推理能力' },
-  { key: 'cost', name: '成本', description: '成本效率（越高越便宜）' },
+  { key: 'quality', name: 'QUALITY', description: 'qualityDesc2' },
+  { key: 'cost', name: 'COST', description: 'costDesc2' },
 ]
 
 const DEFAULT_WEIGHTS: Record<string, number> = {
@@ -42,6 +43,7 @@ const DEFAULT_WEIGHTS: Record<string, number> = {
 }
 
 export function FormulaBuilder() {
+  const { t } = useTranslation()
   const {
     models,
     runPlayground,
@@ -75,9 +77,9 @@ export function FormulaBuilder() {
         setOriginalWeights(loaded)
       })
       .catch((err) => {
-        setMessage({ type: 'error', text: `加载公式失败: ${err.message}` })
+        setMessage({ type: 'error', text: `${t('LOAD FAILED')}: ${err.message}` })
       })
-  }, [])
+  }, [t])
 
   // 检测变化
   useEffect(() => {
@@ -97,7 +99,7 @@ export function FormulaBuilder() {
 
   const handlePreview = useCallback(async () => {
     if (!testPrompt.trim()) {
-      setMessage({ type: 'error', text: '请输入测试 prompt' })
+      setMessage({ type: 'error', text: t('ENTER TEST PROMPT') })
       return
     }
     setLoading(true)
@@ -106,11 +108,11 @@ export function FormulaBuilder() {
       const data = await api.previewFormula({ weights, prompt: testPrompt })
       setPreviewModels(data.models)
     } catch (err: any) {
-      setMessage({ type: 'error', text: `预览失败: ${err.message}` })
+      setMessage({ type: 'error', text: `${t('PREVIEW FAILED')}: ${err.message}` })
     } finally {
       setLoading(false)
     }
-  }, [weights, testPrompt])
+  }, [weights, testPrompt, t])
 
   const handleSave = useCallback(async () => {
     setSaving(true)
@@ -119,16 +121,16 @@ export function FormulaBuilder() {
       const result = await api.updateFormula({ weights })
       if (result.success) {
         setOriginalWeights({ ...weights })
-        setMessage({ type: 'success', text: '公式已保存并应用' })
+        setMessage({ type: 'success', text: t('FORMULA SAVED') })
       } else {
-        setMessage({ type: 'error', text: `保存失败: ${result.errors?.join(', ') || '未知错误'}` })
+        setMessage({ type: 'error', text: `${t('SAVE FAILED')}: ${result.errors?.join(', ') || t('UNKNOWN')}` })
       }
     } catch (err: any) {
-      setMessage({ type: 'error', text: `保存失败: ${err.message}` })
+      setMessage({ type: 'error', text: `${t('SAVE FAILED')}: ${err.message}` })
     } finally {
       setSaving(false)
     }
-  }, [weights])
+  }, [weights, t])
 
   const handleReset = useCallback(() => {
     setWeights({ ...originalWeights })
@@ -137,7 +139,6 @@ export function FormulaBuilder() {
     setMessage(null)
   }, [originalWeights])
 
-  // 打开 Playground 并预填充模型
   const openPlayground = useCallback((modelName: string) => {
     setPgPrompt(testPrompt)
     setPgModels([modelName])
@@ -163,39 +164,38 @@ export function FormulaBuilder() {
 
   const availableModels = models.filter((m) => m.available)
 
-  // 构建公式文本
   const formulaText = DIMENSIONS
     .filter((d) => weights[d.key] > 0)
     .map((d) => `${d.key} * ${weights[d.key].toFixed(2)}`)
-    .join(' + ') || '未配置'
+    .join(' + ') || t('NOT CONFIGURED')
 
   return (
     <div className="space-y-6">
       {/* 标题 */}
-      <div className="glass-card rounded-2xl p-6">
-        <h2 className="text-xl font-semibold text-[#1d1d1f] mb-2">策略公式构建器</h2>
-        <p className="text-sm text-[#86868b]">
-          配置全局评分公式，所有任务类型将统一使用该公式选择最佳模型。
+      <div className="tech-card rounded-sm p-6">
+        <h2 className="text-xl font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider mb-2">{t('Routing Formula')}</h2>
+        <p className="text-sm text-[#636366] font-mono">
+          {t('formulaDesc')}
         </p>
       </div>
 
       {/* 消息提示 */}
       {message && (
         <div
-          className={`glass-card rounded-2xl p-4 flex items-center justify-between border ${
+          className={`tech-card rounded-sm p-4 flex items-center justify-between border ${
             message.type === 'success'
-              ? 'border-green-400/20 bg-green-50/50'
-              : 'border-red-400/20 bg-red-50/50'
+              ? 'border-[rgba(0,212,170,0.2)]'
+              : 'border-[rgba(231,76,60,0.2)]'
           }`}
         >
-          <p className={`text-sm ${message.type === 'success' ? 'text-green-600' : 'text-[#FF3B30]'}`}>
+          <p className={`text-sm font-mono ${message.type === 'success' ? 'text-[#00d4aa]' : 'text-[#e74c3c]'}`}>
             {message.text}
           </p>
           <button
             onClick={() => setMessage(null)}
-            className="text-sm text-[#86868b] hover:text-[#1d1d1f] transition-colors"
+            className="text-sm text-[#636366] hover:text-[#e8e8ed] transition-colors font-mono uppercase"
           >
-            关闭
+            {t('DISMISS')}
           </button>
         </div>
       )}
@@ -204,38 +204,38 @@ export function FormulaBuilder() {
         {/* 左侧：模板 + 滑块 */}
         <div className="lg:col-span-2 space-y-6">
           {/* 预设模板 */}
-          <div className="glass-card rounded-2xl p-6">
-            <h3 className="text-lg font-medium text-[#1d1d1f] mb-4">预设模板</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="tech-card rounded-sm p-6">
+            <h3 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider mb-4">{t('Templates')}</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {FORMULA_TEMPLATES.map((template) => (
                 <button
                   key={template.id}
                   onClick={() => handleTemplateSelect(template)}
-                  className={`p-3 rounded-xl text-left transition-all duration-200 border ${
+                  className={`p-3 rounded-sm text-left transition-all duration-200 border ${
                     selectedTemplate === template.id
-                      ? 'bg-[rgba(0,122,255,0.08)] border-[#007AFF]/30 text-[#007AFF]'
-                      : 'bg-white/50 border-transparent hover:bg-white/80 hover:border-[#d2d2d7]'
+                      ? 'bg-[rgba(0,212,170,0.04)] border-[rgba(0,212,170,0.2)] text-[#00d4aa]'
+                      : 'bg-transparent border-[#1a1a2e] hover:border-[#2a2a3e] text-[#e8e8ed]'
                   }`}
                 >
-                  <div className="text-sm font-medium">{template.name}</div>
-                  <div className="text-xs text-[#86868b] mt-1">{template.description}</div>
+                  <div className="text-sm font-medium font-mono">{t(template.name)}</div>
+                  <div className="text-xs text-[#636366] mt-1 font-mono">{t(template.description)}</div>
                 </button>
               ))}
             </div>
           </div>
 
           {/* 能力权重滑块 */}
-          <div className="glass-card rounded-2xl p-6">
-            <h3 className="text-lg font-medium text-[#1d1d1f] mb-4">能力权重</h3>
+          <div className="tech-card rounded-sm p-6">
+            <h3 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider mb-4">{t('Weights')}</h3>
             <div className="space-y-5">
               {DIMENSIONS.map((dim) => (
                 <div key={dim.key}>
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <span className="text-sm font-medium text-[#1d1d1f]">{dim.name}</span>
-                      <span className="text-xs text-[#86868b] ml-2">{dim.description}</span>
+                      <span className="text-sm font-medium text-[#e8e8ed] font-mono">{t(dim.name)}</span>
+                      <span className="text-xs text-[#636366] ml-2 font-mono">{t(dim.description)}</span>
                     </div>
-                    <span className="text-sm font-mono text-[#007AFF]">
+                    <span className="text-sm font-mono text-[#00d4aa]">
                       {(weights[dim.key] * 100).toFixed(0)}%
                     </span>
                   </div>
@@ -245,16 +245,16 @@ export function FormulaBuilder() {
                     max="100"
                     value={Math.round(weights[dim.key] * 100)}
                     onChange={(e) => handleWeightChange(dim.key, parseInt(e.target.value) / 100)}
-                    className="w-full h-2 bg-[#e5e5ea] rounded-full appearance-none cursor-pointer accent-[#007AFF]"
+                    className="w-full h-1 bg-[#1a1a2e] rounded-sm appearance-none cursor-pointer accent-[#00d4aa]"
                   />
                 </div>
               ))}
             </div>
 
             {/* 公式文本 */}
-            <div className="mt-6 p-4 bg-[#f5f5f7] rounded-xl">
-              <div className="text-xs text-[#86868b] mb-1">当前公式</div>
-              <div className="text-sm font-mono text-[#1d1d1f]">{formulaText}</div>
+            <div className="mt-6 p-4 bg-[#0a0a0f] border border-[#1a1a2e] rounded-sm">
+              <div className="text-xs text-[#636366] mb-1 font-mono uppercase tracking-widest">{t('FORMULA')}</div>
+              <div className="text-sm font-mono text-[#e8e8ed]">{formulaText}</div>
             </div>
 
             {/* 操作按钮 */}
@@ -262,24 +262,24 @@ export function FormulaBuilder() {
               <button
                 onClick={handleSave}
                 disabled={saving || !hasChanges}
-                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                className={`px-6 py-2.5 rounded-sm text-sm font-medium transition-all duration-200 font-mono uppercase tracking-wider ${
                   hasChanges
-                    ? 'bg-[#007AFF] text-white hover:bg-[#0051D5] shadow-sm'
-                    : 'bg-[#e5e5ea] text-[#86868b] cursor-not-allowed'
+                    ? 'tech-btn tech-btn-primary'
+                    : 'tech-btn opacity-50 cursor-not-allowed'
                 }`}
               >
-                {saving ? '保存中...' : '保存并应用'}
+                {saving ? t('SAVING') : t('SAVE')}
               </button>
               <button
                 onClick={handleReset}
                 disabled={!hasChanges}
-                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                className={`px-6 py-2.5 rounded-sm text-sm font-medium transition-all duration-200 font-mono uppercase tracking-wider ${
                   hasChanges
-                    ? 'bg-white border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'
-                    : 'bg-[#e5e5ea] text-[#86868b] cursor-not-allowed'
+                    ? 'tech-btn'
+                    : 'tech-btn opacity-50 cursor-not-allowed'
                 }`}
               >
-                重置
+                {t('RESET')}
               </button>
             </div>
           </div>
@@ -287,60 +287,60 @@ export function FormulaBuilder() {
 
         {/* 右侧：预览 */}
         <div className="space-y-6">
-          <div className="glass-card rounded-2xl p-6">
-            <h3 className="text-lg font-medium text-[#1d1d1f] mb-4">实时预览</h3>
+          <div className="tech-card rounded-sm p-6">
+            <h3 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider mb-4">{t('Preview')}</h3>
             <div className="space-y-3">
               <textarea
                 value={testPrompt}
                 onChange={(e) => setTestPrompt(e.target.value)}
-                placeholder="输入测试 prompt..."
+                placeholder={t('Enter test prompt...')}
                 rows={3}
-                className="w-full px-4 py-3 rounded-xl border border-[#d2d2d7] bg-white/50 text-sm text-[#1d1d1f] placeholder-[#a1a1a6] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] resize-none"
+                className="w-full px-3 py-2 rounded-sm text-sm tech-input resize-none"
               />
               <button
                 onClick={handlePreview}
                 disabled={loading}
-                className="w-full px-4 py-2.5 rounded-xl text-sm font-medium bg-[#007AFF] text-white hover:bg-[#0051D5] transition-all duration-200 shadow-sm disabled:opacity-50"
+                className="tech-btn tech-btn-primary w-full px-4 py-2.5 rounded-sm disabled:opacity-50"
               >
-                {loading ? '计算中...' : '预览得分'}
+                {loading ? t('CALCULATING') : t('PREVIEW')}
               </button>
             </div>
 
             {/* 预览结果 */}
             {previewModels.length > 0 && (
               <div className="mt-4 space-y-2">
-                <div className="text-xs text-[#86868b] mb-2">模型得分排名</div>
+                <div className="text-xs text-[#636366] mb-2 font-mono uppercase tracking-widest">{t('RANKING')}</div>
                 {previewModels.map((model, index) => (
                   <div
                     key={model.name}
-                    className={`flex items-center justify-between p-3 rounded-xl ${
+                    className={`flex items-center justify-between p-3 rounded-sm border ${
                       index === 0
-                        ? 'bg-[rgba(0,122,255,0.08)] border border-[#007AFF]/20'
-                        : 'bg-white/50'
+                        ? 'bg-[rgba(0,212,170,0.04)] border-[rgba(0,212,170,0.15)]'
+                        : 'bg-[#0a0a0f] border-[#1a1a2e]'
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <span
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${
+                        className={`w-5 h-5 rounded-sm flex items-center justify-center text-xs font-mono ${
                           index === 0
-                            ? 'bg-[#007AFF] text-white'
-                            : 'bg-[#e5e5ea] text-[#86868b]'
+                            ? 'bg-[#00d4aa] text-[#0a0a0f]'
+                            : 'bg-[#1a1a2e] text-[#636366]'
                         }`}
                       >
                         {index + 1}
                       </span>
-                      <span className="text-sm font-medium text-[#1d1d1f]">{model.name}</span>
+                      <span className="text-sm font-medium text-[#e8e8ed] font-mono">{model.name}</span>
                       {index === 0 && (
-                        <span className="text-xs text-[#007AFF] font-medium">★ 最佳</span>
+                        <span className="text-xs text-[#00d4aa] font-mono">{t('BEST')}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono text-[#007AFF]">{model.score.toFixed(2)}</span>
+                      <span className="text-sm font-mono text-[#00d4aa]">{model.score.toFixed(2)}</span>
                       <button
                         onClick={() => openPlayground(model.name)}
-                        className="px-2 py-1 text-xs font-medium text-[#007AFF] bg-[rgba(0,122,255,0.08)] border border-[rgba(0,122,255,0.15)] rounded-lg hover:bg-[rgba(0,122,255,0.12)] transition-all"
+                        className="tech-btn px-2 py-1 text-[10px] rounded-sm"
                       >
-                        测试
+                        {t('TEST')}
                       </button>
                     </div>
                   </div>
@@ -353,51 +353,51 @@ export function FormulaBuilder() {
 
       {/* Playground 验证区域 */}
       {showPlayground && (
-        <div className="glass-card rounded-2xl p-6 space-y-4">
+        <div className="tech-card rounded-sm p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-[#1d1d1f]">Playground 验证</h3>
+            <h3 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Playground')}</h3>
             <button
               onClick={() => setShowPlayground(false)}
-              className="text-sm text-[#86868b] hover:text-[#1d1d1f] transition-colors"
+              className="text-sm text-[#636366] hover:text-[#e8e8ed] transition-colors font-mono uppercase"
             >
-              收起
+              {t('CLOSE')}
             </button>
           </div>
 
           {/* Prompt */}
           <div>
-            <label className="block text-xs font-mono text-[#86868b] uppercase tracking-wider mb-2">
-              输入提示词
+            <label className="block text-[10px] font-mono text-[#636366] uppercase tracking-widest mb-2">
+              {t('PROMPT')}
             </label>
             <textarea
               value={pgPrompt}
               onChange={(e) => setPgPrompt(e.target.value)}
               rows={3}
-              className="w-full px-4 py-3 rounded-xl border border-[#d2d2d7] bg-white/50 text-sm text-[#1d1d1f] placeholder-[#a1a1a6] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20 focus:border-[#007AFF] resize-none"
+              className="w-full px-3 py-2 rounded-sm text-sm tech-input resize-none"
             />
           </div>
 
           {/* Model Selection */}
           <div>
-            <label className="block text-xs font-mono text-[#86868b] uppercase tracking-wider mb-2">
-              选择模型（最多3个）
+            <label className="block text-[10px] font-mono text-[#636366] uppercase tracking-widest mb-2">
+              {t('MODELS (MAX 3)')}
             </label>
             <div className="flex flex-wrap gap-2">
               {availableModels.map((m) => (
                 <button
                   key={m.name}
                   onClick={() => togglePgModel(m.name)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                  className={`px-3 py-1.5 rounded-sm text-sm font-medium transition-all border font-mono text-xs ${
                     pgModels.includes(m.name)
-                      ? 'bg-[rgba(0,122,255,0.08)] text-[#007AFF] border-[rgba(0,122,255,0.15)]'
-                      : 'text-[#86868b] border-transparent hover:text-[#1d1d1f] hover:bg-[rgba(0,0,0,0.03)]'
+                      ? 'bg-[rgba(0,212,170,0.08)] text-[#00d4aa] border-[rgba(0,212,170,0.2)]'
+                      : 'text-[#636366] border-[#1a1a2e] hover:text-[#8e8e93]'
                   }`}
                 >
                   {m.name}
                 </button>
               ))}
               {availableModels.length === 0 && (
-                <span className="text-sm text-[#86868b]">暂无可用模型</span>
+                <span className="text-sm text-[#636366] font-mono">{t('NO MODELS')}</span>
               )}
             </div>
           </div>
@@ -406,15 +406,15 @@ export function FormulaBuilder() {
           <button
             onClick={handlePgRun}
             disabled={isLoadingPlayground || !pgPrompt.trim() || pgModels.length === 0}
-            className="w-full px-4 py-2.5 bg-[rgba(0,122,255,0.08)] text-[#007AFF] border border-[rgba(0,122,255,0.15)] rounded-xl hover:bg-[rgba(0,122,255,0.12)] hover:border-[rgba(0,122,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium backdrop-blur-sm"
+            className="tech-btn tech-btn-primary w-full px-4 py-2.5 rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoadingPlayground ? '请求中...' : '运行测试'}
+            {isLoadingPlayground ? t('RUNNING') : t('RUN TEST')}
           </button>
 
           {/* Error */}
           {playgroundError && (
-            <div className="p-3 bg-[rgba(255,59,48,0.04)] border border-[rgba(255,59,48,0.12)] rounded-xl">
-              <p className="text-sm text-[#FF3B30]">{playgroundError}</p>
+            <div className="p-3 bg-[rgba(231,76,60,0.04)] border border-[rgba(231,76,60,0.12)] rounded-sm">
+              <p className="text-sm text-[#e74c3c] font-mono">{playgroundError}</p>
             </div>
           )}
 

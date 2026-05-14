@@ -1,50 +1,52 @@
 import type { PlaygroundResult } from '../types'
+import { useTranslation } from '../i18n/I18nProvider'
 
 interface PlaygroundModelCardProps {
   result: PlaygroundResult
 }
 
 export function PlaygroundModelCard({ result }: PlaygroundModelCardProps) {
+  const { t } = useTranslation()
   const isError = !!result.error
 
   return (
-    <div className={`glass-card rounded-2xl overflow-hidden ${isError ? 'border-red-400/30' : ''}`}>
+    <div className={`tech-card rounded-sm overflow-hidden ${isError ? 'border-[rgba(231,76,60,0.3)]' : ''}`}>
       {/* Header */}
-      <div className="px-5 py-4 border-b border-[rgba(0,0,0,0.06)] flex items-center justify-between">
+      <div className="px-5 py-4 border-b border-[#1a1a2e] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isError ? 'bg-[#FF3B30]' : 'bg-[#34C759]'}`} />
-          <h3 className="text-sm font-semibold text-[#1d1d1f]">{result.model}</h3>
-          <span className="text-xs text-[#86868b]">({result.provider})</span>
+          <div className={`w-2 h-2 rounded-sm ${isError ? 'bg-[#e74c3c]' : 'bg-[#00d4aa]'}`} />
+          <h3 className="text-sm font-semibold text-[#e8e8ed]">{result.model}</h3>
+          <span className="text-xs text-[#636366]">({result.provider})</span>
         </div>
       </div>
 
       {/* Content */}
       <div className="p-5 space-y-4">
         {isError ? (
-          <div className="p-3 bg-[rgba(255,59,48,0.04)] border border-[rgba(255,59,48,0.12)] rounded-xl">
-            <p className="text-sm text-[#FF3B30]">{result.error}</p>
+          <div className="p-3 bg-[rgba(231,76,60,0.04)] border border-[rgba(231,76,60,0.12)] rounded-sm">
+            <p className="text-sm text-[#e74c3c]">{result.error}</p>
           </div>
         ) : (
           <>
             <div className="max-h-96 overflow-y-auto">
-              <pre className="text-sm text-[#1d1d1f] whitespace-pre-wrap font-sans leading-relaxed">
+              <pre className="text-sm text-[#e8e8ed] whitespace-pre-wrap font-mono leading-relaxed">
                 {result.response}
               </pre>
             </div>
 
             {/* MetaBar */}
-            <div className="flex flex-wrap gap-3 text-xs text-[#86868b]">
+            <div className="flex flex-wrap gap-3 text-xs text-[#636366]">
               <div className="flex items-center gap-1">
                 <span>⏱️</span>
-                <span>{result.latency_ms}ms</span>
+                <span>{result.latency_ms}{t('ms')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <span>📝</span>
-                <span>{result.prompt_tokens} prompt</span>
+                <span>{result.prompt_tokens} {t('Prompt Tokens')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <span>✨</span>
-                <span>{result.completion_tokens} completion</span>
+                <span>{result.completion_tokens} {t('Completion Tokens')}</span>
               </div>
               {result.estimated_cost !== null && (
                 <div className="flex items-center gap-1">
@@ -56,29 +58,29 @@ export function PlaygroundModelCard({ result }: PlaygroundModelCardProps) {
 
             {/* Routing Info */}
             {result.routing_info && (
-              <div className="p-4 bg-[rgba(0,0,0,0.02)] border border-[rgba(0,0,0,0.06)] rounded-xl space-y-3">
-                <h4 className="text-xs font-mono text-[#007AFF] uppercase tracking-wider">路由结果</h4>
+              <div className="p-4 bg-[#111118] border border-[#1a1a2e] rounded-sm space-y-3">
+                <h4 className="text-xs font-mono text-[#00d4aa] uppercase tracking-wider">{t('Routing Info')}</h4>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex justify-between py-1 border-b border-[rgba(0,0,0,0.06)]">
-                    <span className="text-[#86868b]">任务类型</span>
-                    <span className="font-medium text-[#1d1d1f]">{result.routing_info.task_type}</span>
+                  <div className="flex justify-between py-1 border-b border-[#1a1a2e]">
+                    <span className="text-[#636366]">{t('Task Type')}</span>
+                    <span className="font-medium text-[#e8e8ed]">{result.routing_info.task_type}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-[rgba(0,0,0,0.06)]">
-                    <span className="text-[#86868b]">策略</span>
-                    <span className="font-medium text-[#1d1d1f]">{result.routing_info.strategy}</span>
+                  <div className="flex justify-between py-1 border-b border-[#1a1a2e]">
+                    <span className="text-[#636366]">{t('STRATEGY')}</span>
+                    <span className="font-medium text-[#e8e8ed]">{result.routing_info.strategy}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-[rgba(0,0,0,0.06)]">
-                    <span className="text-[#86868b]">得分</span>
-                    <span className="font-medium text-[#1d1d1f]">{result.routing_info.score}</span>
+                  <div className="flex justify-between py-1 border-b border-[#1a1a2e]">
+                    <span className="text-[#636366]">{t('SCORE')}</span>
+                    <span className="font-medium text-[#e8e8ed]">{result.routing_info.score}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-[rgba(0,0,0,0.06)]">
-                    <span className="text-[#86868b]">选中模型</span>
-                    <span className="font-medium text-[#007AFF]">{result.routing_info.selected_model}</span>
+                  <div className="flex justify-between py-1 border-b border-[#1a1a2e]">
+                    <span className="text-[#636366]">{t('Selected Model')}</span>
+                    <span className="font-medium text-[#00d4aa]">{result.routing_info.selected_model}</span>
                   </div>
                 </div>
                 <div className="pt-2">
-                  <span className="text-[#86868b] text-xs font-mono uppercase">原因</span>
-                  <p className="text-sm text-[#1d1d1f] mt-1 leading-relaxed">{result.routing_info.reason}</p>
+                  <span className="text-[#636366] text-xs font-mono uppercase">{t('REASON')}</span>
+                  <p className="text-sm text-[#e8e8ed] mt-1 leading-relaxed">{result.routing_info.reason}</p>
                 </div>
               </div>
             )}

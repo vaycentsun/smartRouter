@@ -4,7 +4,6 @@ import type { ProviderUpdate } from '../types'
 import { ProviderSidebar } from './ProviderSidebar'
 import { ProviderModelsPanel } from './ProviderModelsPanel'
 import { ProviderEditModal } from './ProviderEditModal'
-
 export function ModelsExplorer() {
   const { providers, models, saveProviders, isSavingProviders, toast, clearToast, checkProviderHealth, isCheckingHealth } = useDashboardStore()
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
@@ -56,10 +55,10 @@ export function ModelsExplorer() {
     <div className="space-y-4">
       {/* Toast */}
       {toast && (
-        <div className={`glass-card rounded-xl p-3 flex items-center justify-between border ${
-          toast.type === 'success' ? 'border-[rgba(52,199,89,0.2)]' : 'border-[rgba(255,59,48,0.2)]'
+        <div className={`tech-card rounded-sm p-3 flex items-center justify-between border ${
+          toast.type === 'success' ? 'border-[rgba(0,212,170,0.2)]' : 'border-[rgba(231,76,60,0.2)]'
         }`}>
-          <p className={`text-sm ${toast.type === 'success' ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>{toast.message}</p>
+          <p className={`text-sm font-mono ${toast.type === 'success' ? 'text-[#00d4aa]' : 'text-[#e74c3c]'}`}>{toast.message}</p>
         </div>
       )}
 
