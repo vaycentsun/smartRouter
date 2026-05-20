@@ -125,7 +125,10 @@ export function ProviderModelsPanel({
     if (typeof aVal === 'string' && typeof bVal === 'string') {
       return aVal.localeCompare(bVal) * mult
     }
-    return (aVal - bVal) * mult
+    if (typeof aVal === 'number' && typeof bVal === 'number') {
+      return (aVal - bVal) * mult
+    }
+    return 0
   })
 
   return (
