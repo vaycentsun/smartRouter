@@ -64,11 +64,14 @@ docker-compose up -d
 docker run -d \
   --name smart-router \
   -p 4000:4000 \
+  -p 8080:8080 \
   -e SMART_ROUTER_MASTER_KEY="your-strong-master-key" \
   -e OPENAI_API_KEY="sk-..." \
   -v "$(pwd)/config:/app/config:ro" \
   your-dockerhub-username/smartrouter:latest
 ```
+
+> **注意**：需要同时暴露 `4000`（Proxy API）和 `8080`（Dashboard）两个端口。
 
 ### 方式二：本地构建（适合自定义修改）
 
@@ -100,10 +103,11 @@ docker-compose down
 # 构建镜像
 docker build -t smartrouter:latest .
 
-# 运行容器
+# 运行容器（同时暴露 4000 和 8080 端口）
 docker run -d \
   --name smart-router \
   -p 4000:4000 \
+  -p 8080:8080 \
   -e SMART_ROUTER_MASTER_KEY="your-strong-master-key" \
   -e OPENAI_API_KEY="sk-..." \
   -v "$(pwd)/config:/app/config:ro" \
@@ -116,7 +120,9 @@ docker logs -f smart-router
 docker stop smart-router && docker rm smart-router
 ```
 
-服务将在 `http://localhost:4000` 运行。
+服务启动后：
+- **Proxy API**：`http://localhost:4000`（OpenAI 兼容接口）
+- **Dashboard**：`http://localhost:8080`（Web 管理界面）
 
 ---
 
@@ -177,6 +183,7 @@ docker pull your-dockerhub-username/smartrouter:v1.1.8
 docker run -d \
   --name smart-router \
   -p 4000:4000 \
+  -p 8080:8080 \
   -e SMART_ROUTER_MASTER_KEY="your-strong-master-key" \
   -v "$(pwd)/config:/app/config:ro" \
   your-dockerhub-username/smartrouter:v1.1.8

@@ -76,6 +76,7 @@ Or use Docker directly:
 docker run -d \
   --name smart-router \
   -p 4000:4000 \
+  -p 8080:8080 \
   -e SMART_ROUTER_MASTER_KEY="your-master-key" \
   -e OPENAI_API_KEY="sk-..." \
   -v "$(pwd)/config:/app/config:ro" \
@@ -83,6 +84,8 @@ docker run -d \
 ```
 
 > **Note**: Replace `your-dockerhub-username` with your actual Docker Hub username, or build locally with `docker build -t smartrouter .`
+>
+> **Ports**: `4000` for Proxy API, `8080` for Web Dashboard.
 >
 > See [Docker Guide](docs/DOCKER.md) for full details including image tags, multi-arch support, and configuration.
 

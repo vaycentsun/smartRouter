@@ -8,7 +8,10 @@ services:
     # image: your-dockerhub-username/smartrouter:latest
     container_name: smart-router
     ports:
+      # 4000: Proxy API 服务（OpenAI 兼容接口）
       - "4000:4000"
+      # 8080: Web Dashboard 管理界面
+      - "8080:8080"
     environment:
       # 必须设置：服务主密钥（用于 API 认证）
       - SMART_ROUTER_MASTER_KEY=${SMART_ROUTER_MASTER_KEY:?错误：请设置 SMART_ROUTER_MASTER_KEY 环境变量}

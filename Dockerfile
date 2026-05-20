@@ -53,18 +53,23 @@ RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
 # 创建配置目录
 RUN mkdir -p /app/config
 
+# 复制启动脚本
+COPY script/docker-start.sh /usr/local/bin/docker-start.sh
+RUN chmod +x /usr/local/bin/docker-start.sh
+
 # 暴露服务端口
-EXPOSE 4000
+# 4000: Proxy API 服务（OpenAI 兼容接口）
+# 8080: Web Dashboard 管理界面
+EXPOSE 4000 8080
 
 # 设置环境变量
 ENV SMART_ROUTER_HOST=0.0.0.0
 ENV SMART_ROUTER_PORT=4000
 ENV PYTHONUNBUFFERED=1
 
-# 健康检查
+# 健康检查（检查 Proxy 服务）
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:4000/api/health')" || exit 1
 
-# 入口命令（前台运行）
-ENTRYPOINT ["smart-router"]
-CMD ["start", "--foreground", "--config", "/app/config"]
+# 入口命令（同时启动 Proxy + Dashboard）
+CMD ["/usr/local/bin/docker-start.sh"]
