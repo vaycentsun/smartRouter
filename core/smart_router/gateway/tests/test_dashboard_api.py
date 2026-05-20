@@ -763,3 +763,127 @@ models:
             data = response.json()
             assert len(data["models"]) == 1
             assert data["models"][0]["enabled"] is False
+
+
+class TestToggleProvider:
+    """测试 PUT /api/providers/{provider_name}/toggle"""
+
+    def test_toggle_provider_disable(self, client):
+        """正常切换 Provider enabled=False，返回 200 和正确 JSON"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            mock_instance = MagicMock()
+            mock_instance.load.return_value = mock_cfg
+            mock_loader.return_value = mock_instance
+
+            response = client.put("/api/providers/openai/toggle", json={"enabled": False})
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["provider"] == "openai"
+            assert data["enabled"] is False
+            mock_instance.save_provider_enabled.assert_called_once_with("openai", False)
+
+    def test_toggle_provider_enable(self, client):
+        """正常切换 Provider enabled=True，返回 200 和正确 JSON"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            mock_instance = MagicMock()
+            mock_instance.load.return_value = mock_cfg
+            mock_loader.return_value = mock_instance
+
+            response = client.put("/api/providers/openai/toggle", json={"enabled": True})
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["provider"] == "openai"
+            assert data["enabled"] is True
+            mock_instance.save_provider_enabled.assert_called_once_with("openai", True)
+
+    def test_toggle_provider_not_found(self, client):
+        """切换不存在的 Provider，返回 404"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.providers = {}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            mock_instance = MagicMock()
+            mock_instance.load.return_value = mock_cfg
+            mock_loader.return_value = mock_instance
+
+            response = client.put("/api/providers/unknown/toggle", json={"enabled": False})
+            assert response.status_code == 404
+            assert "Provider not found" in response.json()["detail"]
+
+
+class TestProvidersEnabled:
+    """测试 GET /api/providers 返回 enabled 字段"""
+
+    def test_providers_returns_enabled_true(self, client):
+        """GET /api/providers 返回的列表中包含 enabled 字段且值为 True"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            provider.api_key = "sk-test"
+            provider.api_base = "https://api.openai.com/v1"
+            provider.timeout = 30
+            provider.enabled = True
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.get("/api/providers")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["providers"]) == 1
+            assert data["providers"][0]["enabled"] is True
+
+    def test_providers_returns_enabled_false(self, client):
+        """GET /api/providers 返回的列表中包含 enabled 字段且值为 False"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            provider.api_key = "sk-test"
+            provider.api_base = "https://api.openai.com/v1"
+            provider.timeout = 30
+            provider.enabled = False
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.get("/api/providers")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["providers"]) == 1
+            assert data["providers"][0]["enabled"] is False
+
+    def test_providers_returns_enabled_default_true(self, client):
+        """GET /api/providers 当 provider 没有 enabled 属性时，默认返回 True"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            provider.api_key = "sk-test"
+            provider.api_base = "https://api.openai.com/v1"
+            provider.timeout = 30
+            # 不设置 enabled 属性
+            del provider.enabled
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.get("/api/providers")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["providers"]) == 1
+            assert data["providers"][0]["enabled"] is True

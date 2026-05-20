@@ -37,7 +37,12 @@ const healthStatusMap: Record<string, { label: string; color: string; dotColor: 
   checking: { label: 'CHECKING', color: 'text-[#3498db]', dotColor: 'bg-[#3498db]', tooltip: 'Checking provider connectivity' },
 }
 
-function getModelHealthDisplay(model: ModelInfo, providerHealth?: { status: string; error?: string | null }) {
+function getModelHealthDisplay(model: ModelInfo, provider?: ProviderInfo, providerHealth?: { status: string; error?: string | null }) {
+  const providerEnabled = provider ? (provider.enabled ?? true) : true
+  if (!providerEnabled) {
+    return { label: 'DISABLED', color: 'text-[#636366]', dotColor: 'bg-[#636366]', tooltip: 'Provider disabled by user' }
+  }
+
   if (!model.enabled) {
     return { label: 'DISABLED', color: 'text-[#636366]', dotColor: 'bg-[#636366]', tooltip: 'Model disabled by user' }
   }
@@ -77,6 +82,8 @@ export function ProviderModelsPanel({
   const [sortConfig, setSortConfig] = useState<{ key: string; asc: boolean }>({ key: 'name', asc: true })
   const toggleModel = useDashboardStore((state) => state.toggleModel)
   const isTogglingModel = useDashboardStore((state) => state.isTogglingModel)
+  const toggleProvider = useDashboardStore((state) => state.toggleProvider)
+  const isTogglingProvider = useDashboardStore((state) => state.isTogglingProvider)
 
   const handleSort = (key: string) => {
     setSortConfig((prev) => ({
@@ -95,13 +102,15 @@ export function ProviderModelsPanel({
 
   const providerModels = models.filter((m) => m.provider === provider.name)
   const providerHealth = provider.health
+  const providerToggling = isTogglingProvider[provider.name] || false
+  const providerEnabled = provider.enabled ?? true
 
   const sortedModels = [...providerModels].sort((a, b) => {
-    let aVal: any
-    let bVal: any
+    let aVal: string | number
+    let bVal: string | number
     if (sortConfig.key === 'status') {
-      aVal = getModelHealthDisplay(a, providerHealth).label
-      bVal = getModelHealthDisplay(b, providerHealth).label
+      aVal = getModelHealthDisplay(a, provider, providerHealth).label
+      bVal = getModelHealthDisplay(b, provider, providerHealth).label
     } else if (sortConfig.key === 'context') {
       aVal = a.context
       bVal = b.context
@@ -127,6 +136,18 @@ export function ProviderModelsPanel({
           <p className="text-xs text-[#636366] font-mono mt-0.5">{providerModels.length} {t('MODELS')}</p>
         </div>
         <div className="flex items-center gap-2">
+          <label className="relative inline-flex items-center cursor-pointer mr-2">
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={providerEnabled}
+              onChange={() => toggleProvider(provider.name, !providerEnabled)}
+              disabled={providerToggling}
+            />
+            <div className={`w-9 h-5 rounded-sm peer relative border transition-all ${providerEnabled ? 'bg-[rgba(0,212,170,0.15)] border-[rgba(0,212,170,0.3)]' : 'bg-[#1a1a2e] border-[#2a2a3e]'} ${providerToggling ? 'opacity-50' : ''}`}>
+              <div className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-sm transition-all ${providerEnabled ? 'translate-x-4 bg-[#00d4aa]' : 'bg-[#636366]'}`} />
+            </div>
+          </label>
           {onCheckHealth && (
             <button
               onClick={() => onCheckHealth(provider.name)}
@@ -227,7 +248,7 @@ export function ProviderModelsPanel({
             </thead>
             <tbody className="divide-y divide-[#1a1a2e]">
               {sortedModels.map((model) => {
-                const display = getModelHealthDisplay(model, providerHealth)
+                const display = getModelHealthDisplay(model, provider, providerHealth)
                 const toggleKey = `${model.provider}/${model.name}`
                 const isToggling = isTogglingModel[toggleKey] || false
                 return (
@@ -243,15 +264,15 @@ export function ProviderModelsPanel({
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <label className="relative inline-flex items-center cursor-pointer">
+                      <label className="relative inline-flex items-center cursor-pointer" title={!providerEnabled ? 'Provider 已禁用' : ''}>
                         <input
                           type="checkbox"
                           className="sr-only peer"
                           checked={model.enabled}
                           onChange={() => toggleModel(model.provider, model.name, !model.enabled)}
-                          disabled={isToggling}
+                          disabled={isToggling || !providerEnabled}
                         />
-                        <div className={`w-9 h-5 rounded-sm peer relative border transition-all ${model.enabled ? 'bg-[rgba(0,212,170,0.15)] border-[rgba(0,212,170,0.3)]' : 'bg-[#1a1a2e] border-[#2a2a3e]'} ${isToggling ? 'opacity-50' : ''}`}>
+                        <div className={`w-9 h-5 rounded-sm peer relative border transition-all ${model.enabled ? 'bg-[rgba(0,212,170,0.15)] border-[rgba(0,212,170,0.3)]' : 'bg-[#1a1a2e] border-[#2a2a3e]'} ${isToggling || !providerEnabled ? 'opacity-50' : ''}`}>
                           <div className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-sm transition-all ${model.enabled ? 'translate-x-4 bg-[#00d4aa]' : 'bg-[#636366]'}`} />
                         </div>
                       </label>

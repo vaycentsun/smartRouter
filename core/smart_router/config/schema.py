@@ -21,6 +21,7 @@ class ProviderConfig(BaseModel):
     timeout: int = 30
     default_headers: Dict[str, str] = Field(default_factory=dict)
     rate_limit: Optional[int] = None  # 每分钟请求数限制
+    enabled: bool = Field(default=True, description="Provider 是否启用")
 
 
 class ModelPrice(BaseModel):

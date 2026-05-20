@@ -4,7 +4,7 @@ import { ProviderEditModal } from './ProviderEditModal'
 import type { ProviderInfo } from '../types'
 
 const mockProvider: ProviderInfo = {
-  name: 'openai', api_base: 'https://api.openai.com', timeout: 30, key_type: 'env:OPENAI_API_KEY', has_key: true, masked_key: 'sk-****',
+  name: 'openai', api_base: 'https://api.openai.com', timeout: 30, key_type: 'env:OPENAI_API_KEY', has_key: true, masked_key: 'sk-****', enabled: true,
 }
 
 describe('ProviderEditModal', () => {

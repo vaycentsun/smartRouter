@@ -38,6 +38,16 @@ export const mockStoreState: Record<string, unknown> = {
   // Health Check
   isCheckingHealth: {},
   checkProviderHealth: vi.fn().mockResolvedValue(undefined),
+
+  // Model Toggle
+  toggleModel: vi.fn().mockResolvedValue(undefined),
+  isTogglingModel: {},
+
+  // Provider Toggle
+  toggleProvider: vi.fn().mockResolvedValue(undefined),
+  isTogglingProvider: {},
 }
 
-export const useDashboardStore = vi.fn(() => mockStoreState)
+export const useDashboardStore = vi.fn((selector?: (state: Record<string, unknown>) => unknown) =>
+  selector ? selector(mockStoreState) : mockStoreState
+)

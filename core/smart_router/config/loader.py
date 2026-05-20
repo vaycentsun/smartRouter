@@ -341,6 +341,70 @@ class ConfigLoader:
                     pass
             raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
 
+    def save_provider_enabled(self, provider_name: str, enabled: bool) -> None:
+        """保存 Provider 的 enabled 状态到 providers.yaml
+
+        Args:
+            provider_name: Provider 名称
+            enabled: 开关状态
+
+        Raises:
+            ConfigError: 文件不存在、Provider 不存在、写入失败或验证失败
+        """
+        filepath = self.config_dir / "providers.yaml"
+        if not filepath.exists():
+            raise ConfigError(f"Configuration file not found: {filepath}")
+
+        # 备份原文件
+        backup_path = filepath.with_suffix(".yaml.bak")
+        if filepath.exists():
+            try:
+                backup_path.write_text(filepath.read_text(encoding="utf-8"), encoding="utf-8")
+            except IOError:
+                pass
+
+        # 读取并修改
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        except Exception as e:
+            raise ConfigError(f"Failed to read {filepath}: {e}") from e
+
+        providers = data.get("providers", {})
+        if provider_name not in providers:
+            raise ConfigError(f"Provider '{provider_name}' not found in {filepath.name}")
+
+        providers[provider_name]["enabled"] = enabled
+
+        # 尝试使用 ruamel.yaml 保留注释
+        try:
+            from ruamel.yaml import YAML
+            ruamel_yaml = YAML()
+            ruamel_yaml.preserve_quotes = True
+            ruamel_yaml.width = 4096
+            with open(filepath, "r", encoding="utf-8") as f:
+                doc = ruamel_yaml.load(f)
+            doc["providers"][provider_name]["enabled"] = enabled
+            with open(filepath, "w", encoding="utf-8") as f:
+                ruamel_yaml.dump(doc, f)
+        except Exception:
+            # ruamel 失败时回退到标准 yaml
+            try:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    yaml.dump(data, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+            except Exception as e:
+                raise ConfigError(f"Failed to write {filepath}: {e}") from e
+
+        # 写入后验证
+        errors = self.validate()
+        if errors:
+            if backup_path.exists():
+                try:
+                    filepath.write_text(backup_path.read_text(), encoding="utf-8")
+                except IOError:
+                    pass
+            raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
+
 
 class ConfigError(Exception):
     """配置错误"""

@@ -16,8 +16,8 @@ describe('ProvidersTable', () => {
   })
 
   const sampleProviders = [
-    { name: 'openai', api_base: 'https://api.openai.com', timeout: 30, key_type: 'env:OPENAI_API_KEY', has_key: true, masked_key: 'sk-***' },
-    { name: 'azure', api_base: 'https://azure.com', timeout: 60, key_type: 'manual', has_key: false },
+    { name: 'openai', api_base: 'https://api.openai.com', timeout: 30, key_type: 'env:OPENAI_API_KEY', has_key: true, masked_key: 'sk-***', enabled: true },
+    { name: 'azure', api_base: 'https://azure.com', timeout: 60, key_type: 'manual', has_key: false, enabled: true },
   ]
 
   it('shows empty state when no providers', () => {

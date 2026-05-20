@@ -175,6 +175,10 @@ class ModelToggleRequest(BaseModel):
     enabled: bool
 
 
+class ProviderToggleRequest(BaseModel):
+    enabled: bool
+
+
 LOG_FILE_MAP = {
     "service": DEFAULT_PID_DIR / "smart-router.log",
     "dashboard": DEFAULT_PID_DIR / "dashboard.log",
@@ -392,6 +396,7 @@ async def providers(request: Request):
             "has_key": has_key,
             "masked_key": masked_key,
             "health": health_data,
+            "enabled": getattr(provider, 'enabled', True),
         })
 
     return {"providers": result}
@@ -528,6 +533,51 @@ async def toggle_model(request: Request, provider_name: str, model_name: str, bo
         "success": True,
         "provider": provider_name,
         "model": model_name,
+        "enabled": body.enabled,
+    }
+
+
+async def toggle_provider(request: Request, provider_name: str, body: ProviderToggleRequest):
+    """切换 Provider 启用/禁用状态
+
+    Args:
+        provider_name: Provider 名称
+        body: { enabled: bool }
+
+    Returns:
+        { "success": True, "provider": str, "enabled": bool }
+
+    Raises:
+        HTTPException(404): Provider 不存在
+        HTTPException(500): 保存或验证失败
+    """
+    config_dir = Path.home() / ".smart-router"
+    loader = ConfigLoader(config_dir)
+
+    try:
+        cfg = loader.load()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"配置加载失败: {e}")
+
+    if provider_name not in cfg.providers:
+        raise HTTPException(status_code=404, detail=f"Provider not found: {provider_name}")
+
+    try:
+        loader.save_provider_enabled(provider_name, body.enabled)
+    except ConfigError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # 触发配置热重载
+    router = getattr(request.app.state, "router", None)
+    if router and hasattr(router, "reload_config"):
+        try:
+            router.reload_config()
+        except Exception:
+            pass  # 热重载失败不阻塞 API 响应
+
+    return {
+        "success": True,
+        "provider": provider_name,
         "enabled": body.enabled,
     }
 
@@ -1286,6 +1336,7 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.get("/api/providers/{provider_name}/health")(provider_health)
     app.get("/api/providers/{provider_name}/models")(provider_models)
     app.put("/api/models/{provider_name}/{model_name}")(toggle_model)
+    app.put("/api/providers/{provider_name}/toggle")(toggle_provider)
     app.put("/api/providers")(update_providers)
     app.get("/api/model-overrides")(model_overrides)
     app.get("/api/model-override")(get_model_override)

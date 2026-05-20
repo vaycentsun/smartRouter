@@ -49,6 +49,7 @@ export interface ProviderInfo {
   has_key: boolean
   masked_key?: string
   health?: ProviderHealth
+  enabled: boolean
 }
 
 export interface ProvidersResponse {
