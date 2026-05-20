@@ -47,7 +47,7 @@ make clean            # 清理 frontend/dist、web/static、dist/
 - **版本单源**：仅修改 `pyproject.toml` 的 `version`，Python 通过 `importlib.metadata` 读取。
 - **CI**：
   - `.github/workflows/publish.yml` 在 `push tags v*` 时自动发布 PyPI 并更新 Homebrew Formula。
-  - `.github/workflows/docker.yml` 在 `push main` 时自动构建并推送 `latest` 标签到 Docker Hub。
+  - `.github/workflows/docker.yml` 在 `workflow_dispatch` 手动触发时构建并推送 `edge` 标签到 Docker Hub。
   - `.github/workflows/publish.yml` 在 `push tags v*` 时自动构建并推送版本标签（`vX.Y.Z`、`vX.Y`、`vX`）到 Docker Hub。
 
 ---

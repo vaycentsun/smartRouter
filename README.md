@@ -13,6 +13,47 @@ A multi-provider model intelligent routing CLI tool based on LiteLLM. Exposes a 
 - 🏷️ **Stage Markers**: Explicit routing control with `[stage:code_review]`
 - 🔄 **Auto Fallback**: Automatic model upgrade and retry on failure
 - 🌐 **Multi-Provider**: Supports OpenAI, Anthropic, Qwen, Kimi, MiniMax, GLM, etc.
+- 📊 **Web Dashboard**: Built-in dashboard for real-time monitoring, analytics, and model management
+
+---
+
+## 📸 Screenshots
+
+<p align="center">
+  <img src="docs/assets/screenshots/dashboard.png" alt="Dashboard" width="100%">
+  <br>
+  <em>Dashboard — service status, model error stats, and quick routing test</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/data-analysis.png" alt="Data Analysis" width="100%">
+  <br>
+  <em>Data Analysis — cost trends, token consumption, and request analytics</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/model-stats.png" alt="Model Statistics" width="100%">
+  <br>
+  <em>Model Usage — distribution, ranking, and recent routing records</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/model-list.png" alt="Model Management" width="100%">
+  <br>
+  <em>Model Management — multi-provider configuration and capability overview</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/logs.png" alt="Real-time Logs" width="100%">
+  <br>
+  <em>Real-time Logs — live streaming with level-based filtering</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/cli-help.png" alt="CLI Help" width="100%">
+  <br>
+  <em>CLI — intuitive command-line interface with full command reference</em>
+</p>
 
 ---
 

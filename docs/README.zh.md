@@ -13,6 +13,47 @@
 - 🏷️ **阶段标记**：`[stage:code_review]` 显式控制路由
 - 🔄 **自动 Fallback**：模型失败时自动升级重试
 - 🌐 **多服务商**：支持 OpenAI、Anthropic、Qwen、Kimi、MiniMax、GLM 等
+- 📊 **Web 仪表盘**：内置实时监控、数据分析与模型管理界面
+
+---
+
+## 📸 界面截图
+
+<p align="center">
+  <img src="assets/screenshots/dashboard.png" alt="仪表盘" width="100%">
+  <br>
+  <em>仪表盘 — 服务状态、模型错误统计、快速路由测试</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/data-analysis.png" alt="数据分析" width="100%">
+  <br>
+  <em>数据分析 — 成本趋势、Token 消耗、请求统计</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/model-stats.png" alt="模型统计" width="100%">
+  <br>
+  <em>模型使用 — 分布占比、热门排行、最近路由记录</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/model-list.png" alt="模型管理" width="100%">
+  <br>
+  <em>模型管理 — 多服务商配置与能力概览</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/logs.png" alt="实时日志" width="100%">
+  <br>
+  <em>实时日志 — 分级过滤的流式日志</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/cli-help.png" alt="CLI 帮助" width="100%">
+  <br>
+  <em>CLI — 直观的命令行界面与完整命令参考</em>
+</p>
 
 ---
 
