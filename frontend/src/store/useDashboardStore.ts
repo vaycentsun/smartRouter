@@ -21,6 +21,8 @@ import type {
   AlertHistoryItem,
   RequestRoutingRecord,
   ErrorStatsResponse,
+  CreateProviderRequest,
+  AddModelRequest,
 } from '../types'
 import { api } from '../api/client'
 
@@ -91,6 +93,8 @@ interface DashboardState {
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
   stopService: () => Promise<void>
   saveProviders: (providers: Record<string, ProviderUpdate>) => Promise<void>
+  createProvider: (data: CreateProviderRequest) => Promise<void>
+  addModel: (providerName: string, data: AddModelRequest) => Promise<void>
   setModelsFilter: (filter: string) => void
   setModelsSort: (key: string) => void
   clearError: () => void
@@ -278,6 +282,42 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       set({ error: msg, toast: { message: msg, type: 'error' } })
     } finally {
       set({ isSavingProviders: false })
+    }
+  },
+
+  createProvider: async (data: CreateProviderRequest) => {
+    set({ isSavingProviders: true, error: null, toast: null })
+    try {
+      const result = await api.createProvider(data)
+      if (result.success) {
+        set({ toast: { message: 'Provider 已创建', type: 'success' } })
+        await get().fetchAll()
+      } else {
+        set({ error: result.error || '创建失败', toast: { message: result.error || '创建失败', type: 'error' } })
+      }
+    } catch (err) {
+      const msg = (err as Error).message
+      set({ error: msg, toast: { message: msg, type: 'error' } })
+    } finally {
+      set({ isSavingProviders: false })
+    }
+  },
+
+  addModel: async (providerName: string, data: AddModelRequest) => {
+    set({ isLoading: true, error: null, toast: null })
+    try {
+      const result = await api.addModel(providerName, data)
+      if (result.success) {
+        set({ toast: { message: 'Model 已添加', type: 'success' } })
+        await get().fetchAll()
+      } else {
+        set({ error: result.error || '添加失败', toast: { message: result.error || '添加失败', type: 'error' } })
+      }
+    } catch (err) {
+      const msg = (err as Error).message
+      set({ error: msg, toast: { message: msg, type: 'error' } })
+    } finally {
+      set({ isLoading: false })
     }
   },
 

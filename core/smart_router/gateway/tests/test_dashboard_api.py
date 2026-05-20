@@ -627,6 +627,94 @@ class TestProviderHealthAPI:
                     mock_check.assert_called_once_with("openai", force=True)
 
 
+class TestCreateProvider:
+    """测试 POST /api/providers"""
+
+    def test_create_provider_success(self, client):
+        """正常创建 provider，返回 200 和 provider 信息"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers", json={
+                "name": "new_provider",
+                "api_base": "https://api.test.com/v1",
+                "api_key": "sk-secret-key-12345",
+                "timeout": 60,
+            })
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["provider"]["name"] == "new_provider"
+            assert data["provider"]["api_base"] == "https://api.test.com/v1"
+            assert data["provider"]["timeout"] == 60
+            assert data["provider"]["key_type"] == "direct"
+            assert data["provider"]["has_key"] is True
+            assert data["provider"]["masked_key"] == "sk-s...2345"
+            assert data["provider"]["health"] is None
+            mock_instance.create_provider.assert_called_once_with(
+                "new_provider", "https://api.test.com/v1", "sk-secret-key-12345", 60
+            )
+
+    def test_create_provider_name_exists(self, client):
+        """name 已存在，返回 400"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.create_provider.side_effect = ConfigError("Provider 'existing' already exists")
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers", json={
+                "name": "existing",
+                "api_base": "https://api.test.com/v1",
+                "api_key": "sk-test",
+            })
+            assert response.status_code == 400
+            assert "already exists" in response.json()["detail"]
+
+    def test_create_provider_name_with_space(self, client):
+        """name 含空格，返回 400"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.create_provider.side_effect = ConfigError("Invalid provider name")
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers", json={
+                "name": "bad name",
+                "api_base": "https://api.test.com/v1",
+                "api_key": "sk-test",
+            })
+            assert response.status_code == 400
+            assert "Invalid" in response.json()["detail"]
+
+    def test_create_provider_missing_name(self, client):
+        """缺少必填字段 name，返回 422"""
+        response = client.post("/api/providers", json={
+            "api_base": "https://api.test.com/v1",
+            "api_key": "sk-test",
+        })
+        assert response.status_code == 422
+
+    def test_create_provider_validate_failure_rollback(self, client):
+        """创建后若 validate 失败（模拟），返回 500，原配置不变"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.create_provider.side_effect = ConfigError(
+                "Config validation failed after save"
+            )
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers", json={
+                "name": "rollback_provider",
+                "api_base": "https://api.test.com/v1",
+                "api_key": "sk-test",
+            })
+            assert response.status_code == 500
+            assert "validation failed" in response.json()["detail"]
+
+
 class TestToggleModel:
     """测试 PUT /api/models/{provider}/{model}"""
 
