@@ -7,17 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-05-20
+
 ### Changed
-- 测试目录迁移到各模块内部（模块化测试结构）
-- config/__init__.py 统一导出所有类（含向后兼容别名）
-- 在 CI (publish.yml) 添加测试步骤
-- 标记 plugin_v3_adapter.py 和 model_selector.py 为弃用
+- Bump version to 1.2.1
 
-### Removed
-- 删除 v3_schema.py/v3_loader.py 别名文件
+## [1.2.0] - 2026-05-20
 
-### Fixed
-- 重命名 test_api.py 为 api_manual.py 避免 pytest 误收集
+### Changed
+- Bump version to 1.2.0
+
+## [1.1.0] - 2026-04-23
+
+### Changed
+- Bump version to 1.1.0
+- Update AGENTS.md to reflect current directory structure and V3ModelSelector usage
 
 ## [1.1.0] - 2026-04-23
 
@@ -100,5 +104,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration file support (YAML)
 - Support for OpenAI, Anthropic, DeepSeek, Qwen, Kimi, MiniMax, GLM
 
-[Unreleased]: https://github.com/vaycent/smartRouter/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/vaycent/smartRouter/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/vaycent/smartRouter/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/vaycent/smartRouter/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/vaycent/smartRouter/compare/v1.0.9...v1.1.0
+[1.0.9]: https://github.com/vaycent/smartRouter/compare/v1.0.7...v1.0.9
+[1.0.7]: https://github.com/vaycent/smartRouter/compare/v1.0.5...v1.0.7
+[1.0.5]: https://github.com/vaycent/smartRouter/compare/v1.0.4...v1.0.5
+[1.0.4]: https://github.com/vaycent/smartRouter/compare/v1.0.3...v1.0.4
+[1.0.3]: https://github.com/vaycent/smartRouter/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/vaycent/smartRouter/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/vaycent/smartRouter/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/vaycent/smartRouter/compare/v0.1.1...v1.0.0
+[0.1.1]: https://github.com/vaycent/smartRouter/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/vaycent/smartRouter/releases/tag/v0.1.0
