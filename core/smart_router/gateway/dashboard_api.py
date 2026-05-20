@@ -19,6 +19,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.responses import FileResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
+from smart_router import __version__
 from smart_router.utils.log_parser import parse_log_line
 from ..config.loader import ConfigLoader
 from ..classifier.task_classifier import TaskTypeClassifier
@@ -256,7 +257,7 @@ def read_log_lines(source: str, offset: int = 0, limit: int = 500, level: str = 
 # ==================== API 处理函数 ====================
 
 async def health():
-    return {"status": "ok", "version": "1.1.0"}
+    return {"status": "ok", "version": __version__}
 
 
 async def status():
@@ -274,7 +275,7 @@ async def status():
         "pid": pid,
         "uptime_seconds": uptime_seconds,
         "service_url": f"http://127.0.0.1:{DEFAULT_PORT}" if running else None,
-        "version": "1.1.0",
+        "version": __version__,
     }
 
 
