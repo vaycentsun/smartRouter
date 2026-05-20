@@ -627,6 +627,225 @@ class TestProviderHealthAPI:
                     mock_check.assert_called_once_with("openai", force=True)
 
 
+class TestAddModel:
+    """测试 POST /api/providers/{provider_name}/models"""
+
+    def test_add_model_success(self, client):
+        """正常添加 model，返回 200 和 model 信息"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers/openai/models", json={
+                "name": "gpt-4o-new",
+                "litellm_model": "openai/gpt-4o-new",
+                "quality": 9,
+                "cost": 3,
+                "context": 128000,
+                "supported_tasks": ["chat", "coding"],
+                "enabled": True,
+            })
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["model"]["name"] == "gpt-4o-new"
+            assert data["model"]["provider"] == "openai"
+            assert data["model"]["available"] is True
+            assert data["model"]["health_status"] == "unknown"
+            assert data["model"]["quality"] == 9
+            assert data["model"]["cost"] == 3
+            assert data["model"]["context"] == 128000
+            assert data["model"]["supported_tasks"] == ["chat", "coding"]
+            assert data["model"]["enabled"] is True
+            mock_instance.add_model.assert_called_once_with(
+                provider_name="openai",
+                name="gpt-4o-new",
+                litellm_model="openai/gpt-4o-new",
+                quality=9,
+                cost=3,
+                context=128000,
+                supported_tasks=["chat", "coding"],
+                enabled=True,
+            )
+
+    def test_add_model_provider_not_found(self, client):
+        """provider 不存在，返回 404"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.add_model.side_effect = ConfigError("Provider 'unknown' not found")
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers/unknown/models", json={
+                "name": "gpt-4o",
+                "litellm_model": "openai/gpt-4o",
+                "quality": 9,
+                "cost": 3,
+                "context": 128000,
+                "supported_tasks": ["chat"],
+            })
+            assert response.status_code == 404
+            assert "not found" in response.json()["detail"].lower()
+
+    def test_add_model_name_exists(self, client):
+        """model name 已存在，返回 400"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.add_model.side_effect = ConfigError("Model 'gpt-4o' already exists")
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers/openai/models", json={
+                "name": "gpt-4o",
+                "litellm_model": "openai/gpt-4o",
+                "quality": 9,
+                "cost": 3,
+                "context": 128000,
+                "supported_tasks": ["chat"],
+            })
+            assert response.status_code == 400
+            assert "already exists" in response.json()["detail"].lower()
+
+    def test_add_model_name_with_space(self, client):
+        """name 含空格，返回 400"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.add_model.side_effect = ConfigError("Invalid model name 'bad name'")
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers/openai/models", json={
+                "name": "bad name",
+                "litellm_model": "openai/gpt-4o",
+                "quality": 9,
+                "cost": 3,
+                "context": 128000,
+                "supported_tasks": ["chat"],
+            })
+            assert response.status_code == 400
+            assert "Invalid" in response.json()["detail"]
+
+    def test_add_model_missing_litellm_model(self, client):
+        """缺少必填字段 litellm_model，返回 422"""
+        response = client.post("/api/providers/openai/models", json={
+            "name": "gpt-4o",
+            "quality": 9,
+            "cost": 3,
+            "context": 128000,
+            "supported_tasks": ["chat"],
+        })
+        assert response.status_code == 422
+
+    def test_add_model_validate_failure_rollback(self, client):
+        """写入后若 validate 失败（模拟），返回 500"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.add_model.side_effect = ConfigError(
+                "Config validation failed after save"
+            )
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers/openai/models", json={
+                "name": "rollback-model",
+                "litellm_model": "openai/gpt-4o",
+                "quality": 9,
+                "cost": 3,
+                "context": 128000,
+                "supported_tasks": ["chat"],
+            })
+            assert response.status_code == 500
+            assert "validation failed" in response.json()["detail"].lower()
+
+
+class TestCreateProvider:
+    """测试 POST /api/providers"""
+
+    def test_create_provider_success(self, client):
+        """正常创建 provider，返回 200 和 provider 信息"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers", json={
+                "name": "new_provider",
+                "api_base": "https://api.test.com/v1",
+                "api_key": "sk-secret-key-12345",
+                "timeout": 60,
+            })
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["provider"]["name"] == "new_provider"
+            assert data["provider"]["api_base"] == "https://api.test.com/v1"
+            assert data["provider"]["timeout"] == 60
+            assert data["provider"]["key_type"] == "direct"
+            assert data["provider"]["has_key"] is True
+            assert data["provider"]["masked_key"] == "sk-s...2345"
+            assert data["provider"]["health"] is None
+            mock_instance.create_provider.assert_called_once_with(
+                "new_provider", "https://api.test.com/v1", "sk-secret-key-12345", 60
+            )
+
+    def test_create_provider_name_exists(self, client):
+        """name 已存在，返回 400"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.create_provider.side_effect = ConfigError("Provider 'existing' already exists")
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers", json={
+                "name": "existing",
+                "api_base": "https://api.test.com/v1",
+                "api_key": "sk-test",
+            })
+            assert response.status_code == 400
+            assert "already exists" in response.json()["detail"]
+
+    def test_create_provider_name_with_space(self, client):
+        """name 含空格，返回 400"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.create_provider.side_effect = ConfigError("Invalid provider name")
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers", json={
+                "name": "bad name",
+                "api_base": "https://api.test.com/v1",
+                "api_key": "sk-test",
+            })
+            assert response.status_code == 400
+            assert "Invalid" in response.json()["detail"]
+
+    def test_create_provider_missing_name(self, client):
+        """缺少必填字段 name，返回 422"""
+        response = client.post("/api/providers", json={
+            "api_base": "https://api.test.com/v1",
+            "api_key": "sk-test",
+        })
+        assert response.status_code == 422
+
+    def test_create_provider_validate_failure_rollback(self, client):
+        """创建后若 validate 失败（模拟），返回 500，原配置不变"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.create_provider.side_effect = ConfigError(
+                "Config validation failed after save"
+            )
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers", json={
+                "name": "rollback_provider",
+                "api_base": "https://api.test.com/v1",
+                "api_key": "sk-test",
+            })
+            assert response.status_code == 500
+            assert "validation failed" in response.json()["detail"]
+
+
 class TestToggleModel:
     """测试 PUT /api/models/{provider}/{model}"""
 
@@ -763,3 +982,127 @@ models:
             data = response.json()
             assert len(data["models"]) == 1
             assert data["models"][0]["enabled"] is False
+
+
+class TestToggleProvider:
+    """测试 PUT /api/providers/{provider_name}/toggle"""
+
+    def test_toggle_provider_disable(self, client):
+        """正常切换 Provider enabled=False，返回 200 和正确 JSON"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            mock_instance = MagicMock()
+            mock_instance.load.return_value = mock_cfg
+            mock_loader.return_value = mock_instance
+
+            response = client.put("/api/providers/openai/toggle", json={"enabled": False})
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["provider"] == "openai"
+            assert data["enabled"] is False
+            mock_instance.save_provider_enabled.assert_called_once_with("openai", False)
+
+    def test_toggle_provider_enable(self, client):
+        """正常切换 Provider enabled=True，返回 200 和正确 JSON"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            mock_instance = MagicMock()
+            mock_instance.load.return_value = mock_cfg
+            mock_loader.return_value = mock_instance
+
+            response = client.put("/api/providers/openai/toggle", json={"enabled": True})
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["provider"] == "openai"
+            assert data["enabled"] is True
+            mock_instance.save_provider_enabled.assert_called_once_with("openai", True)
+
+    def test_toggle_provider_not_found(self, client):
+        """切换不存在的 Provider，返回 404"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            mock_cfg.providers = {}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            mock_instance = MagicMock()
+            mock_instance.load.return_value = mock_cfg
+            mock_loader.return_value = mock_instance
+
+            response = client.put("/api/providers/unknown/toggle", json={"enabled": False})
+            assert response.status_code == 404
+            assert "Provider not found" in response.json()["detail"]
+
+
+class TestProvidersEnabled:
+    """测试 GET /api/providers 返回 enabled 字段"""
+
+    def test_providers_returns_enabled_true(self, client):
+        """GET /api/providers 返回的列表中包含 enabled 字段且值为 True"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            provider.api_key = "sk-test"
+            provider.api_base = "https://api.openai.com/v1"
+            provider.timeout = 30
+            provider.enabled = True
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.get("/api/providers")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["providers"]) == 1
+            assert data["providers"][0]["enabled"] is True
+
+    def test_providers_returns_enabled_false(self, client):
+        """GET /api/providers 返回的列表中包含 enabled 字段且值为 False"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            provider.api_key = "sk-test"
+            provider.api_base = "https://api.openai.com/v1"
+            provider.timeout = 30
+            provider.enabled = False
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.get("/api/providers")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["providers"]) == 1
+            assert data["providers"][0]["enabled"] is False
+
+    def test_providers_returns_enabled_default_true(self, client):
+        """GET /api/providers 当 provider 没有 enabled 属性时，默认返回 True"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_cfg = MagicMock()
+            provider = MagicMock()
+            provider.api_key = "sk-test"
+            provider.api_base = "https://api.openai.com/v1"
+            provider.timeout = 30
+            # 不设置 enabled 属性
+            del provider.enabled
+            mock_cfg.providers = {"openai": provider}
+            mock_cfg.models = {}
+            mock_loader.return_value.load.return_value = mock_cfg
+
+            response = client.get("/api/providers")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["providers"]) == 1
+            assert data["providers"][0]["enabled"] is True

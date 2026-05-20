@@ -5,7 +5,7 @@ models:
   auto:
     provider: _virtual
     litellm_model: openai/virtual-model
-        enabled: true
+    enabled: true
     capabilities:
       quality: 1
       cost: 1
@@ -16,7 +16,7 @@ models:
   smart-router:
     provider: _virtual
     litellm_model: openai/virtual-model
-        enabled: true
+    enabled: true
     capabilities:
       quality: 1
       cost: 1
@@ -27,7 +27,7 @@ models:
   default:
     provider: _virtual
     litellm_model: openai/virtual-model
-        enabled: true
+    enabled: true
     capabilities:
       quality: 1
       cost: 1

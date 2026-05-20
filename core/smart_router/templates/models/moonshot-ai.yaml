@@ -3,7 +3,7 @@ models:
   kimi-k2.5:
     provider: moonshot-ai
     litellm_model: moonshot/kimi-k2.5
-        enabled: true
+    enabled: true
     capabilities:
       quality: 10
       cost: 5
@@ -14,7 +14,7 @@ models:
   kimi-k2-0905:
     provider: moonshot-ai
     litellm_model: moonshot/kimi-k2-0905-preview
-        enabled: true
+    enabled: true
     capabilities:
       quality: 9
       cost: 6
@@ -25,7 +25,7 @@ models:
   kimi-k2-0711:
     provider: moonshot-ai
     litellm_model: moonshot/kimi-k2-0711-preview
-        enabled: true
+    enabled: true
     capabilities:
       quality: 9
       cost: 7
@@ -36,7 +36,7 @@ models:
   kimi-k2-turbo:
     provider: moonshot-ai
     litellm_model: moonshot/kimi-k2-turbo-preview
-        enabled: true
+    enabled: true
     capabilities:
       quality: 8
       cost: 8
@@ -47,7 +47,7 @@ models:
   kimi-k2-thinking:
     provider: moonshot-ai
     litellm_model: moonshot/kimi-k2-thinking
-        enabled: true
+    enabled: true
     capabilities:
       quality: 10
       cost: 5
@@ -58,7 +58,7 @@ models:
   kimi-k2-thinking-turbo:
     provider: moonshot-ai
     litellm_model: moonshot/kimi-k2-thinking-turbo
-        enabled: true
+    enabled: true
     capabilities:
       quality: 9
       cost: 6

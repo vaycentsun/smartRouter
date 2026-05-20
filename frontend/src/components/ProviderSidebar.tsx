@@ -7,21 +7,22 @@ interface ProviderSidebarProps {
   selectedProvider: string | null
   modelsCount: Record<string, number>
   onSelect: (name: string) => void
+  onAddProvider?: () => void
 }
 
-function StatusDot({ hasKey }: { hasKey: boolean }) {
+function StatusDot({ hasKey, enabled }: { hasKey: boolean; enabled: boolean }) {
   const { t } = useTranslation()
+  const colorClass = !enabled ? 'bg-[#636366]' : hasKey ? 'bg-[#00d4aa]' : 'bg-[#e74c3c]'
+  const title = !enabled ? t('Provider disabled') : hasKey ? t('Key configured') : t('Key missing')
   return (
     <span
-      className={`inline-block w-1.5 h-1.5 rounded-sm ${
-        hasKey ? 'bg-[#00d4aa]' : 'bg-[#e74c3c]'
-      }`}
-      title={hasKey ? t('Key configured') : t('Key missing')}
+      className={`inline-block w-1.5 h-1.5 rounded-sm ${colorClass}`}
+      title={title}
     />
   )
 }
 
-export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSelect }: ProviderSidebarProps) {
+export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSelect, onAddProvider }: ProviderSidebarProps) {
   const { t } = useTranslation()
   const sortedProviders = useMemo(() => {
     return [...providers].sort((a, b) => {
@@ -34,14 +35,32 @@ export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSe
 
   if (providers.length === 0) {
     return (
-      <div className="tech-card rounded-sm p-6">
-        <p className="text-[#636366] text-sm font-mono">{t('NO PROVIDERS')}</p>
+      <div className="space-y-2">
+        {onAddProvider && (
+          <button
+            onClick={onAddProvider}
+            className="w-full tech-btn tech-btn-primary px-3 py-2 rounded-sm text-xs font-mono mb-2"
+          >
+            + Add Provider
+          </button>
+        )}
+        <div className="tech-card rounded-sm p-6">
+          <p className="text-[#636366] text-sm font-mono">{t('NO PROVIDERS')}</p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-2">
+      {onAddProvider && (
+        <button
+          onClick={onAddProvider}
+          className="w-full tech-btn tech-btn-primary px-3 py-2 rounded-sm text-xs font-mono mb-2"
+        >
+          + Add Provider
+        </button>
+      )}
       {sortedProviders.map((provider) => {
         const isSelected = selectedProvider === provider.name
         const count = modelsCount[provider.name] || 0
@@ -57,7 +76,7 @@ export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSe
           >
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
-                <StatusDot hasKey={provider.has_key} />
+                <StatusDot hasKey={provider.has_key} enabled={provider.enabled ?? true} />
                 <span className="font-semibold text-[#e8e8ed] text-sm font-mono">{provider.name}</span>
               </div>
               <span className="text-xs bg-[#0a0a0f] text-[#636366] px-2 py-0.5 rounded-sm font-mono border border-[#1a1a2e]">
@@ -67,11 +86,13 @@ export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSe
             <p className="text-xs text-[#636366] truncate font-mono">{provider.api_base}</p>
             <div className="mt-1.5 flex items-center gap-2">
               <span className={`text-[10px] px-2 py-0.5 rounded-sm border font-mono uppercase tracking-wider ${
-                provider.has_key
-                  ? 'bg-[rgba(0,212,170,0.06)] text-[#00d4aa] border-[rgba(0,212,170,0.12)]'
-                  : 'bg-[rgba(231,76,60,0.06)] text-[#e74c3c] border-[rgba(231,76,60,0.12)]'
+                !(provider.enabled ?? true)
+                  ? 'bg-[rgba(99,99,102,0.06)] text-[#636366] border-[rgba(99,99,102,0.12)]'
+                  : provider.has_key
+                    ? 'bg-[rgba(0,212,170,0.06)] text-[#00d4aa] border-[rgba(0,212,170,0.12)]'
+                    : 'bg-[rgba(231,76,60,0.06)] text-[#e74c3c] border-[rgba(231,76,60,0.12)]'
               }`}>
-                {provider.has_key ? t('CONFIGURED') : t('MISSING')}
+                {!(provider.enabled ?? true) ? t('DISABLED') : provider.has_key ? t('CONFIGURED') : t('MISSING')}
               </span>
             </div>
           </button>

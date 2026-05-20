@@ -22,7 +22,7 @@ export function useTranslation() {
 const dict: Record<string, Record<Lang, string>> = {
   // ===== App / Header =====
   'Smart Router': { zh: 'Smart Router', en: 'Smart Router' },
-  'Gateway Monitor': { zh: '智能网关监控', en: 'Gateway Monitor' },
+  'Gateway Monitor': { zh: '智能模型路由网关', en: 'Intelligent Model Routing Gateway' },
   'ONLINE': { zh: '在线', en: 'ONLINE' },
   'OFFLINE': { zh: '离线', en: 'OFFLINE' },
   'REFRESH': { zh: '刷新', en: 'REFRESH' },

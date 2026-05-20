@@ -49,6 +49,7 @@ export interface ProviderInfo {
   has_key: boolean
   masked_key?: string
   health?: ProviderHealth
+  enabled: boolean
 }
 
 export interface ProvidersResponse {
@@ -318,4 +319,21 @@ export interface ErrorStatsResponse {
   total_requests: number
   total_failures: number
   failure_rate: number
+}
+
+export interface CreateProviderRequest {
+  name: string
+  api_base: string
+  api_key: string
+  timeout: number
+}
+
+export interface AddModelRequest {
+  name: string
+  litellm_model: string
+  quality: number
+  cost: number
+  context: number
+  supported_tasks: string[]
+  enabled?: boolean
 }
