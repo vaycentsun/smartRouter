@@ -25,7 +25,6 @@ RUN pip install --no-cache-dir build hatchling
 # 复制项目文件
 COPY pyproject.toml README.md LICENSE ./
 COPY core/ ./core/
-COPY config/ ./config/
 COPY script/ ./script/
 COPY docs/ ./docs/
 
