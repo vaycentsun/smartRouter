@@ -38,6 +38,10 @@ const healthStatusMap: Record<string, { label: string; color: string; dotColor: 
 }
 
 function getModelHealthDisplay(model: ModelInfo, providerHealth?: { status: string; error?: string | null }) {
+  if (!model.enabled) {
+    return { label: 'DISABLED', color: 'text-[#636366]', dotColor: 'bg-[#636366]', tooltip: 'Model disabled by user' }
+  }
+
   const status = model.health_status
 
   if (providerHealth?.status === 'checking' || status === 'checking') {
