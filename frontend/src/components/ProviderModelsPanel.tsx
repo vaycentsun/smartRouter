@@ -24,6 +24,7 @@ interface ProviderModelsPanelProps {
   isSaving: boolean
   onCheckHealth?: (providerName: string) => Promise<void>
   isCheckingHealth?: boolean
+  onAddModel?: () => void
 }
 
 const healthStatusMap: Record<string, { label: string; color: string; dotColor: string; tooltip: string }> = {
@@ -70,6 +71,7 @@ export function ProviderModelsPanel({
   isSaving,
   onCheckHealth,
   isCheckingHealth = false,
+  onAddModel,
 }: ProviderModelsPanelProps) {
   const { t } = useTranslation()
   const [keyInput, setKeyInput] = useState('')
@@ -154,6 +156,14 @@ export function ProviderModelsPanel({
           >
             {t('EDIT')}
           </button>
+          {onAddModel && (
+            <button
+              onClick={onAddModel}
+              className="tech-btn tech-btn-primary px-3 py-2 rounded-sm text-xs"
+            >
+              + Add Model
+            </button>
+          )}
         </div>
       </div>
 

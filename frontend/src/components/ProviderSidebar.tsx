@@ -7,6 +7,7 @@ interface ProviderSidebarProps {
   selectedProvider: string | null
   modelsCount: Record<string, number>
   onSelect: (name: string) => void
+  onAddProvider?: () => void
 }
 
 function StatusDot({ hasKey }: { hasKey: boolean }) {
@@ -21,7 +22,7 @@ function StatusDot({ hasKey }: { hasKey: boolean }) {
   )
 }
 
-export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSelect }: ProviderSidebarProps) {
+export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSelect, onAddProvider }: ProviderSidebarProps) {
   const { t } = useTranslation()
   const sortedProviders = useMemo(() => {
     return [...providers].sort((a, b) => {
@@ -34,14 +35,32 @@ export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSe
 
   if (providers.length === 0) {
     return (
-      <div className="tech-card rounded-sm p-6">
-        <p className="text-[#636366] text-sm font-mono">{t('NO PROVIDERS')}</p>
+      <div className="space-y-2">
+        {onAddProvider && (
+          <button
+            onClick={onAddProvider}
+            className="w-full tech-btn tech-btn-primary px-3 py-2 rounded-sm text-xs font-mono mb-2"
+          >
+            + Add Provider
+          </button>
+        )}
+        <div className="tech-card rounded-sm p-6">
+          <p className="text-[#636366] text-sm font-mono">{t('NO PROVIDERS')}</p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-2">
+      {onAddProvider && (
+        <button
+          onClick={onAddProvider}
+          className="w-full tech-btn tech-btn-primary px-3 py-2 rounded-sm text-xs font-mono mb-2"
+        >
+          + Add Provider
+        </button>
+      )}
       {sortedProviders.map((provider) => {
         const isSelected = selectedProvider === provider.name
         const count = modelsCount[provider.name] || 0

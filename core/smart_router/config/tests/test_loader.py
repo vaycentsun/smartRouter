@@ -473,3 +473,133 @@ models:
         (tmp_path / "providers.yaml").write_text(original_providers)
         config = loader.load()
         assert config.models["gpt-4o"].enabled is False
+
+
+class TestConfigLoaderCreateProvider:
+    """测试 create_provider() 方法"""
+
+    def _create_config_dir(self, tmp_path):
+        """创建最小可用的配置目录结构"""
+        (tmp_path / "providers.yaml").write_text("""
+providers:
+  openai:
+    api_base: https://api.openai.com
+    api_key: sk-test
+    timeout: 30
+  _virtual:
+    api_base: ""
+    api_key: ""
+    timeout: 30
+""")
+        (tmp_path / "routing.yaml").write_text("""
+tasks:
+  chat:
+    name: "聊天"
+    description: "日常对话"
+    capability_weights:
+      quality: 0.5
+      cost: 0.5
+difficulties:
+  easy:
+    description: "简单"
+    max_tokens: 2000
+strategies:
+  auto:
+    description: "自动"
+fallback:
+  mode: auto
+  similarity_threshold: 2
+  provider_isolation: false
+  max_attempts: 3
+""")
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+        (models_dir / "openai.yaml").write_text("""
+models:
+  gpt-4o:
+    provider: openai
+    litellm_model: openai/gpt-4o
+    capabilities:
+      quality: 9
+      cost: 3
+      context: 128000
+    supported_tasks: [chat]
+    difficulty_support: [easy]
+""")
+        return tmp_path
+
+    def test_create_provider_success(self, tmp_path):
+        """正常创建 provider，验证 providers.yaml 内容和 loader.load() 可读取"""
+        self._create_config_dir(tmp_path)
+        loader = ConfigLoader(tmp_path)
+
+        loader.create_provider("anthropic", "https://api.anthropic.com", "sk-anthropic")
+
+        # 验证通过 load() 能读取到新 provider
+        config = loader.load()
+        assert "anthropic" in config.providers
+        assert config.providers["anthropic"].api_base == "https://api.anthropic.com"
+        assert config.providers["anthropic"].api_key == "sk-anthropic"
+        assert config.providers["anthropic"].timeout == 30
+
+        # 验证 YAML 文件内容
+        yaml_content = (tmp_path / "providers.yaml").read_text()
+        assert "anthropic:" in yaml_content
+        assert "api_base: https://api.anthropic.com" in yaml_content
+        assert "api_key: sk-anthropic" in yaml_content
+
+    def test_create_provider_duplicate_name_raises(self, tmp_path):
+        """name 已存在时抛出 ConfigError，原配置不变"""
+        self._create_config_dir(tmp_path)
+        loader = ConfigLoader(tmp_path)
+
+        original_content = (tmp_path / "providers.yaml").read_text()
+
+        with pytest.raises(ConfigError, match="Provider 'openai' already exists"):
+            loader.create_provider("openai", "https://new.com", "sk-new")
+
+        # 验证原配置未被修改
+        assert (tmp_path / "providers.yaml").read_text() == original_content
+
+    def test_create_provider_invalid_name_raises(self, tmp_path):
+        """name 含空格等非法字符时抛出 ConfigError"""
+        self._create_config_dir(tmp_path)
+        loader = ConfigLoader(tmp_path)
+
+        original_content = (tmp_path / "providers.yaml").read_text()
+
+        with pytest.raises(ConfigError, match="Invalid provider name"):
+            loader.create_provider("invalid name", "https://api.com", "sk-test")
+
+        # 验证原配置未被修改
+        assert (tmp_path / "providers.yaml").read_text() == original_content
+
+    def test_create_provider_validation_failure_restores_backup(self, tmp_path):
+        """创建后若 validate 失败，验证备份回滚生效"""
+        self._create_config_dir(tmp_path)
+        loader = ConfigLoader(tmp_path)
+
+        # 先正常创建一次 provider，确保备份文件存在
+        loader.create_provider("anthropic", "https://api.anthropic.com", "sk-anthropic")
+
+        # 验证第一次创建后的文件内容
+        yaml_content_before = (tmp_path / "providers.yaml").read_text()
+        assert "anthropic:" in yaml_content_before
+
+        # 故意破坏 routing.yaml 使验证失败（删除 fallback 等必填项）
+        original_routing = (tmp_path / "routing.yaml").read_text()
+        (tmp_path / "routing.yaml").write_text("tasks: {}\n")
+
+        with pytest.raises(ConfigError, match="Config validation failed after save"):
+            loader.create_provider("google", "https://api.google.com", "sk-google")
+
+        # 验证 providers.yaml 被恢复为之前的状态（只包含 anthropic，不包含 google）
+        yaml_content_after = (tmp_path / "providers.yaml").read_text()
+        assert "anthropic:" in yaml_content_after
+        assert "google:" not in yaml_content_after
+
+        # 恢复 routing.yaml 以便能正常加载验证
+        (tmp_path / "routing.yaml").write_text(original_routing)
+        config = loader.load()
+        assert "anthropic" in config.providers
+        assert "google" not in config.providers
