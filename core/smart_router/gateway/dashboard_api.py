@@ -124,6 +124,16 @@ class CreateProviderRequest(BaseModel):
     timeout: int = 30
 
 
+class AddModelRequest(BaseModel):
+    name: str
+    litellm_model: str
+    quality: int
+    cost: int
+    context: int
+    supported_tasks: list[str]
+    enabled: bool = True
+
+
 class DryRunRequest(BaseModel):
     prompt: str
     strategy: str = "auto"
@@ -608,6 +618,65 @@ async def create_provider(request: CreateProviderRequest):
             "has_key": has_key,
             "masked_key": masked_key,
             "health": None,
+        }
+    }
+
+
+async def add_model(provider_name: str, request: AddModelRequest):
+    """向指定 Provider 添加新模型
+
+    Args:
+        provider_name: Provider 名称
+        request: AddModelRequest 包含 name, litellm_model, quality, cost, context, supported_tasks, enabled
+
+    Returns:
+        { success: True, model: ModelInfo }
+
+    Raises:
+        HTTPException(404): Provider 不存在
+        HTTPException(400): 模型名称格式非法或已存在
+        HTTPException(500): 保存或验证失败
+    """
+    config_dir = Path.home() / ".smart-router"
+    loader = ConfigLoader(config_dir)
+
+    try:
+        loader.add_model(
+            provider_name=provider_name,
+            name=request.name,
+            litellm_model=request.litellm_model,
+            quality=request.quality,
+            cost=request.cost,
+            context=request.context,
+            supported_tasks=request.supported_tasks,
+            enabled=request.enabled,
+        )
+    except ConfigError as e:
+        detail = str(e)
+        # 根据错误内容判断状态码：not found -> 404，validation failed -> 500，其余 -> 400
+        if "not found" in detail.lower():
+            status = 404
+        elif "validation failed" in detail.lower():
+            status = 500
+        else:
+            status = 400
+        raise HTTPException(status_code=status, detail=detail)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # 构造 ModelInfo 响应
+    return {
+        "success": True,
+        "model": {
+            "name": request.name,
+            "provider": provider_name,
+            "available": True,
+            "health_status": "unknown",
+            "quality": request.quality,
+            "cost": request.cost,
+            "context": request.context,
+            "supported_tasks": request.supported_tasks,
+            "enabled": request.enabled,
         }
     }
 
@@ -1340,6 +1409,7 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     app.put("/api/models/{provider_name}/{model_name}")(toggle_model)
     app.put("/api/providers")(update_providers)
     app.post("/api/providers")(create_provider)
+    app.post("/api/providers/{provider_name}/models")(add_model)
     app.get("/api/model-overrides")(model_overrides)
     app.get("/api/model-override")(get_model_override)
     app.post("/api/model-override")(set_model_override)

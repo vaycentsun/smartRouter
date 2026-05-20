@@ -4,10 +4,14 @@ import type { ProviderUpdate } from '../types'
 import { ProviderSidebar } from './ProviderSidebar'
 import { ProviderModelsPanel } from './ProviderModelsPanel'
 import { ProviderEditModal } from './ProviderEditModal'
+import { AddProviderModal } from './AddProviderModal'
+import { AddModelModal } from './AddModelModal'
 export function ModelsExplorer() {
-  const { providers, models, saveProviders, isSavingProviders, toast, clearToast, checkProviderHealth, isCheckingHealth } = useDashboardStore()
+  const { providers, models, saveProviders, isSavingProviders, toast, clearToast, checkProviderHealth, isCheckingHealth, createProvider, addModel, isLoading } = useDashboardStore()
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [addProviderOpen, setAddProviderOpen] = useState(false)
+  const [addModelOpen, setAddModelOpen] = useState(false)
 
   // 默认选中第一个 provider
   useEffect(() => {
@@ -69,6 +73,7 @@ export function ModelsExplorer() {
             selectedProvider={selectedProvider}
             modelsCount={modelsCount}
             onSelect={setSelectedProvider}
+            onAddProvider={() => setAddProviderOpen(true)}
           />
         </div>
         <div>
@@ -80,6 +85,7 @@ export function ModelsExplorer() {
             isSaving={isSavingProviders}
             onCheckHealth={checkProviderHealth}
             isCheckingHealth={isCheckingHealth[currentProvider?.name || ''] || false}
+            onAddModel={() => setAddModelOpen(true)}
           />
         </div>
       </div>
@@ -90,6 +96,19 @@ export function ModelsExplorer() {
         onClose={() => setEditModalOpen(false)}
         onSave={handleSave}
         isSaving={isSavingProviders}
+      />
+      <AddProviderModal
+        isOpen={addProviderOpen}
+        onClose={() => setAddProviderOpen(false)}
+        onSubmit={(data) => { createProvider(data); setAddProviderOpen(false) }}
+        isSaving={isSavingProviders}
+      />
+      <AddModelModal
+        providerName={currentProvider?.name || ''}
+        isOpen={addModelOpen}
+        onClose={() => setAddModelOpen(false)}
+        onSubmit={(data) => { addModel(currentProvider!.name, data); setAddModelOpen(false) }}
+        isSaving={isLoading}
       />
     </div>
   )

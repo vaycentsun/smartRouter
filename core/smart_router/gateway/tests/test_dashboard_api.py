@@ -627,6 +627,137 @@ class TestProviderHealthAPI:
                     mock_check.assert_called_once_with("openai", force=True)
 
 
+class TestAddModel:
+    """测试 POST /api/providers/{provider_name}/models"""
+
+    def test_add_model_success(self, client):
+        """正常添加 model，返回 200 和 model 信息"""
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers/openai/models", json={
+                "name": "gpt-4o-new",
+                "litellm_model": "openai/gpt-4o-new",
+                "quality": 9,
+                "cost": 3,
+                "context": 128000,
+                "supported_tasks": ["chat", "coding"],
+                "enabled": True,
+            })
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert data["model"]["name"] == "gpt-4o-new"
+            assert data["model"]["provider"] == "openai"
+            assert data["model"]["available"] is True
+            assert data["model"]["health_status"] == "unknown"
+            assert data["model"]["quality"] == 9
+            assert data["model"]["cost"] == 3
+            assert data["model"]["context"] == 128000
+            assert data["model"]["supported_tasks"] == ["chat", "coding"]
+            assert data["model"]["enabled"] is True
+            mock_instance.add_model.assert_called_once_with(
+                provider_name="openai",
+                name="gpt-4o-new",
+                litellm_model="openai/gpt-4o-new",
+                quality=9,
+                cost=3,
+                context=128000,
+                supported_tasks=["chat", "coding"],
+                enabled=True,
+            )
+
+    def test_add_model_provider_not_found(self, client):
+        """provider 不存在，返回 404"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.add_model.side_effect = ConfigError("Provider 'unknown' not found")
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers/unknown/models", json={
+                "name": "gpt-4o",
+                "litellm_model": "openai/gpt-4o",
+                "quality": 9,
+                "cost": 3,
+                "context": 128000,
+                "supported_tasks": ["chat"],
+            })
+            assert response.status_code == 404
+            assert "not found" in response.json()["detail"].lower()
+
+    def test_add_model_name_exists(self, client):
+        """model name 已存在，返回 400"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.add_model.side_effect = ConfigError("Model 'gpt-4o' already exists")
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers/openai/models", json={
+                "name": "gpt-4o",
+                "litellm_model": "openai/gpt-4o",
+                "quality": 9,
+                "cost": 3,
+                "context": 128000,
+                "supported_tasks": ["chat"],
+            })
+            assert response.status_code == 400
+            assert "already exists" in response.json()["detail"].lower()
+
+    def test_add_model_name_with_space(self, client):
+        """name 含空格，返回 400"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.add_model.side_effect = ConfigError("Invalid model name 'bad name'")
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers/openai/models", json={
+                "name": "bad name",
+                "litellm_model": "openai/gpt-4o",
+                "quality": 9,
+                "cost": 3,
+                "context": 128000,
+                "supported_tasks": ["chat"],
+            })
+            assert response.status_code == 400
+            assert "Invalid" in response.json()["detail"]
+
+    def test_add_model_missing_litellm_model(self, client):
+        """缺少必填字段 litellm_model，返回 422"""
+        response = client.post("/api/providers/openai/models", json={
+            "name": "gpt-4o",
+            "quality": 9,
+            "cost": 3,
+            "context": 128000,
+            "supported_tasks": ["chat"],
+        })
+        assert response.status_code == 422
+
+    def test_add_model_validate_failure_rollback(self, client):
+        """写入后若 validate 失败（模拟），返回 500"""
+        from smart_router.config.loader import ConfigError
+        with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
+            mock_instance = MagicMock()
+            mock_instance.add_model.side_effect = ConfigError(
+                "Config validation failed after save"
+            )
+            mock_loader.return_value = mock_instance
+
+            response = client.post("/api/providers/openai/models", json={
+                "name": "rollback-model",
+                "litellm_model": "openai/gpt-4o",
+                "quality": 9,
+                "cost": 3,
+                "context": 128000,
+                "supported_tasks": ["chat"],
+            })
+            assert response.status_code == 500
+            assert "validation failed" in response.json()["detail"].lower()
+
+
 class TestCreateProvider:
     """测试 POST /api/providers"""
 
