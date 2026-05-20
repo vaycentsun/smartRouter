@@ -4,8 +4,8 @@ import { ProviderSidebar } from './ProviderSidebar'
 import type { ProviderInfo } from '../types'
 
 const mockProviders: ProviderInfo[] = [
-  { name: 'openai', api_base: 'https://api.openai.com', timeout: 30, key_type: 'env:OPENAI_API_KEY', has_key: true, masked_key: 'sk-****' },
-  { name: 'anthropic', api_base: 'https://api.anthropic.com', timeout: 30, key_type: 'env:ANTHROPIC_API_KEY', has_key: false },
+  { name: 'openai', api_base: 'https://api.openai.com', timeout: 30, key_type: 'env:OPENAI_API_KEY', has_key: true, masked_key: 'sk-****', enabled: true },
+  { name: 'anthropic', api_base: 'https://api.anthropic.com', timeout: 30, key_type: 'env:ANTHROPIC_API_KEY', has_key: false, enabled: true },
 ]
 
 describe('ProviderSidebar', () => {

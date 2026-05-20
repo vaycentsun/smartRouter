@@ -1,18 +1,22 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ProviderModelsPanel } from './ProviderModelsPanel'
 import type { ModelInfo, ProviderInfo } from '../types'
 
+vi.mock('../store/useDashboardStore')
+
+import { mockStoreState } from '../store/__mocks__/useDashboardStore'
+
 const mockProvider: ProviderInfo = {
-  name: 'openai', api_base: 'https://api.openai.com', timeout: 30, key_type: 'env:OPENAI_API_KEY', has_key: true,
+  name: 'openai', api_base: 'https://api.openai.com', timeout: 30, key_type: 'env:OPENAI_API_KEY', has_key: true, enabled: true,
 }
 
 const mockProviderWithDirectKey: ProviderInfo = {
-  name: 'anthropic', api_base: 'https://api.anthropic.com', timeout: 30, key_type: 'direct', has_key: true, masked_key: 'sk-ant-***abcd',
+  name: 'anthropic', api_base: 'https://api.anthropic.com', timeout: 30, key_type: 'direct', has_key: true, masked_key: 'sk-ant-***abcd', enabled: true,
 }
 
 const mockProviderWithoutKey: ProviderInfo = {
-  name: 'moonshot', api_base: 'https://api.moonshot.cn', timeout: 30, key_type: 'direct', has_key: false,
+  name: 'moonshot', api_base: 'https://api.moonshot.cn', timeout: 30, key_type: 'direct', has_key: false, enabled: true,
 }
 
 const mockModels: ModelInfo[] = [
@@ -191,5 +195,82 @@ describe('ProviderModelsPanel', () => {
     ]
     render(<ProviderModelsPanel provider={mockProvider} models={models} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
     expect(screen.getByTitle('健康检查失败')).toBeInTheDocument()
+  })
+})
+
+describe('ProviderModelsPanel - Provider Toggle', () => {
+  beforeEach(() => {
+    mockStoreState.toggleProvider = vi.fn().mockResolvedValue(undefined)
+    mockStoreState.isTogglingProvider = {}
+    mockStoreState.toggleModel = vi.fn().mockResolvedValue(undefined)
+    mockStoreState.isTogglingModel = {}
+  })
+
+  const enabledProvider: ProviderInfo = {
+    name: 'openai', api_base: 'https://api.openai.com', timeout: 30, key_type: 'env:OPENAI_API_KEY', has_key: true, enabled: true,
+  }
+
+  const disabledProvider: ProviderInfo = {
+    name: 'openai', api_base: 'https://api.openai.com', timeout: 30, key_type: 'env:OPENAI_API_KEY', has_key: true, enabled: false,
+  }
+
+  const sampleModels: ModelInfo[] = [
+    { name: 'gpt-4', provider: 'openai', available: true, health_status: 'available', quality: 10, cost: 4, context: 8192, supported_tasks: ['chat'], enabled: true },
+    { name: 'gpt-3.5', provider: 'openai', available: true, health_status: 'available', quality: 8, cost: 6, context: 4096, supported_tasks: ['chat'], enabled: false },
+  ]
+
+  it('shows provider toggle switch in ON state when provider is enabled', () => {
+    render(<ProviderModelsPanel provider={enabledProvider} models={sampleModels} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
+    const providerToggle = screen.getAllByRole('checkbox')[0]
+    expect(providerToggle).toBeChecked()
+  })
+
+  it('shows provider toggle switch in OFF state when provider is disabled', () => {
+    render(<ProviderModelsPanel provider={disabledProvider} models={sampleModels} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
+    const providerToggle = screen.getAllByRole('checkbox')[0]
+    expect(providerToggle).not.toBeChecked()
+  })
+
+  it('calls toggleProvider when provider toggle switch is clicked', () => {
+    const toggleProvider = vi.fn().mockResolvedValue(undefined)
+    mockStoreState.toggleProvider = toggleProvider
+    render(<ProviderModelsPanel provider={enabledProvider} models={sampleModels} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
+    const providerToggle = screen.getAllByRole('checkbox')[0]
+    fireEvent.click(providerToggle)
+    expect(toggleProvider).toHaveBeenCalledWith('openai', false)
+  })
+
+  it('shows DISABLED status for all models when provider is disabled', () => {
+    render(<ProviderModelsPanel provider={disabledProvider} models={sampleModels} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
+    const statusSpans = screen.getAllByTitle('Provider disabled by user')
+    expect(statusSpans.length).toBe(2)
+  })
+
+  it('disables model toggle switches when provider is disabled', () => {
+    render(<ProviderModelsPanel provider={disabledProvider} models={sampleModels} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
+    const checkboxes = screen.getAllByRole('checkbox')
+    // First checkbox is provider toggle, subsequent ones are model toggles
+    expect(checkboxes[1]).toBeDisabled()
+    expect(checkboxes[2]).toBeDisabled()
+  })
+
+  it('shows model individual status correctly when provider is enabled', () => {
+    render(<ProviderModelsPanel provider={enabledProvider} models={sampleModels} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
+    // gpt-4 is enabled, should show available status
+    expect(screen.getByTitle('Model confirmed available')).toBeInTheDocument()
+    // gpt-3.5 is disabled, should show disabled status
+    expect(screen.getByTitle('Model disabled by user')).toBeInTheDocument()
+  })
+
+  it('allows toggling model when provider is enabled', () => {
+    const toggleModel = vi.fn().mockResolvedValue(undefined)
+    mockStoreState.toggleModel = toggleModel
+    render(<ProviderModelsPanel provider={enabledProvider} models={sampleModels} onEdit={vi.fn()} onSaveKey={vi.fn()} isSaving={false} />)
+    const rows = screen.getAllByRole('row')
+    // rows[0] is header; sorted by name asc: gpt-3.5 (row[1]), gpt-4 (row[2])
+    const gpt4Row = rows[2]
+    const gpt4Checkbox = within(gpt4Row).getByRole('checkbox')
+    fireEvent.click(gpt4Checkbox)
+    expect(toggleModel).toHaveBeenCalledWith('openai', 'gpt-4', false)
   })
 })

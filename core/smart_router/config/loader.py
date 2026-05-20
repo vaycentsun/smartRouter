@@ -1,5 +1,6 @@
 """V3 Configuration Loader"""
 
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional
@@ -338,6 +339,200 @@ class ConfigLoader:
                 try:
                     filepath.write_text(backup_path.read_text(encoding="utf-8"), encoding="utf-8")
                 except IOError:
+                    pass
+            raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
+
+    def save_provider_enabled(self, provider_name: str, enabled: bool) -> None:
+        """保存 Provider 的 enabled 状态到 providers.yaml
+
+        Args:
+            provider_name: Provider 名称
+            enabled: 开关状态
+
+        Raises:
+            ConfigError: 文件不存在、Provider 不存在、写入失败或验证失败
+        """
+        filepath = self.config_dir / "providers.yaml"
+        if not filepath.exists():
+            raise ConfigError(f"Configuration file not found: {filepath}")
+
+        # 备份原文件
+        backup_path = filepath.with_suffix(".yaml.bak")
+        if filepath.exists():
+            try:
+                backup_path.write_text(filepath.read_text(encoding="utf-8"), encoding="utf-8")
+            except IOError:
+                pass
+
+        # 读取并修改
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        except Exception as e:
+            raise ConfigError(f"Failed to read {filepath}: {e}") from e
+
+        providers = data.get("providers", {})
+        if provider_name not in providers:
+            raise ConfigError(f"Provider '{provider_name}' not found in {filepath.name}")
+
+        providers[provider_name]["enabled"] = enabled
+
+        # 尝试使用 ruamel.yaml 保留注释
+        try:
+            from ruamel.yaml import YAML
+            ruamel_yaml = YAML()
+            ruamel_yaml.preserve_quotes = True
+            ruamel_yaml.width = 4096
+            with open(filepath, "r", encoding="utf-8") as f:
+                doc = ruamel_yaml.load(f)
+            doc["providers"][provider_name]["enabled"] = enabled
+            with open(filepath, "w", encoding="utf-8") as f:
+                ruamel_yaml.dump(doc, f)
+        except Exception:
+            # ruamel 失败时回退到标准 yaml
+            try:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    yaml.dump(data, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+            except Exception as e:
+                raise ConfigError(f"Failed to write {filepath}: {e}") from e
+
+        # 写入后验证
+        errors = self.validate()
+        if errors:
+            if backup_path.exists():
+                try:
+                    filepath.write_text(backup_path.read_text(), encoding="utf-8")
+                except IOError:
+                    pass
+            raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
+
+    def create_provider(self, name: str, api_base: str, api_key: str, timeout: int = 30) -> None:
+        """创建新的 provider 配置
+
+        Args:
+            name: Provider 名称，只允许字母、数字、下划线和连字符
+            api_base: API 基础地址
+            api_key: API 密钥
+            timeout: 超时时间（秒），默认 30
+
+        Raises:
+            ConfigError: 名称格式非法或已存在时抛出
+        """
+        # 校验 name 格式：只允许字母数字下划线和连字符
+        if not re.match(r"^[a-zA-Z0-9_\-]+$", name):
+            raise ConfigError(f"Invalid provider name '{name}': only alphanumeric, underscore and hyphen are allowed")
+
+        # 读取现有 providers 配置
+        providers_data = self._load_yaml("providers.yaml")
+        providers = providers_data.get("providers", {})
+
+        # 检查名称是否已存在
+        if name in providers:
+            raise ConfigError(f"Provider '{name}' already exists")
+
+        # 构造 provider 节点
+        providers[name] = {
+            "api_base": api_base,
+            "api_key": api_key,
+            "timeout": timeout,
+        }
+
+        # 保存并触发验证+回滚机制
+        self.save_providers(providers)
+
+    def add_model(
+        self,
+        provider_name: str,
+        name: str,
+        litellm_model: str,
+        quality: int,
+        cost: int,
+        context: int,
+        supported_tasks: list[str],
+        enabled: bool = True,
+    ) -> None:
+        """追加新 model 到 models/{provider_name}.yaml
+
+        流程：校验 name 格式 → 调用 load() 校验 provider 存在与 model name 全局唯一 →
+              读取或创建文件 → 追加节点 → 备份+写入+validate+回滚
+        """
+        # 校验 name 格式：只允许字母、数字、下划线和连字符
+        if not re.match(r"^[a-zA-Z0-9_\-]+$", name):
+            raise ConfigError(f"Invalid model name '{name}': only alphanumeric, underscore and hyphen are allowed")
+
+        # 加载当前完整配置，校验 provider 存在与 model name 全局唯一
+        cfg = self.load()
+        if provider_name not in cfg.providers:
+            raise ConfigError(f"Provider '{provider_name}' not found")
+        if name in cfg.models:
+            raise ConfigError(f"Model '{name}' already exists")
+
+        filepath = self.config_dir / "models" / f"{provider_name}.yaml"
+        file_existed = filepath.exists()
+
+        # 读取或初始化文件内容
+        if file_existed:
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    data = yaml.safe_load(f) or {}
+            except Exception as e:
+                raise ConfigError(f"Failed to read {filepath}: {e}") from e
+        else:
+            data = {"models": {}}
+
+        models = data.get("models", {})
+
+        # 构造 model 节点（difficulty_support 使用默认全难度）
+        models[name] = {
+            "provider": provider_name,
+            "litellm_model": litellm_model,
+            "capabilities": {
+                "quality": quality,
+                "cost": cost,
+                "context": context,
+            },
+            "supported_tasks": supported_tasks,
+            "difficulty_support": ["easy", "medium", "hard", "expert"],
+            "enabled": enabled,
+        }
+
+        data["models"] = models
+
+        # 备份原文件
+        backup_path = filepath.with_suffix(".yaml.bak")
+        if file_existed:
+            try:
+                backup_path.write_text(filepath.read_text(encoding="utf-8"), encoding="utf-8")
+            except IOError:
+                pass
+
+        # 写入文件
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                yaml.safe_dump(
+                    data,
+                    f,
+                    allow_unicode=True,
+                    sort_keys=False,
+                    default_flow_style=False,
+                )
+        except Exception as e:
+            raise ConfigError(f"Failed to write {filepath}: {e}") from e
+
+        # 写入后验证整体配置一致性
+        errors = self.validate()
+        if errors:
+            # 验证失败，尝试回滚
+            if file_existed and backup_path.exists():
+                try:
+                    filepath.write_text(backup_path.read_text(encoding="utf-8"), encoding="utf-8")
+                except IOError:
+                    pass
+            elif not file_existed and filepath.exists():
+                # 若文件原本不存在，直接删除新创建的文件
+                try:
+                    filepath.unlink()
+                except OSError:
                     pass
             raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
 

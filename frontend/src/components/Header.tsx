@@ -36,7 +36,7 @@ export function Header() {
             <h1 className="text-lg font-semibold text-[#e8e8ed] tracking-wide font-mono uppercase" style={{ letterSpacing: '0.08em' }}>
               Smart Router
             </h1>
-            <p className="text-[10px] text-[#636366] font-mono uppercase tracking-widest mt-0.5">
+            <p className="text-[10px] text-[#636366] font-mono tracking-widest mt-0.5">
               {t('Gateway Monitor')} {status?.version ? `v${status.version}` : ''}
             </p>
           </div>

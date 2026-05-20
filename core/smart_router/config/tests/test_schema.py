@@ -540,6 +540,63 @@ class TestModelPrice:
         assert price.currency == "CNY"
 
 
+class TestProviderConfigEnabled:
+    """测试 ProviderConfig 的 enabled 字段"""
+
+    def test_enabled_defaults_to_true(self):
+        """未传入 enabled 时默认值为 True"""
+        provider = ProviderConfig(
+            api_base="https://api.openai.com/v1",
+            api_key="sk-test",
+        )
+        assert provider.enabled is True
+
+    def test_enabled_explicit_false(self):
+        """显式传入 enabled=False 时生效"""
+        provider = ProviderConfig(
+            api_base="https://api.openai.com/v1",
+            api_key="sk-test",
+            enabled=False,
+        )
+        assert provider.enabled is False
+
+    def test_enabled_explicit_true(self):
+        """显式传入 enabled=True 时生效"""
+        provider = ProviderConfig(
+            api_base="https://api.openai.com/v1",
+            api_key="sk-test",
+            enabled=True,
+        )
+        assert provider.enabled is True
+
+    def test_config_loading_defaults_enabled(self):
+        """Config 加载时，缺少 enabled 字段的 Provider 默认视为 True"""
+        config = Config(
+            providers={
+                "openai": ProviderConfig(
+                    api_base="https://api.openai.com/v1",
+                    api_key="sk-test",
+                )
+            },
+            models={
+                "gpt-4o": ModelConfig(
+                    provider="openai",
+                    litellm_model="openai/gpt-4o",
+                    capabilities=ModelCapabilities(quality=9, cost=3, context=128000),
+                    supported_tasks=["chat"],
+                    difficulty_support=["easy"],
+                ),
+            },
+            routing=RoutingConfig(
+                tasks={},
+                difficulties={},
+                strategies={},
+                fallback=FallbackConfig(),
+            ),
+        )
+        assert config.providers["openai"].enabled is True
+
+
 class TestModelConfigEnabled:
     """测试 ModelConfig 的 enabled 字段"""
 

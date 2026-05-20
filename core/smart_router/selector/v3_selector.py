@@ -149,6 +149,11 @@ class V3ModelSelector:
             if requires_vision and not getattr(model.capabilities, 'vision', False):
                 continue
 
+            # 检查模型所属 Provider 是否被禁用
+            provider = self.config.providers.get(model.provider)
+            if provider and not getattr(provider, 'enabled', True):
+                continue
+
             # 检查模型是否被禁用
             if not getattr(model, 'enabled', True):
                 continue

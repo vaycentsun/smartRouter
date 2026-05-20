@@ -21,6 +21,8 @@ import type {
   AlertHistoryItem,
   RequestRoutingRecord,
   ErrorStatsResponse,
+  CreateProviderRequest,
+  AddModelRequest,
 } from '../types'
 import { api } from '../api/client'
 
@@ -84,13 +86,19 @@ interface DashboardState {
   // Model Toggle
   isTogglingModel: Record<string, boolean>
 
+  // Provider Toggle
+  isTogglingProvider: Record<string, boolean>
+
   // Actions
   toggleModel: (provider: string, model: string, enabled: boolean) => Promise<void>
+  toggleProvider: (providerName: string, enabled: boolean) => Promise<void>
   fetchAll: () => Promise<void>
   checkProviderHealth: (providerName: string) => Promise<void>
   runDryRun: (prompt: string, strategy: Strategy) => Promise<void>
   stopService: () => Promise<void>
   saveProviders: (providers: Record<string, ProviderUpdate>) => Promise<void>
+  createProvider: (data: CreateProviderRequest) => Promise<void>
+  addModel: (providerName: string, data: AddModelRequest) => Promise<void>
   setModelsFilter: (filter: string) => void
   setModelsSort: (key: string) => void
   clearError: () => void
@@ -198,6 +206,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   // Model Toggle
   isTogglingModel: {},
 
+  // Provider Toggle
+  isTogglingProvider: {},
+
   fetchAll: async () => {
     set({ isLoading: true, error: null })
     try {
@@ -278,6 +289,42 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       set({ error: msg, toast: { message: msg, type: 'error' } })
     } finally {
       set({ isSavingProviders: false })
+    }
+  },
+
+  createProvider: async (data: CreateProviderRequest) => {
+    set({ isSavingProviders: true, error: null, toast: null })
+    try {
+      const result = await api.createProvider(data)
+      if (result.success) {
+        set({ toast: { message: 'Provider 已创建', type: 'success' } })
+        await get().fetchAll()
+      } else {
+        set({ error: result.error || '创建失败', toast: { message: result.error || '创建失败', type: 'error' } })
+      }
+    } catch (err) {
+      const msg = (err as Error).message
+      set({ error: msg, toast: { message: msg, type: 'error' } })
+    } finally {
+      set({ isSavingProviders: false })
+    }
+  },
+
+  addModel: async (providerName: string, data: AddModelRequest) => {
+    set({ isLoading: true, error: null, toast: null })
+    try {
+      const result = await api.addModel(providerName, data)
+      if (result.success) {
+        set({ toast: { message: 'Model 已添加', type: 'success' } })
+        await get().fetchAll()
+      } else {
+        set({ error: result.error || '添加失败', toast: { message: result.error || '添加失败', type: 'error' } })
+      }
+    } catch (err) {
+      const msg = (err as Error).message
+      set({ error: msg, toast: { message: msg, type: 'error' } })
+    } finally {
+      set({ isLoading: false })
     }
   },
 
@@ -557,6 +604,23 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       set({ error: (err as Error).message, toast: { message: '操作失败', type: 'error' } })
     } finally {
       set((state) => ({ isTogglingModel: { ...state.isTogglingModel, [key]: false } }))
+    }
+  },
+
+  toggleProvider: async (providerName: string, enabled: boolean) => {
+    set((state) => ({ isTogglingProvider: { ...state.isTogglingProvider, [providerName]: true } }))
+    try {
+      await api.toggleProvider(providerName, enabled)
+      set((state) => ({
+        providers: state.providers.map((p) =>
+          p.name === providerName ? { ...p, enabled } : p
+        ),
+        toast: { message: `Provider ${providerName} 已${enabled ? '启用' : '禁用'}`, type: 'success' },
+      }))
+    } catch (err) {
+      set({ error: (err as Error).message, toast: { message: '操作失败', type: 'error' } })
+    } finally {
+      set((state) => ({ isTogglingProvider: { ...state.isTogglingProvider, [providerName]: false } }))
     }
   },
 }))
