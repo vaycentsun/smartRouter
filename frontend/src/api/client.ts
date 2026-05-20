@@ -3,6 +3,10 @@ import type {
   ServiceStatus,
   ModelsResponse,
   ProvidersResponse,
+  ProviderInfo,
+  ModelInfo,
+  CreateProviderRequest,
+  AddModelRequest,
   DryRunRequest,
   DryRunResult,
   ProviderUpdate,
@@ -137,4 +141,8 @@ export const api = {
     client.put<{ success: boolean; errors?: string[] }>('/api/formula', data).then((r) => r.data),
   previewFormula: (data: FormulaPreviewRequest) =>
     client.post<FormulaPreviewResponse>('/api/formula/preview', data).then((r) => r.data),
+  createProvider: (data: CreateProviderRequest) =>
+    client.post<{ success: boolean; provider: ProviderInfo; error?: string }>('/api/providers', data).then((r) => r.data),
+  addModel: (providerName: string, data: AddModelRequest) =>
+    client.post<{ success: boolean; model: ModelInfo; error?: string }>(`/api/providers/${providerName}/models`, data).then((r) => r.data),
 }
