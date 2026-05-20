@@ -53,6 +53,39 @@ cd smartRouter
 ./script/install.sh
 ```
 
+#### Option E: Docker (No Python/Node.js needed)
+
+The fastest way to get started without installing any dependencies:
+
+```bash
+# 1. Create config directory
+mkdir -p config
+
+# 2. Download example configs
+curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/config/examples/v3/providers.yaml -o config/providers.yaml
+curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/config/examples/v3/models.yaml -o config/models.yaml
+curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/config/examples/v3/routing.yaml -o config/routing.yaml
+
+# 3. Start with docker-compose
+docker-compose up -d
+```
+
+Or use Docker directly:
+
+```bash
+docker run -d \
+  --name smart-router \
+  -p 4000:4000 \
+  -e SMART_ROUTER_MASTER_KEY="your-master-key" \
+  -e OPENAI_API_KEY="sk-..." \
+  -v "$(pwd)/config:/app/config:ro" \
+  your-dockerhub-username/smartrouter:latest
+```
+
+> **Note**: Replace `your-dockerhub-username` with your actual Docker Hub username, or build locally with `docker build -t smartrouter .`
+>
+> See [Docker Guide](docs/DOCKER.md) for full details including image tags, multi-arch support, and configuration.
+
 ### Uninstall
 
 One-line uninstall:
