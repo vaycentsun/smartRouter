@@ -3,7 +3,7 @@ models:
   kimi-k2-cn:
     provider: moonshot-cn
     litellm_model: openai/moonshot-v1-8k
-        enabled: true
+    enabled: true
     capabilities:
       quality: 7
       cost: 7
@@ -14,7 +14,7 @@ models:
   kimi-k2-32k-cn:
     provider: moonshot-cn
     litellm_model: openai/moonshot-v1-32k
-        enabled: true
+    enabled: true
     capabilities:
       quality: 7
       cost: 6
