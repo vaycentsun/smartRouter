@@ -53,6 +53,42 @@ cd smartRouter
 ./script/install.sh
 ```
 
+#### 方式 E: Docker（无需 Python/Node.js）
+
+无需安装任何依赖，最快速的启动方式：
+
+```bash
+# 1. 创建配置目录
+mkdir -p config
+
+# 2. 下载示例配置
+curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/config/examples/v3/providers.yaml -o config/providers.yaml
+curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/config/examples/v3/models.yaml -o config/models.yaml
+curl -sSL https://raw.githubusercontent.com/vaycentsun/smartRouter/main/config/examples/v3/routing.yaml -o config/routing.yaml
+
+# 3. 使用 docker-compose 启动
+docker-compose up -d
+```
+
+或使用 Docker 命令：
+
+```bash
+docker run -d \
+  --name smart-router \
+  -p 4000:4000 \
+  -p 8080:8080 \
+  -e SMART_ROUTER_MASTER_KEY="your-master-key" \
+  -e OPENAI_API_KEY="sk-..." \
+  -v "$(pwd)/config:/app/config:ro" \
+  your-dockerhub-username/smartrouter:latest
+```
+
+> **注意**：将 `your-dockerhub-username` 替换为你的 Docker Hub 用户名，或在本地构建 `docker build -t smartrouter .`
+>
+> **端口说明**：`4000` 为 Proxy API，`8080` 为 Web Dashboard。
+>
+> 详见 [Docker 指南](DOCKER.md)。
+
 #### 卸载
 
 一行命令卸载：
