@@ -1,0 +1,65 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+env/
+ENV/
+
+# Node.js / 前端
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 项目临时文件
+*.log
+logs/
+*.pid
+
+# 本地配置（不要打包进镜像，应通过挂载传入）
+config/local/
+config/private/
+
+# 测试文件
+tests/
+**/tests/
+
+# CI/CD
+.github/
