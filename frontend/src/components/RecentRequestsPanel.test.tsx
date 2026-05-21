@@ -165,7 +165,7 @@ describe('RecentRequestsPanel', () => {
     render(<RecentRequestsPanel requests={mockRequests} />)
     const retryBadges = screen.getAllByTestId('retry-badge')
     expect(retryBadges).toHaveLength(1)
-    expect(retryBadges[0]).toHaveTextContent('↻2')
+    expect(retryBadges[0]).toHaveTextContent('重试 2')
   })
 
   it('shows retry history in detail card', () => {

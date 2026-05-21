@@ -131,7 +131,7 @@ export function SummaryCards() {
         return (
           <div
             key={stat.label}
-            className={`tech-card p-5 relative corner-bracket ${style.border} hover:shadow-lg ${style.glow}`}
+            className={`tech-card p-5 relative corner-bracket ${style.border} ${style.glow}`}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[10px] text-[#636366] font-mono uppercase tracking-widest">

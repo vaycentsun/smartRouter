@@ -222,22 +222,22 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
                     className="flex-1 px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
                   />
                 )}
-                <button
-                  type="button"
-                  onClick={() => removeChannel(index)}
-                  className="text-[#e74c3c] hover:text-[#e74c3c]/70 text-xs px-2"
-                >
-                  {t('DELETE')}
-                </button>
+          <button
+            type="button"
+            onClick={() => removeChannel(index)}
+            className="text-[#e74c3c] hover:text-[#e74c3c]/70 text-xs px-2 font-mono uppercase tracking-wider"
+          >
+            {t('DELETE')}
+          </button>
               </div>
             ))}
-            <button
-              type="button"
-              onClick={addChannel}
-              className="text-sm text-[#00d4aa] hover:text-[#00d4aa]/70 font-medium"
-            >
-              {t('+ ADD CHANNEL')}
-            </button>
+          <button
+            type="button"
+            onClick={addChannel}
+            className="text-xs text-[#00d4aa] hover:text-[#00d4aa]/70 font-mono uppercase tracking-wider"
+          >
+            {t('+ ADD CHANNEL')}
+          </button>
           </div>
         </div>
 
@@ -251,21 +251,21 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
           <button
             type="submit"
             disabled={isSaving}
-            className="px-5 py-2 rounded-sm tech-btn-primary text-sm font-medium disabled:opacity-50"
+            className="px-5 py-2 rounded-sm tech-btn-primary text-xs font-mono uppercase tracking-wider disabled:opacity-50"
           >
             {isSaving ? t('SAVING...') : isEditing ? t('SAVE') : t('CREATE')}
           </button>
           <button
             type="button"
             onClick={handleTest}
-            className="px-5 py-2 rounded-sm tech-btn text-sm font-medium"
+            className="px-5 py-2 rounded-sm tech-btn text-xs font-mono uppercase tracking-wider"
           >
             {t('TEST RULE')}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-sm tech-btn text-sm font-medium"
+            className="px-5 py-2 rounded-sm tech-btn text-xs font-mono uppercase tracking-wider"
           >
             {t('CANCEL')}
           </button>

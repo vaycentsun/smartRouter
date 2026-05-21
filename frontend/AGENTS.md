@@ -3,6 +3,10 @@
 > Web 管理界面。基于 Vite + TypeScript。供修改 `frontend/` 下代码的 AI 助手阅读。
 > AI 对话语言：中文
 
+## UI 风格参考
+
+本项目 UI 风格遵循项目根目录下的 [`DESIGN.md`](../DESIGN.md) 规范。所有前端界面开发（颜色、排版、布局、组件样式等）均需以该文档为基准，保持与 Smart Router 品牌视觉体系一致。
+
 ---
 
 ## 技术栈

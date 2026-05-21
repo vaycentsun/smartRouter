@@ -110,7 +110,7 @@ export function PlaygroundInput({ onSubmit }: PlaygroundInputProps) {
         <button
           onClick={handleSubmit}
           disabled={isLoadingPlayground || !prompt.trim() || selectedModels.length === 0}
-          className="w-full px-4 py-2.5 tech-btn-primary rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
+          className="w-full px-4 py-2.5 tech-btn-primary rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all text-xs font-mono uppercase tracking-wider"
         >
           {isLoadingPlayground ? t('LOADING...') : t('SUBMIT')}
         </button>

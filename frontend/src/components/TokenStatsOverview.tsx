@@ -109,7 +109,7 @@ export function TokenStatsOverview() {
         return (
           <div
             key={stat.label}
-            className={`tech-card rounded-sm p-5 ${style.border} hover:shadow-lg ${style.glow}`}
+            className={`tech-card rounded-sm p-5 ${style.border} ${style.glow}`}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-[#636366] font-mono uppercase tracking-wider">
@@ -119,7 +119,7 @@ export function TokenStatsOverview() {
                 {stat.icon}
               </span>
             </div>
-            <p className={`text-3xl font-bold ${style.text} tracking-tight`}>
+            <p className={`text-3xl font-bold ${style.text} mono-num tracking-tight`}>
               {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
             </p>
             <p className="text-xs text-[#636366] mt-1 font-mono">{stat.sub}</p>

@@ -17,19 +17,9 @@ function TaskBadge({ task }: { task: string }) {
   )
 }
 
-function StarRating({ value, colorClass }: { value: number; colorClass: string }) {
-  const filled = Math.floor(value / 2)
+function StarRating({ value }: { value: number }) {
   return (
-    <div className="flex items-center gap-0.5">
-      {Array.from({ length: 5 }, (_, i) => (
-        <span
-          key={i}
-          className={`text-xs ${i < filled ? colorClass : 'text-[#1a1a2e]'}`}
-        >
-          ★
-        </span>
-      ))}
-    </div>
+    <span className="text-xs font-mono text-[#f39c12]">{value}/10</span>
   )
 }
 
@@ -105,10 +95,10 @@ export function ModelsTable() {
           <tbody className="divide-y divide-[#1a1a2e]">
             {sorted.map((model) => (
               <tr key={model.name} className="data-row">
-                <td className="px-4 py-3 font-medium text-[#e8e8ed]">
+                <td className="px-4 py-3 font-medium text-[#e8e8ed] font-mono">
                   {model.name}
                 </td>
-                <td className="px-4 py-3 text-[#636366]">{model.provider}</td>
+                <td className="px-4 py-3 text-[#636366] font-mono">{model.provider}</td>
                 <td className="px-4 py-3">
                   {!model.enabled ? (
                     <span className="inline-flex items-center gap-1.5 text-[#636366] text-sm">
@@ -128,10 +118,10 @@ export function ModelsTable() {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <StarRating value={model.quality} colorClass="text-[#f39c12]" />
+                  <StarRating value={model.quality} />
                 </td>
                 <td className="px-4 py-3">
-                  <StarRating value={model.cost} colorClass="text-[#f39c12]" />
+                  <StarRating value={model.cost} />
                 </td>
                 <td className="px-4 py-3 text-[#636366] font-mono text-xs">
                   {model.context >= 1000

@@ -161,7 +161,7 @@ export function ProviderModelsPanel({
             >
               {isCheckingHealth ? (
                 <>
-                  <span className="w-3.5 h-3.5 border-2 border-[#636366] border-t-transparent rounded-full animate-spin" />
+                  <span className="w-3.5 h-3.5 border-2 border-[#636366] border-t-transparent rounded-sm animate-spin" />
                   {t('CHECKING')}
                 </>
               ) : (

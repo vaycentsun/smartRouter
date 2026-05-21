@@ -190,10 +190,10 @@ export function ProvidersTable() {
                       <button
                         type="button"
                         onClick={() => handleChange(provider.name, 'showKey', !edit.showKey)}
-                        className="text-[#636366] hover:text-[#00d4aa] text-xs px-1 transition-colors"
+                        className="text-[#636366] hover:text-[#00d4aa] text-xs px-1 transition-colors font-mono uppercase tracking-wider"
                         title={edit.showKey ? t('HIDE') : t('SHOW')}
                       >
-                        {edit.showKey ? '🙈' : '👁'}
+                        {edit.showKey ? t('HIDE') : t('SHOW')}
                       </button>
                     </div>
                   </td>

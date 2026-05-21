@@ -85,7 +85,7 @@ function App() {
             <button
               key={tab.key}
               onClick={() => setLocation(tab.path)}
-              className={`px-4 py-2 rounded-sm text-sm transition-all duration-200 flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] ${
+              className={`px-4 py-2 rounded-sm transition-all duration-200 flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] ${
                 location === tab.path
                   ? 'tech-tab-active'
                   : 'tech-tab'

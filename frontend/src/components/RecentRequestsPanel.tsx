@@ -63,22 +63,22 @@ export function RecentRequestsPanel({ requests = [] }: RecentRequestsPanelProps)
                       </>
                     )}
                     {!req.did_fallback && (
-                      <span className="text-[#00d4aa] ml-1 font-mono text-xs">✓</span>
+                      <span className="text-[#00d4aa] ml-1 font-mono text-[10px] uppercase tracking-wider">{t('SUCCESS')}</span>
                     )}
                   </div>
                 </div>
 
                 {/* Status + Retry Badge + Tokens */}
                 <div className="flex items-center gap-3 shrink-0">
-                  {req.retry_history && req.retry_history.length > 0 && (
-                    <span
-                      data-testid="retry-badge"
-                      className="text-xs font-mono px-2 py-0.5 rounded-sm bg-[rgba(243,156,18,0.1)] text-[#f39c12] border border-[rgba(243,156,18,0.15)]"
-                      title={`重试 ${req.retry_history.length} 次`}
-                    >
-                      ↻{req.retry_history.length}
-                    </span>
-                  )}
+                    {req.retry_history && req.retry_history.length > 0 && (
+                      <span
+                        data-testid="retry-badge"
+                        className="text-xs font-mono px-2 py-0.5 rounded-sm bg-[rgba(243,156,18,0.1)] text-[#f39c12] border border-[rgba(243,156,18,0.15)]"
+                        title={`${t('RETRY')} ${req.retry_history.length}`}
+                      >
+                        {t('RETRY')} {req.retry_history.length}
+                      </span>
+                    )}
                   <span
                     data-testid="status-code"
                     className={`text-xs font-mono px-2 py-0.5 rounded-sm border ${
