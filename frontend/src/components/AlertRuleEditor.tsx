@@ -81,17 +81,17 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
   }
 
   return (
-    <div className="tech-card rounded-sm p-6">
+    <div className="card-base rounded-xl p-6">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-1 h-4 bg-[#00d4aa]" />
-        <h3 className="text-lg font-semibold text-[#e8e8ed] uppercase tracking-wider font-mono">
+        <div className="w-1 h-4 bg-[#00A34D]" />
+        <h3 className="text-lg font-semibold text-[#001E2B]">
           {isEditing ? t('EDIT ALERT RULE') : t('NEW ALERT RULE')}
         </h3>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="rule-id" className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-1">{t('RULE ID')}</label>
+            <label htmlFor="rule-id" className="block text-xs text-[#889397] mb-1">{t('RULE ID')}</label>
             <input
               id="rule-id"
               type="text"
@@ -99,19 +99,19 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
               onChange={(e) => setForm({ ...form, id: e.target.value })}
               disabled={isEditing}
               required
-              className="w-full px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 disabled:opacity-50 tech-input"
+              className="w-full px-3 py-2 rounded-lg border border-[#E8EDEB] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00A34D]/20 disabled:opacity-50 tech-input"
               placeholder="rule-1"
             />
           </div>
           <div>
-            <label htmlFor="rule-name" className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-1">{t('RULE NAME')}</label>
+            <label htmlFor="rule-name" className="block text-xs text-[#889397] mb-1">{t('RULE NAME')}</label>
             <input
               id="rule-name"
               type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
-              className="w-full px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
+              className="w-full px-3 py-2 rounded-lg border border-[#E8EDEB] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00A34D]/20 tech-input"
               placeholder="high request count"
             />
           </div>
@@ -119,12 +119,12 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label htmlFor="rule-metric" className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-1">{t('METRIC')}</label>
+            <label htmlFor="rule-metric" className="block text-xs text-[#889397] mb-1">{t('METRIC')}</label>
             <select
               id="rule-metric"
               value={form.condition.metric}
               onChange={(e) => updateCondition({ metric: e.target.value as AlertCondition['metric'] })}
-              className="w-full px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
+              className="w-full px-3 py-2 rounded-lg border border-[#E8EDEB] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00A34D]/20 tech-input"
             >
               <option value="daily_cost">daily_cost</option>
               <option value="daily_requests">daily_requests</option>
@@ -133,12 +133,12 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
             </select>
           </div>
           <div>
-            <label htmlFor="rule-operator" className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-1">{t('OPERATOR')}</label>
+            <label htmlFor="rule-operator" className="block text-xs text-[#889397] mb-1">{t('OPERATOR')}</label>
             <select
               id="rule-operator"
               value={form.condition.operator}
               onChange={(e) => updateCondition({ operator: e.target.value as AlertCondition['operator'] })}
-              className="w-full px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
+              className="w-full px-3 py-2 rounded-lg border border-[#E8EDEB] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00A34D]/20 tech-input"
             >
               <option value=">">{'>'}</option>
               <option value="<">{'<'}</option>
@@ -147,7 +147,7 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
             </select>
           </div>
           <div>
-            <label htmlFor="rule-threshold" className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-1">{t('THRESHOLD')}</label>
+            <label htmlFor="rule-threshold" className="block text-xs text-[#889397] mb-1">{t('THRESHOLD')}</label>
             <input
               id="rule-threshold"
               type="number"
@@ -155,19 +155,19 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
               value={form.condition.threshold}
               onChange={(e) => updateCondition({ threshold: parseFloat(e.target.value) })}
               required
-              className="w-full px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
+              className="w-full px-3 py-2 rounded-lg border border-[#E8EDEB] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00A34D]/20 tech-input"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label htmlFor="rule-severity" className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-1">{t('SEVERITY')}</label>
+            <label htmlFor="rule-severity" className="block text-xs text-[#889397] mb-1">{t('SEVERITY')}</label>
             <select
               id="rule-severity"
               value={form.severity}
               onChange={(e) => setForm({ ...form, severity: e.target.value as AlertRule['severity'] })}
-              className="w-full px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
+              className="w-full px-3 py-2 rounded-lg border border-[#E8EDEB] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00A34D]/20 tech-input"
             >
               <option value="info">info</option>
               <option value="warning">warning</option>
@@ -175,12 +175,12 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
             </select>
           </div>
           <div>
-            <label htmlFor="rule-window" className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-1">{t('TIME WINDOW')}</label>
+            <label htmlFor="rule-window" className="block text-xs text-[#889397] mb-1">{t('TIME WINDOW')}</label>
             <select
               id="rule-window"
               value={form.time_window}
               onChange={(e) => setForm({ ...form, time_window: e.target.value })}
-              className="w-full px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
+              className="w-full px-3 py-2 rounded-lg border border-[#E8EDEB] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00A34D]/20 tech-input"
             >
               <option value="1d">{t('1 DAY')}</option>
               <option value="7d">{t('7 DAYS')}</option>
@@ -188,27 +188,27 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
             </select>
           </div>
           <div>
-            <label htmlFor="rule-cooldown" className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-1">{t('COOLDOWN (MIN)')}</label>
+            <label htmlFor="rule-cooldown" className="block text-xs text-[#889397] mb-1">{t('COOLDOWN (MIN)')}</label>
             <input
               id="rule-cooldown"
               type="number"
               value={form.cooldown_minutes}
               onChange={(e) => setForm({ ...form, cooldown_minutes: parseInt(e.target.value) })}
               required
-              className="w-full px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
+              className="w-full px-3 py-2 rounded-lg border border-[#E8EDEB] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00A34D]/20 tech-input"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-2">{t('NOTIFICATION CHANNELS')}</label>
+          <label className="block text-xs text-[#889397] mb-2">{t('NOTIFICATION CHANNELS')}</label>
           <div className="space-y-2">
             {form.channels.map((ch, index) => (
               <div key={index} className="flex gap-2 items-center">
                 <select
                   value={ch.type}
                   onChange={(e) => updateChannel(index, { type: e.target.value as AlertChannel['type'] })}
-                  className="px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
+                  className="px-3 py-2 rounded-lg border border-[#E8EDEB] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00A34D]/20 tech-input"
                 >
                   <option value="log">{t('LOG')}</option>
                   <option value="webhook">{t('WEBHOOK')}</option>
@@ -219,13 +219,13 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
                     value={ch.url || ''}
                     onChange={(e) => updateChannel(index, { url: e.target.value })}
                     placeholder="https://hooks.example.com/alert"
-                    className="flex-1 px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
+                    className="flex-1 px-3 py-2 rounded-lg border border-[#E8EDEB] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00A34D]/20 tech-input"
                   />
                 )}
                 <button
                   type="button"
                   onClick={() => removeChannel(index)}
-                  className="text-[#e74c3c] hover:text-[#e74c3c]/70 text-xs px-2"
+                  className="text-[#E65C5C] hover:text-[#E65C5C]/70 text-xs px-2"
                 >
                   {t('DELETE')}
                 </button>
@@ -234,7 +234,7 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
             <button
               type="button"
               onClick={addChannel}
-              className="text-sm text-[#00d4aa] hover:text-[#00d4aa]/70 font-medium"
+              className="text-sm text-[#00A34D] hover:text-[#00A34D]/70 font-medium"
             >
               {t('+ ADD CHANNEL')}
             </button>
@@ -242,7 +242,7 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
         </div>
 
         {testResult && (
-          <div className="rounded-sm p-3 bg-[rgba(0,212,170,0.08)] text-sm text-[#00d4aa]">
+          <div className="rounded-lg p-3 bg-[rgba(0,163,77,0.08)] text-sm text-[#00A34D]">
             {testResult}
           </div>
         )}
@@ -251,21 +251,21 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
           <button
             type="submit"
             disabled={isSaving}
-            className="px-5 py-2 rounded-sm tech-btn-primary text-sm font-medium disabled:opacity-50"
+            className="px-5 py-2 rounded-full btn-primary text-sm font-medium disabled:opacity-50"
           >
             {isSaving ? t('SAVING...') : isEditing ? t('SAVE') : t('CREATE')}
           </button>
           <button
             type="button"
             onClick={handleTest}
-            className="px-5 py-2 rounded-sm tech-btn text-sm font-medium"
+            className="px-5 py-2 rounded-full btn-secondary text-sm font-medium"
           >
             {t('TEST RULE')}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-sm tech-btn text-sm font-medium"
+            className="px-5 py-2 rounded-full btn-secondary text-sm font-medium"
           >
             {t('CANCEL')}
           </button>

@@ -38,64 +38,64 @@ export function ProviderEditModal({ provider, isOpen, onClose, onSave, isSaving 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-[#111118] border border-[#1a1a2e] rounded-sm w-full max-w-lg mx-4 overflow-hidden">
-        <div className="p-4 border-b border-[#1a1a2e] flex items-center justify-between">
-          <h3 className="text-base font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('EDIT')}: {provider.name}</h3>
-          <button onClick={onClose} className="text-[#636366] hover:text-[#e8e8ed] transition-colors text-xl font-mono">&times;</button>
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white border border-[#E8EDEB] rounded-xl w-full max-w-lg mx-4 overflow-hidden shadow-modal">
+        <div className="p-4 border-b border-[#E8EDEB] flex items-center justify-between">
+          <h3 className="text-base font-semibold text-[#001E2B]">{t('EDIT')}: {provider.name}</h3>
+          <button onClick={onClose} className="text-[#889397] hover:text-[#001E2B] transition-colors text-xl">&times;</button>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-[10px] font-mono text-[#636366] uppercase tracking-widest mb-1.5">{t('API BASE')}</label>
+            <label className="block text-xs font-medium text-[#889397] uppercase tracking-wider mb-1.5">{t('API BASE')}</label>
             <input
               type="text"
               value={apiBase}
               onChange={(e) => setApiBase(e.target.value)}
-              className="w-full px-3 py-2 rounded-sm text-sm text-[#e8e8ed] tech-input"
+              className="w-full px-3 py-2 rounded-lg text-sm tech-input"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-mono text-[#636366] uppercase tracking-widest mb-1.5">{t('API KEY')}</label>
+            <label className="block text-xs font-medium text-[#889397] uppercase tracking-wider mb-1.5">{t('API KEY')}</label>
             <div className="flex items-center gap-2">
               <input
                 type={showKey ? 'text' : 'password'}
                 value={apiKey}
                 placeholder={provider.masked_key || t('NOT CONFIGURED')}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="flex-1 px-3 py-2 rounded-sm text-sm text-[#e8e8ed] tech-input placeholder-[#636366]"
+                className="flex-1 px-3 py-2 rounded-lg text-sm tech-input placeholder-[#889397]"
               />
               <button
                 type="button"
                 onClick={() => setShowKey(!showKey)}
-                className="text-[#636366] hover:text-[#00d4aa] text-xs px-2 transition-colors font-mono"
+                className="text-[#889397] hover:text-[#00A34D] text-xs px-2 transition-colors font-medium"
                 title={showKey ? t('HIDE') : t('SHOW')}
               >
                 {showKey ? t('HIDE') : t('SHOW')}
               </button>
             </div>
-            <p className="text-xs text-[#636366] mt-1 font-mono">{t('Leave empty to keep current')}</p>
+            <p className="text-xs text-[#889397] mt-1">{t('Leave empty to keep current')}</p>
           </div>
           <div>
-            <label className="block text-[10px] font-mono text-[#636366] uppercase tracking-widest mb-1.5">{t('TIMEOUT')}</label>
+            <label className="block text-xs font-medium text-[#889397] uppercase tracking-wider mb-1.5">{t('TIMEOUT')}</label>
             <input
               type="number"
               value={timeout}
               onChange={(e) => setTimeout(parseInt(e.target.value) || 30)}
-              className="w-32 px-3 py-2 rounded-sm text-sm text-[#e8e8ed] tech-input"
+              className="w-32 px-3 py-2 rounded-lg text-sm tech-input"
             />
           </div>
         </div>
-        <div className="p-4 border-t border-[#1a1a2e] flex justify-end gap-3">
+        <div className="p-4 border-t border-[#E8EDEB] flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="tech-btn px-4 py-2 rounded-sm text-xs"
+            className="btn-secondary px-4 py-2 text-xs"
           >
             {t('CANCEL')}
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="tech-btn tech-btn-primary px-4 py-2 rounded-sm text-xs disabled:opacity-50"
+            className="btn-primary px-4 py-2 text-xs disabled:opacity-50"
           >
             {isSaving ? t('SAVING') : t('SAVE')}
           </button>

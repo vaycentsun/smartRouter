@@ -32,34 +32,34 @@ export function PlaygroundInput({ onSubmit }: PlaygroundInputProps) {
   }
 
   return (
-    <div className="tech-card rounded-sm">
-      <div className="p-4 border-b border-[#1a1a2e] flex items-center gap-2">
-        <div className="w-1 h-4 bg-[#00d4aa]" />
-        <h2 className="text-base font-semibold text-[#e8e8ed] uppercase tracking-wider font-mono">{t('Playground')}</h2>
+    <div className="card-base rounded-xl">
+      <div className="p-4 border-b border-[#E8EDEB] flex items-center gap-2">
+        <div className="w-1 h-4 bg-[#00A34D]" />
+        <h2 className="text-base font-semibold text-[#001E2B]">{t('Playground')}</h2>
       </div>
       <div className="p-5 space-y-4">
         {/* Mode Switch */}
         <div>
-          <label className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-2">
+          <label className="block text-xs text-[#889397] mb-2">
             {t('MODE')}
           </label>
           <div className="flex gap-2">
             <button
               onClick={() => setMode('single')}
-              className={`px-4 py-1.5 rounded-sm text-sm font-medium transition-all ${
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 mode === 'single'
                   ? 'strategy-btn-active'
-                  : 'strategy-btn text-[#636366] hover:text-[#e8e8ed]'
+                  : 'strategy-btn text-[#889397] hover:text-[#001E2B]'
               }`}
             >
               {t('Single')}
             </button>
             <button
               onClick={() => setMode('compare')}
-              className={`px-4 py-1.5 rounded-sm text-sm font-medium transition-all ${
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 mode === 'compare'
                   ? 'strategy-btn-active'
-                  : 'strategy-btn text-[#636366] hover:text-[#e8e8ed]'
+                  : 'strategy-btn text-[#889397] hover:text-[#001E2B]'
               }`}
             >
               {t('Compare')}
@@ -69,7 +69,7 @@ export function PlaygroundInput({ onSubmit }: PlaygroundInputProps) {
 
         {/* Model Selection */}
         <div>
-          <label className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-2">
+          <label className="block text-xs text-[#889397] mb-2">
             {t('MODELS (MAX 3)')}
           </label>
           <div className="flex flex-wrap gap-2">
@@ -77,24 +77,24 @@ export function PlaygroundInput({ onSubmit }: PlaygroundInputProps) {
               <button
                 key={m.name}
                 onClick={() => toggleModel(m.name)}
-                className={`px-3 py-1.5 rounded-sm text-sm font-medium transition-all border ${
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
                   selectedModels.includes(m.name)
-                    ? 'bg-[rgba(0,212,170,0.08)] text-[#00d4aa] border-[rgba(0,212,170,0.15)]'
-                    : 'text-[#636366] border-transparent hover:text-[#e8e8ed] hover:bg-[rgba(255,255,255,0.02)]'
+                    ? 'bg-[rgba(0,163,77,0.08)] text-[#00A34D] border-[rgba(0,163,77,0.15)]'
+                    : 'text-[#889397] border-transparent hover:text-[#001E2B] hover:bg-[#F9FBFA]'
                 }`}
               >
                 {m.name}
               </button>
             ))}
             {availableModels.length === 0 && (
-              <span className="text-sm text-[#636366]">{t('NO MODELS AVAILABLE')}</span>
+              <span className="text-sm text-[#889397]">{t('NO MODELS AVAILABLE')}</span>
             )}
           </div>
         </div>
 
         {/* Prompt Input */}
         <div>
-          <label className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-2">
+          <label className="block text-xs text-[#889397] mb-2">
             {t('PROMPT')}
           </label>
           <textarea
@@ -102,7 +102,7 @@ export function PlaygroundInput({ onSubmit }: PlaygroundInputProps) {
             onChange={(e) => setPrompt(e.target.value)}
             placeholder={t('Enter prompt...')}
             rows={4}
-            className="w-full px-3 py-2 rounded-sm text-sm input-glow resize-none"
+            className="w-full px-3 py-2 rounded-lg text-sm input-glow resize-none"
           />
         </div>
 
@@ -110,7 +110,7 @@ export function PlaygroundInput({ onSubmit }: PlaygroundInputProps) {
         <button
           onClick={handleSubmit}
           disabled={isLoadingPlayground || !prompt.trim() || selectedModels.length === 0}
-          className="w-full px-4 py-2.5 tech-btn-primary rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
+          className="w-full px-4 py-2.5 btn-primary rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
         >
           {isLoadingPlayground ? t('LOADING...') : t('SUBMIT')}
         </button>

@@ -13,15 +13,15 @@ export function AlertSummaryCard() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="tech-card rounded-sm p-6">
-        <h3 className="text-sm font-medium text-[#636366] mb-2 font-mono uppercase tracking-wider">{t('Active Rules')}</h3>
-        <p className="text-3xl font-semibold text-[#e8e8ed]">{activeRules}</p>
-        <p className="text-xs text-[#636366] mt-1 font-mono">{t('Total Rules').replace('{count}', String(alertRules.length))}</p>
+      <div className="card-base rounded-xl p-6">
+        <h3 className="text-sm font-medium text-[#889397] mb-2">{t('Active Rules')}</h3>
+        <p className="text-3xl font-semibold text-[#001E2B]">{activeRules}</p>
+        <p className="text-xs text-[#889397] mt-1">{t('Total Rules').replace('{count}', String(alertRules.length))}</p>
       </div>
-      <div className="tech-card rounded-sm p-6">
-        <h3 className="text-sm font-medium text-[#636366] mb-2 font-mono uppercase tracking-wider">{t('Today Triggers')}</h3>
-        <p className="text-3xl font-semibold text-[#e8e8ed]">{todayTriggers}</p>
-        <p className="text-xs text-[#636366] mt-1 font-mono">{t('Last 24h')}</p>
+      <div className="card-base rounded-xl p-6">
+        <h3 className="text-sm font-medium text-[#889397] mb-2">{t('Today Triggers')}</h3>
+        <p className="text-3xl font-semibold text-[#001E2B]">{todayTriggers}</p>
+        <p className="text-xs text-[#889397] mt-1">{t('Last 24h')}</p>
       </div>
     </div>
   )

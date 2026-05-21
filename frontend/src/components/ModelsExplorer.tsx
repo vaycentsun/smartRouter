@@ -59,10 +59,10 @@ export function ModelsExplorer() {
     <div className="space-y-4">
       {/* Toast */}
       {toast && (
-        <div className={`tech-card rounded-sm p-3 flex items-center justify-between border ${
-          toast.type === 'success' ? 'border-[rgba(0,212,170,0.2)]' : 'border-[rgba(231,76,60,0.2)]'
+        <div className={`card-base rounded-xl p-3 flex items-center justify-between border ${
+          toast.type === 'success' ? 'border-[#00A34D]/20 bg-[#E3FCEF]' : 'border-[#E65C5C]/20 bg-[#FDECEC]'
         }`}>
-          <p className={`text-sm font-mono ${toast.type === 'success' ? 'text-[#00d4aa]' : 'text-[#e74c3c]'}`}>{toast.message}</p>
+          <p className={`text-sm font-medium ${toast.type === 'success' ? 'text-[#00A34D]' : 'text-[#E65C5C]'}`}>{toast.message}</p>
         </div>
       )}
 

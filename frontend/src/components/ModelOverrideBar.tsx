@@ -34,9 +34,9 @@ export function ModelOverrideBar() {
 
   return (
     <div
-      className={`tech-card rounded-sm transition-all duration-300 ${
+      className={`card-base transition-all duration-300 ${
         isEnabled
-          ? 'border-[rgba(243,156,18,0.25)]'
+          ? 'border-[#F08B1E]/30 bg-[#FEF8E8]/30'
           : ''
       }`}
       role="region"
@@ -46,20 +46,20 @@ export function ModelOverrideBar() {
         {/* 左侧：状态信息 */}
         <div className="flex items-center gap-3 min-w-0">
           <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-sm text-xs font-mono uppercase tracking-wider shrink-0 border ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ${
               isEnabled
-                ? 'bg-[rgba(243,156,18,0.08)] text-[#f39c12] border-[rgba(243,156,18,0.2)]'
-                : 'bg-transparent text-[#636366] border-[#1a1a2e]'
+                ? 'bg-[#FEF8E8] text-[#8B6F18]'
+                : 'bg-[#F4F7F6] text-[#889397]'
             }`}
           >
             <span
-              className={`w-1.5 h-1.5 rounded-sm ${
-                isEnabled ? 'bg-[#f39c12]' : 'bg-[#636366]'
+              className={`w-2 h-2 rounded-full ${
+                isEnabled ? 'bg-[#F08B1E]' : 'bg-[#889397]'
               }`}
             />
             {isEnabled ? t('OVERRIDE ON') : t('AUTO ROUTE')}
           </span>
-          <span className="text-xs text-[#636366] truncate font-mono">
+          <span className="text-xs text-[#889397] truncate">
             {isEnabled
               ? `${t('overridePaused')} → ${modelOverride.provider}/${modelOverride.model}`
               : t('overrideHint')}
@@ -71,7 +71,7 @@ export function ModelOverrideBar() {
           <div className="flex items-center gap-2">
             <label
               htmlFor="override-provider"
-              className="text-[10px] text-[#636366] font-mono uppercase tracking-widest hidden sm:inline"
+              className="text-xs text-[#889397] font-medium uppercase tracking-wider hidden sm:inline"
             >
               PROVIDER
             </label>
@@ -79,7 +79,7 @@ export function ModelOverrideBar() {
               id="override-provider"
               value={modelOverride.provider || ''}
               onChange={(e) => handleProviderChange(e.target.value)}
-              className="h-8 px-2 py-1 rounded-sm text-sm tech-input min-w-[120px] bg-[#0a0a0f]"
+              className="h-9 px-3 py-1 rounded-lg text-sm tech-input min-w-[120px] bg-white"
               aria-label="选择 Provider"
             >
               <option value="">{t('SELECT')}</option>
@@ -94,7 +94,7 @@ export function ModelOverrideBar() {
           <div className="flex items-center gap-2">
             <label
               htmlFor="override-model"
-              className="text-[10px] text-[#636366] font-mono uppercase tracking-widest hidden sm:inline"
+              className="text-xs text-[#889397] font-medium uppercase tracking-wider hidden sm:inline"
             >
               MODEL
             </label>
@@ -103,7 +103,7 @@ export function ModelOverrideBar() {
               value={modelOverride.model || ''}
               onChange={(e) => handleModelChange(e.target.value)}
               disabled={!modelOverride.provider}
-              className="h-8 px-2 py-1 rounded-sm text-sm tech-input min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed bg-[#0a0a0f]"
+              className="h-9 px-3 py-1 rounded-lg text-sm tech-input min-w-[140px] disabled:opacity-50 disabled:cursor-not-allowed bg-white"
               aria-label="选择模型"
             >
               <option value="">
@@ -120,7 +120,7 @@ export function ModelOverrideBar() {
           {isEnabled && (
             <button
               onClick={clearModelOverride}
-              className="tech-btn tech-btn-danger h-8 px-3 rounded-sm text-xs"
+              className="h-9 px-4 rounded-full text-xs font-semibold bg-[#FDECEC] text-[#E65C5C] border border-[#E65C5C]/20 transition-all hover:bg-[#E65C5C] hover:text-white"
               aria-label="回到默认路由"
             >
               {t('RESET')}

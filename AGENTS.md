@@ -4,6 +4,8 @@
 > 项目语言：中文（注释与文档使用中文，代码标识符使用英文）。
 > AI 对话语言：中文
 
+**前端工程指引**：处理 `frontend/` 目录下的代码时，请务必参考 [`frontend/AGENTS.md`](./frontend/AGENTS.md) 作为前端开发指导。
+
 **版本**: 1.1.0 · **Python**: >= 3.9 · **构建后端**: hatchling · **PyPI**: `smartrouter`
 
 ---

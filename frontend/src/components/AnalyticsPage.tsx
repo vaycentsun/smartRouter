@@ -24,8 +24,8 @@ export function AnalyticsPage() {
   if (isLoadingAnalytics && !analyticsError) {
     return (
       <div className="space-y-6">
-        <div className="tech-card rounded-sm p-8 text-center">
-          <p className="text-sm text-[#636366] font-mono">{t('LOADING')}</p>
+        <div className="card-base p-8 text-center">
+          <p className="text-sm text-[#889397]">{t('LOADING')}</p>
         </div>
       </div>
     )
@@ -34,8 +34,8 @@ export function AnalyticsPage() {
   return (
     <div className="space-y-6">
       {analyticsError && (
-        <div className="tech-card rounded-sm p-4 border border-[rgba(231,76,60,0.2)]">
-          <p className="text-sm text-[#e74c3c] font-mono">{analyticsError}</p>
+        <div className="card-base rounded-xl p-4 border border-[#E65C5C]/20 bg-[#FDECEC]">
+          <p className="text-sm text-[#E65C5C] font-medium">{analyticsError}</p>
         </div>
       )}
       <SummaryCards />

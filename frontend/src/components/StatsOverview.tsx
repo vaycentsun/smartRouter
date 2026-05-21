@@ -45,30 +45,30 @@ export function StatsOverview() {
     },
   ]
 
-  const accentMap: Record<string, { border: string; text: string; glow: string; bg: string }> = {
+  const accentMap: Record<string, { border: string; text: string; bg: string; iconBg: string }> = {
     blue: {
-      border: 'border-[rgba(52,152,219,0.12)]',
-      text: 'text-[#3498db]',
-      glow: 'shadow-[rgba(52,152,219,0.06)]',
-      bg: 'bg-[rgba(52,152,219,0.05)]',
+      border: 'border-[#2F87FC]/20',
+      text: 'text-[#2F87FC]',
+      bg: 'bg-[#2F87FC]/5',
+      iconBg: 'bg-[#2F87FC]/10',
     },
     purple: {
-      border: 'border-[rgba(155,89,182,0.12)]',
-      text: 'text-[#9b59b6]',
-      glow: 'shadow-[rgba(155,89,182,0.06)]',
-      bg: 'bg-[rgba(155,89,182,0.05)]',
+      border: 'border-[#B45AF2]/20',
+      text: 'text-[#B45AF2]',
+      bg: 'bg-[#B45AF2]/5',
+      iconBg: 'bg-[#B45AF2]/10',
     },
     green: {
-      border: 'border-[rgba(0,212,170,0.12)]',
-      text: 'text-[#00d4aa]',
-      glow: 'shadow-[rgba(0,212,170,0.06)]',
-      bg: 'bg-[rgba(0,212,170,0.05)]',
+      border: 'border-[#00A34D]/20',
+      text: 'text-[#00A34D]',
+      bg: 'bg-[#00A34D]/5',
+      iconBg: 'bg-[#00A34D]/10',
     },
     red: {
-      border: 'border-[rgba(231,76,60,0.12)]',
-      text: 'text-[#e74c3c]',
-      glow: 'shadow-[rgba(231,76,60,0.06)]',
-      bg: 'bg-[rgba(231,76,60,0.05)]',
+      border: 'border-[#E65C5C]/20',
+      text: 'text-[#E65C5C]',
+      bg: 'bg-[#E65C5C]/5',
+      iconBg: 'bg-[#E65C5C]/10',
     },
   }
 
@@ -79,20 +79,20 @@ export function StatsOverview() {
         return (
           <div
             key={stat.label}
-            className={`tech-card p-5 relative corner-bracket ${style.border} hover:shadow-lg ${style.glow}`}
+            className={`card-base p-5 border ${style.border}`}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] text-[#636366] font-mono uppercase tracking-widest">
+              <span className="text-xs text-[#889397] font-medium uppercase tracking-wider">
                 {stat.label}
               </span>
-              <span className={`${style.text} ${style.bg} p-1.5 rounded-sm`}>
+              <span className={`${style.text} ${style.iconBg} p-1.5 rounded-lg`}>
                 {stat.icon}
               </span>
             </div>
-            <p className={`text-3xl font-bold ${style.text} mono-num tracking-tight`}>
+            <p className={`text-3xl font-semibold ${style.text} mono-num tracking-tight`}>
               {stat.value}
             </p>
-            <p className="text-xs text-[#636366] mt-1 font-mono">{stat.sub}</p>
+            <p className="text-sm text-[#889397] mt-1">{stat.sub}</p>
           </div>
         )
       })}

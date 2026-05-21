@@ -17,44 +17,44 @@ export function StatusCard() {
 
   if (!status) {
     return (
-      <div className="tech-card rounded-sm p-6">
-        <p className="text-[#636366] font-mono text-sm">{t('LOADING')}</p>
+      <div className="card-base p-6">
+        <p className="text-[#889397] text-sm">{t('LOADING')}</p>
       </div>
     )
   }
 
   return (
-    <div className="tech-card rounded-sm p-5">
+    <div className="card-base p-5">
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-1 h-4 bg-[#00d4aa]" />
-        <h2 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Service Status')}</h2>
+        <div className="w-1 h-5 bg-[#00A34D] rounded-full" />
+        <h2 className="text-sm font-semibold text-[#001E2B] uppercase tracking-wider">{t('Service Status')}</h2>
       </div>
       <div className="space-y-3">
-        <div className="flex items-center gap-2 pb-3 border-b border-[#1a1a2e]">
+        <div className="flex items-center gap-2 pb-3 border-b border-[#E8EDEB]">
           <span className={`status-indicator ${status.running ? 'status-online' : 'status-offline'}`} />
-          <span className="text-sm text-[#e8e8ed] font-mono">
+          <span className="text-sm text-[#001E2B] font-medium">
             {status.running ? t('RUNNING') : t('STOPPED')}
           </span>
         </div>
         {status.running && (
           <>
-            <div className="flex items-center justify-between py-1 border-b border-[#1a1a2e]">
-              <span className="text-[10px] text-[#636366] font-mono uppercase">{t('PID')}</span>
-              <span className="text-sm text-[#00d4aa] font-mono">{status.pid}</span>
+            <div className="flex items-center justify-between py-1 border-b border-[#E8EDEB]">
+              <span className="text-xs text-[#889397] uppercase font-medium">{t('PID')}</span>
+              <span className="text-sm text-[#00A34D] mono-num">{status.pid}</span>
             </div>
-            <div className="flex items-center justify-between py-1 border-b border-[#1a1a2e]">
-              <span className="text-[10px] text-[#636366] font-mono uppercase">{t('Uptime')}</span>
-              <span className="text-sm text-[#e8e8ed] font-mono">
+            <div className="flex items-center justify-between py-1 border-b border-[#E8EDEB]">
+              <span className="text-xs text-[#889397] uppercase font-medium">{t('Uptime')}</span>
+              <span className="text-sm text-[#001E2B] mono-num">
                 {formatUptime(status.uptime_seconds)}
               </span>
             </div>
-            <div className="flex items-center justify-between py-1 border-b border-[#1a1a2e]">
-              <span className="text-[10px] text-[#636366] font-mono uppercase">{t('Endpoint')}</span>
+            <div className="flex items-center justify-between py-1 border-b border-[#E8EDEB]">
+              <span className="text-xs text-[#889397] uppercase font-medium">{t('Endpoint')}</span>
               <a
                 href={status.service_url || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-[#00d4aa] hover:opacity-70 transition-opacity font-mono"
+                className="text-sm text-[#00A34D] hover:opacity-70 transition-opacity"
               >
                 {status.service_url}
               </a>
@@ -62,8 +62,8 @@ export function StatusCard() {
           </>
         )}
         <div className="flex items-center justify-between py-1">
-          <span className="text-[10px] text-[#636366] font-mono uppercase">{t('Version')}</span>
-          <span className="text-sm text-[#e8e8ed] font-mono">{status.version}</span>
+          <span className="text-xs text-[#889397] uppercase font-medium">{t('Version')}</span>
+          <span className="text-sm text-[#001E2B] mono-num">{status.version}</span>
         </div>
       </div>
     </div>

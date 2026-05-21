@@ -31,11 +31,11 @@ export function PlaygroundPage() {
       <PlaygroundInput onSubmit={handleSubmit} />
 
       {playgroundError && (
-        <div className="tech-card rounded-sm p-4 flex items-center justify-between border border-[rgba(231,76,60,0.2)]">
-          <p className="text-sm text-[#e74c3c]">{playgroundError}</p>
+        <div className="card-base rounded-xl p-4 flex items-center justify-between border border-[#E65C5C]/20 bg-[#FDECEC]">
+          <p className="text-sm text-[#E65C5C] font-medium">{playgroundError}</p>
           <button
             onClick={clearPlaygroundError}
-            className="text-sm text-[#e74c3c] hover:text-[#e74c3c]/70 transition-colors"
+            className="text-sm text-[#E65C5C] hover:opacity-70 transition-opacity font-medium"
           >
             {t('DISMISS')}
           </button>

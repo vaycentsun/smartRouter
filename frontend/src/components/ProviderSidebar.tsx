@@ -12,11 +12,11 @@ interface ProviderSidebarProps {
 
 function StatusDot({ hasKey, enabled }: { hasKey: boolean; enabled: boolean }) {
   const { t } = useTranslation()
-  const colorClass = !enabled ? 'bg-[#636366]' : hasKey ? 'bg-[#00d4aa]' : 'bg-[#e74c3c]'
+  const colorClass = !enabled ? 'bg-[#889397]' : hasKey ? 'bg-[#00A34D]' : 'bg-[#E65C5C]'
   const title = !enabled ? t('Provider disabled') : hasKey ? t('Key configured') : t('Key missing')
   return (
     <span
-      className={`inline-block w-1.5 h-1.5 rounded-sm ${colorClass}`}
+      className={`inline-block w-2 h-2 rounded-full ${colorClass}`}
       title={title}
     />
   )
@@ -39,13 +39,13 @@ export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSe
         {onAddProvider && (
           <button
             onClick={onAddProvider}
-            className="w-full tech-btn tech-btn-primary px-3 py-2 rounded-sm text-xs font-mono mb-2"
+            className="w-full btn-primary px-3 py-2 text-xs mb-2"
           >
             + Add Provider
           </button>
         )}
-        <div className="tech-card rounded-sm p-6">
-          <p className="text-[#636366] text-sm font-mono">{t('NO PROVIDERS')}</p>
+        <div className="card-base p-6">
+          <p className="text-[#889397] text-sm">{t('NO PROVIDERS')}</p>
         </div>
       </div>
     )
@@ -56,7 +56,7 @@ export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSe
       {onAddProvider && (
         <button
           onClick={onAddProvider}
-          className="w-full tech-btn tech-btn-primary px-3 py-2 rounded-sm text-xs font-mono mb-2"
+          className="w-full btn-primary px-3 py-2 text-xs mb-2"
         >
           + Add Provider
         </button>
@@ -68,29 +68,29 @@ export function ProviderSidebar({ providers, selectedProvider, modelsCount, onSe
           <button
             key={provider.name}
             onClick={() => onSelect(provider.name)}
-            className={`w-full text-left p-3 rounded-sm border transition-all duration-200 ${
+            className={`w-full text-left p-3 rounded-xl border transition-all duration-200 ${
               isSelected
-                ? 'bg-[rgba(0,212,170,0.04)] border-[rgba(0,212,170,0.2)]'
-                : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-[#1a1a2e]'
+                ? 'bg-[#E3FCEF] border-[#00A34D]/30'
+                : 'bg-white border-transparent hover:bg-[#F9FBFA] hover:border-[#E8EDEB]'
             }`}
           >
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
                 <StatusDot hasKey={provider.has_key} enabled={provider.enabled ?? true} />
-                <span className="font-semibold text-[#e8e8ed] text-sm font-mono">{provider.name}</span>
+                <span className="font-semibold text-[#001E2B] text-sm">{provider.name}</span>
               </div>
-              <span className="text-xs bg-[#0a0a0f] text-[#636366] px-2 py-0.5 rounded-sm font-mono border border-[#1a1a2e]">
+              <span className="text-xs bg-[#F4F7F6] text-[#889397] px-2 py-0.5 rounded-full font-medium">
                 {count}
               </span>
             </div>
-            <p className="text-xs text-[#636366] truncate font-mono">{provider.api_base}</p>
+            <p className="text-xs text-[#889397] truncate">{provider.api_base}</p>
             <div className="mt-1.5 flex items-center gap-2">
-              <span className={`text-[10px] px-2 py-0.5 rounded-sm border font-mono uppercase tracking-wider ${
+              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
                 !(provider.enabled ?? true)
-                  ? 'bg-[rgba(99,99,102,0.06)] text-[#636366] border-[rgba(99,99,102,0.12)]'
+                  ? 'bg-[#F4F7F6] text-[#889397]'
                   : provider.has_key
-                    ? 'bg-[rgba(0,212,170,0.06)] text-[#00d4aa] border-[rgba(0,212,170,0.12)]'
-                    : 'bg-[rgba(231,76,60,0.06)] text-[#e74c3c] border-[rgba(231,76,60,0.12)]'
+                    ? 'bg-[#E3FCEF] text-[#00A34D]'
+                    : 'bg-[#FDECEC] text-[#E65C5C]'
               }`}>
                 {!(provider.enabled ?? true) ? t('DISABLED') : provider.has_key ? t('CONFIGURED') : t('MISSING')}
               </span>

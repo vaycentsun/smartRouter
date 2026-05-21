@@ -36,11 +36,11 @@ export function AlertsPage() {
   return (
     <div className="space-y-6">
       {alertsError && (
-        <div className="tech-card rounded-sm p-4 border border-[rgba(231,76,60,0.2)]">
-          <p className="text-sm text-[#e74c3c] font-mono">{alertsError}</p>
+        <div className="card-base rounded-xl p-4 border border-[#E65C5C]/20 bg-[#FDECEC]">
+          <p className="text-sm text-[#E65C5C] font-medium">{alertsError}</p>
           <button
             onClick={clearAlertsError}
-            className="text-sm text-[#e74c3c] hover:opacity-70 transition-opacity mt-1 font-mono uppercase"
+            className="text-sm text-[#E65C5C] hover:opacity-70 transition-opacity mt-1 font-medium uppercase"
           >
             {t('DISMISS')}
           </button>
@@ -50,10 +50,10 @@ export function AlertsPage() {
       <AlertSummaryCard />
 
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Alert Rules')}</h2>
+        <h2 className="text-sm font-semibold text-[#001E2B] uppercase tracking-wider">{t('Alert Rules')}</h2>
         <button
           onClick={handleNew}
-          className="tech-btn tech-btn-primary px-4 py-2 rounded-sm text-xs"
+          className="btn-primary px-4 py-2 text-xs"
         >
           {t('+ NEW RULE')}
         </button>

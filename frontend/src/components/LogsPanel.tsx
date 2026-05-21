@@ -19,15 +19,15 @@ const LOG_LEVELS = [
 function getLineColor(line: string): string {
   const upper = line.toUpperCase()
   if (upper.includes('ERROR') || upper.includes('CRITICAL') || upper.includes('FATAL')) {
-    return 'text-[#e74c3c]'
+    return 'text-[#E65C5C]'
   }
   if (upper.includes('WARNING') || upper.includes('WARN')) {
-    return 'text-[#f39c12]'
+    return 'text-[#8B6F18]'
   }
   if (upper.includes('INFO')) {
-    return 'text-[#00d4aa]'
+    return 'text-[#00A34D]'
   }
-  return 'text-[#8e8e93]'
+  return 'text-[#889397]'
 }
 
 export function LogsPanel() {
@@ -83,32 +83,32 @@ export function LogsPanel() {
     <div className="space-y-4">
       {/* Error Alert */}
       {logError && (
-        <div className="tech-card rounded-sm p-4 flex items-center justify-between border border-[rgba(231,76,60,0.2)]">
-          <p className="text-sm text-[#e74c3c] font-mono">{logError}</p>
+        <div className="card-base rounded-xl p-4 flex items-center justify-between border border-[#E65C5C]/20 bg-[#FDECEC]">
+          <p className="text-sm text-[#E65C5C] font-medium">{logError}</p>
           <button
             onClick={clearLogError}
-            className="text-sm text-[#e74c3c] hover:opacity-70 transition-opacity font-mono uppercase"
+            className="text-sm text-[#E65C5C] hover:opacity-70 transition-opacity font-medium uppercase"
           >
             {t('DISMISS')}
           </button>
         </div>
       )}
 
-      <div className="tech-card rounded-sm overflow-hidden">
+      <div className="card-base rounded-xl overflow-hidden">
         {/* Header with source tabs and level filter */}
-        <div className="p-4 border-b border-[#1a1a2e] flex items-center justify-between flex-wrap gap-3">
+        <div className="p-4 border-b border-[#E8EDEB] flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-4">
-            <div className="w-1 h-4 bg-[#00d4aa]" />
-            <h2 className="text-sm font-semibold text-[#e8e8ed] font-mono uppercase tracking-wider">{t('Live Logs')}</h2>
+            <div className="w-1 h-5 bg-[#00A34D] rounded-full" />
+            <h2 className="text-sm font-semibold text-[#001E2B] uppercase tracking-wider">{t('Live Logs')}</h2>
             <div className="flex gap-1 ml-4">
               {LOG_SOURCES.map((s) => (
                 <button
                   key={s.key}
                   onClick={() => handleSwitch(s.key)}
-                  className={`px-3 py-1 rounded-sm text-xs font-mono uppercase tracking-wider transition-all ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                     activeSource === s.key
-                      ? 'tech-tab-active'
-                      : 'tech-tab'
+                      ? 'bg-[#001E2B] text-white'
+                      : 'text-[#889397] hover:text-[#5C6C75] hover:bg-[#F4F7F6]'
                   }`}
                 >
                   {t(s.label)}
@@ -122,17 +122,17 @@ export function LogsPanel() {
                 <button
                   key={l.key}
                   onClick={() => handleLevelSwitch(l.key)}
-                  className={`px-2 py-1 rounded-sm text-xs font-mono uppercase tracking-wider transition-all ${
+                  className={`px-2 py-1 rounded-full text-xs font-medium transition-all ${
                     activeLevel === l.key
-                      ? 'bg-[rgba(243,156,18,0.08)] text-[#f39c12] border border-[rgba(243,156,18,0.15)]'
-                      : 'text-[#636366] hover:text-[#8e8e93]'
+                      ? 'bg-[#FEF8E8] text-[#8B6F18]'
+                      : 'text-[#889397] hover:text-[#5C6C75]'
                   }`}
                 >
                   {t(l.label)}
                 </button>
               ))}
             </div>
-            <span className="text-xs text-[#636366] font-mono border-l border-[#1a1a2e] pl-3">
+            <span className="text-xs text-[#889397] border-l border-[#E8EDEB] pl-3">
               {logs.lines.length} {t('LINES')}
             </span>
           </div>
@@ -142,11 +142,11 @@ export function LogsPanel() {
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="bg-[#0a0a0f] p-4 overflow-auto border-b border-[#1a1a2e]"
+          className="bg-[#001E2B] p-4 overflow-auto border-b border-[#3D4F58]"
           style={{ maxHeight: '60vh', minHeight: '400px' }}
         >
           {logs.lines.length === 0 ? (
-            <p className="text-sm text-[#636366] font-mono text-center py-8">{t('NO LOGS')}</p>
+            <p className="text-sm text-[#889397] text-center py-8">{t('NO LOGS')}</p>
           ) : (
             <div className="space-y-0.5">
               {logs.lines.map((line, index) => (
@@ -163,10 +163,10 @@ export function LogsPanel() {
 
         {/* Footer */}
         <div className="px-4 py-2 flex items-center justify-between">
-          <span className="text-xs text-[#636366] font-mono">
+          <span className="text-xs text-[#889397]">
             {autoScroll ? t('AUTO SCROLL') : t('PAUSED')}
           </span>
-          <span className="text-xs text-[#636366] font-mono">
+          <span className="text-xs text-[#889397]">
             {t('OFFSET')}: {logs.offset} {t('BYTES')}
           </span>
         </div>
