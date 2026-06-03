@@ -37,16 +37,40 @@ export function ModelUsageChart() {
     )
   }
 
-  const data = analyticsByModel.map((item) => ({
-    name: item.model,
-    value: item.prompt_tokens + item.completion_tokens,
-    prompt: item.prompt_tokens,
-    completion: item.completion_tokens,
-    reasoning: item.reasoning_tokens,
-    cached: item.cached_tokens,
-    cost: item.cost,
-    requests: item.request_count,
-  }))
+  const MAX_PIE_SLICES = 5
+
+  const sorted = [...analyticsByModel]
+    .map((item) => ({
+      name: item.model,
+      value: item.prompt_tokens + item.completion_tokens,
+      prompt: item.prompt_tokens,
+      completion: item.completion_tokens,
+      reasoning: item.reasoning_tokens,
+      cached: item.cached_tokens,
+      cost: item.cost,
+      requests: item.request_count,
+    }))
+    .sort((a, b) => b.value - a.value)
+
+  const top = sorted.slice(0, MAX_PIE_SLICES)
+  const rest = sorted.slice(MAX_PIE_SLICES)
+
+  const data =
+    rest.length > 0
+      ? [
+          ...top,
+          {
+            name: t('Others'),
+            value: rest.reduce((sum, item) => sum + item.value, 0),
+            prompt: rest.reduce((sum, item) => sum + item.prompt, 0),
+            completion: rest.reduce((sum, item) => sum + item.completion, 0),
+            reasoning: rest.reduce((sum, item) => sum + item.reasoning, 0),
+            cached: rest.reduce((sum, item) => sum + item.cached, 0),
+            cost: rest.reduce((sum, item) => sum + item.cost, 0),
+            requests: rest.reduce((sum, item) => sum + item.requests, 0),
+          },
+        ]
+      : top
 
   return (
     <div className="tech-card rounded-sm p-5">
