@@ -118,6 +118,7 @@ const dict: Record<string, Record<Lang, string>> = {
   'Top Models': { zh: '热门模型排行', en: 'Top Models' },
   'PIE': { zh: '饼图', en: 'PIE' },
   'BAR': { zh: '柱状图', en: 'BAR' },
+  'Others': { zh: '其他', en: 'Others' },
   'Recent Requests': { zh: '最近请求路由记录', en: 'Recent Requests' },
 
   // ===== Request table =====
