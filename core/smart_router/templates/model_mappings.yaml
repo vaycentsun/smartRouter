@@ -1,0 +1,16 @@
+# Model Mappings Configuration
+# 模型映射表：将特定模型名称的请求转发到目标服务商
+# 优先级：映射表 > Model Override > 智能路由
+
+enabled: false  # 全局开关
+
+mappings: []
+  # 映射规则示例（取消注释并修改后生效）：
+  # - id: "map-gpt4-to-qwen"
+  #   enabled: true
+  #   from_model: "gpt-4"
+  #   to_provider: "aliyun"
+  #   to_model: "qwen-max"
+  #   to_litellm_provider: "openai"
+  #   to_base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  #   to_api_key: "os.environ/DASHSCOPE_API_KEY"
