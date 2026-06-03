@@ -97,7 +97,7 @@ export function TokenStatsTable() {
               key={item.model}
               className="data-row border-b border-[#1a1a2e] last:border-0"
             >
-              <td className="py-3 px-2 font-medium text-[#e8e8ed]">{item.model}</td>
+              <td className="py-3 px-2 font-medium text-[#e8e8ed] font-mono">{item.model}</td>
               <td className="py-3 px-2 text-right text-[#e8e8ed] font-mono">
                 {item.request_count.toLocaleString()}
               </td>

@@ -2,7 +2,7 @@ import { useTranslation } from '../i18n/I18nProvider'
 import { useDashboardStore } from '../store/useDashboardStore'
 
 export function AlertHistoryTable() {
-  const { t } = useTranslation()
+  const { t, lang } = useTranslation()
   const { alertHistory } = useDashboardStore()
 
   return (
@@ -29,7 +29,7 @@ export function AlertHistoryTable() {
             {alertHistory.map((item, index) => (
               <tr key={index} className="data-row border-b border-[#1a1a2e] last:border-0">
                 <td className="px-6 py-3 text-[#e8e8ed] whitespace-nowrap">
-                  {new Date(item.timestamp * 1000).toLocaleString('zh-CN')}
+                  {new Date(item.timestamp * 1000).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}
                 </td>
                 <td className="px-6 py-3 text-[#e8e8ed]">{item.rule_name}</td>
                 <td className="px-6 py-3">

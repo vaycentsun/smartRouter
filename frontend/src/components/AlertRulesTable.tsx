@@ -75,7 +75,7 @@ export function AlertRulesTable({ onEdit }: AlertRulesTableProps) {
                     }`}
                   >
                     <span
-                      className={`inline-block h-3.5 w-3.5 transform rounded-sm bg-white transition-transform ${
+                      className={`inline-block h-3.5 w-3.5 transform rounded-sm bg-[#e8e8ed] transition-transform ${
                         rule.enabled ? 'translate-x-5' : 'translate-x-1'
                       }`}
                     />

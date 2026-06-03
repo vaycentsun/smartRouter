@@ -7,8 +7,14 @@ interface RecentRequestsPanelProps {
 }
 
 function formatTime(timestamp: string): string {
-  const date = new Date(timestamp)
-  return date.toLocaleTimeString('zh-CN', { hour12: false })
+  const d = new Date(timestamp)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`
 }
 
 export function RecentRequestsPanel({ requests = [] }: RecentRequestsPanelProps) {
@@ -44,7 +50,7 @@ export function RecentRequestsPanel({ requests = [] }: RecentRequestsPanelProps)
                 }`}
               >
                 {/* Timestamp */}
-                <div className="w-20 shrink-0">
+                <div className="w-36 shrink-0">
                   <span className="text-xs font-mono text-[#636366]">
                     {formatTime(req.timestamp)}
                   </span>
@@ -63,22 +69,22 @@ export function RecentRequestsPanel({ requests = [] }: RecentRequestsPanelProps)
                       </>
                     )}
                     {!req.did_fallback && (
-                      <span className="text-[#00d4aa] ml-1 font-mono text-xs">✓</span>
+                      <span className="text-[#00d4aa] ml-1 font-mono text-[10px] uppercase tracking-wider">{t('SUCCESS')}</span>
                     )}
                   </div>
                 </div>
 
                 {/* Status + Retry Badge + Tokens */}
                 <div className="flex items-center gap-3 shrink-0">
-                  {req.retry_history && req.retry_history.length > 0 && (
-                    <span
-                      data-testid="retry-badge"
-                      className="text-xs font-mono px-2 py-0.5 rounded-sm bg-[rgba(243,156,18,0.1)] text-[#f39c12] border border-[rgba(243,156,18,0.15)]"
-                      title={`重试 ${req.retry_history.length} 次`}
-                    >
-                      ↻{req.retry_history.length}
-                    </span>
-                  )}
+                    {req.retry_history && req.retry_history.length > 0 && (
+                      <span
+                        data-testid="retry-badge"
+                        className="text-xs font-mono px-2 py-0.5 rounded-sm bg-[rgba(243,156,18,0.1)] text-[#f39c12] border border-[rgba(243,156,18,0.15)]"
+                        title={`${t('RETRY')} ${req.retry_history.length}`}
+                      >
+                        {t('RETRY')} {req.retry_history.length}
+                      </span>
+                    )}
                   <span
                     data-testid="status-code"
                     className={`text-xs font-mono px-2 py-0.5 rounded-sm border ${
@@ -166,7 +172,7 @@ export function RecentRequestsPanel({ requests = [] }: RecentRequestsPanelProps)
                                 <span className="text-[#e74c3c] truncate font-mono text-xs">{retry.error}</span>
                               )}
                               <span className="text-[#636366] ml-auto shrink-0 font-mono text-xs">
-                                {new Date(retry.timestamp).toLocaleTimeString('zh-CN', { hour12: false })}
+                                {formatTime(retry.timestamp)}
                               </span>
                             </div>
                           ))}

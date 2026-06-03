@@ -134,7 +134,7 @@ export function AddProviderModal({ isOpen, onClose, onSubmit, isSaving }: AddPro
             />
           </div>
           {error && (
-            <div className="text-red-500 text-xs font-mono">{error}</div>
+            <div className="text-[#e74c3c] text-xs font-mono">{error}</div>
           )}
         </div>
         <div className="p-4 border-t border-[#1a1a2e] flex justify-end gap-3">

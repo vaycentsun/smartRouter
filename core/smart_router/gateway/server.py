@@ -509,6 +509,98 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         
         return response
     
+    async def _try_candidates(
+        self,
+        request: Request,
+        call_next,
+        data: dict,
+        candidates: list[dict],
+    ) -> Response:
+        """执行候选模型重试循环
+
+        遍历 candidates 列表，逐个尝试直到成功或耗尽。
+        任何非 2xx 响应或可重试异常都会触发下一个候选。
+        """
+        from starlette.responses import JSONResponse
+
+        max_attempts = self.router.sr_config.routing.fallback.max_attempts
+        # 兼容测试环境：MagicMock 可能不是 int，需要转换
+        if not isinstance(max_attempts, int):
+            max_attempts = int(max_attempts) if max_attempts else 3
+        retry_history = []
+        attempt = 0
+
+        while attempt < len(candidates) and attempt < max_attempts:
+            candidate = candidates[attempt]
+            model_name = candidate["model"]
+            provider = candidate["provider"]
+
+            data["model"] = model_name
+            modified_body = json.dumps(data).encode("utf-8")
+            request._body = modified_body
+
+            try:
+                response = await self._call_app_directly(request, call_next)
+            except Exception as e:
+                if _is_retryable_exception(e):
+                    error_type = type(e).__name__
+                    retry_history.append({
+                        "model": model_name,
+                        "provider": provider,
+                        "status_code": 0,
+                        "error_type": error_type,
+                        "error": str(e),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    })
+                    console.print(f"[yellow]模型 {model_name} (provider: {provider}) 调用异常 [{error_type}]: {e}[/yellow]")
+                    if attempt < len(candidates) - 1 and attempt < max_attempts - 1:
+                        console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
+                        await asyncio.sleep(10)
+                    attempt += 1
+                    continue
+                raise
+
+            if _is_retryable_status(response.status_code):
+                error_type = self._infer_error_type(response.status_code)
+                retry_history.append({
+                    "model": model_name,
+                    "provider": provider,
+                    "status_code": response.status_code,
+                    "error_type": error_type,
+                    "error": None,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
+                console.print(f"[yellow]模型 {model_name} (provider: {provider}) 返回 {response.status_code} ({error_type})，准备重试[/yellow]")
+
+                if attempt < len(candidates) - 1 and attempt < max_attempts - 1:
+                    console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
+                    await asyncio.sleep(10)
+                attempt += 1
+                continue
+
+            # 成功
+            request.state.smart_router_selected = model_name
+            request.state.smart_router_retry_count = attempt
+            request.state.smart_router_retry_history = retry_history
+            console.print(f"[green]模型 {model_name} (provider: {provider}) 调用成功（尝试 {attempt + 1}/{max_attempts}）[/green]")
+            return response
+
+        # 所有候选耗尽
+        console.print(f"[red]所有模型均失败，已尝试: {[r['model'] for r in retry_history]}[/red]")
+        request.state.smart_router_retry_history = retry_history
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": {
+                    "message": "All models failed",
+                    "type": "service_unavailable",
+                    "code": "503",
+                    "attempted_models": [r["model"] for r in retry_history],
+                    "retry_history": retry_history,
+                }
+            }
+        )
+
     async def _route_with_retry(
         self,
         request: Request,
@@ -538,40 +630,44 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             import traceback
             console.print(traceback.format_exc())
             
-            # 对于保留模型名，尝试 fallback 到第一个可用模型
+            # 对于保留模型名，尝试 fallback 到所有可用模型（逐个重试）
             if original_model in ("auto", "smart-router", "default"):
                 try:
                     available = self.router.sr_config.get_available_models()
-                    if available:
-                        fallback_model = available[0]
-                        data["model"] = fallback_model
-                        request.state.smart_router_selected = fallback_model
-                        request.state.smart_router_original = original_model
-                        request.state.smart_router_task = "fallback"
-                        
-                        request_id = str(uuid.uuid4())[:8]
-                        request.state.smart_router_request_id = request_id
-                        request.state.smart_router_routing_info = {
-                            "request_id": request_id,
-                            "original_model": original_model,
-                            "selected_model": fallback_model,
-                            "task_type": "fallback",
-                            "difficulty": None,
-                            "strategy": "fallback",
-                            "fallback_chain": [],
-                            "retry_history": [],
-                        }
-                        
-                        modified_body = json.dumps(data).encode("utf-8")
-                        request._body = modified_body
-                        
-                        console.print(f"[yellow]智能路由异常降级: {original_model} -> {fallback_model}[/yellow]")
-                        return await self._call_app_directly(request, call_next)
-                    else:
+                    if not available:
                         return JSONResponse(
                             status_code=400,
                             content={"error": {"message": "No model available for routing", "type": "invalid_request_error", "code": "400"}}
                         )
+                    
+                    # 构建降级候选列表（所有可用模型）
+                    config = self.router.sr_config
+                    candidates = []
+                    for model_name in available:
+                        model_config = config.models[model_name]
+                        candidates.append({
+                            "model": model_name,
+                            "provider": model_config.provider,
+                            "source": "degradation",
+                        })
+                    
+                    request.state.smart_router_original = original_model
+                    request.state.smart_router_task = "fallback"
+                    
+                    request_id = str(uuid.uuid4())[:8]
+                    request.state.smart_router_request_id = request_id
+                    request.state.smart_router_routing_info = {
+                        "request_id": request_id,
+                        "original_model": original_model,
+                        "selected_model": candidates[0]["model"] if candidates else None,
+                        "task_type": "fallback",
+                        "difficulty": None,
+                        "strategy": "fallback",
+                        "fallback_chain": [c["model"] for c in candidates[1:]],
+                    }
+                    
+                    console.print(f"[yellow]智能路由异常降级，将尝试 {len(candidates)} 个模型[/yellow]")
+                    return await self._try_candidates(request, call_next, data, candidates)
                 except Exception as fallback_e:
                     return JSONResponse(
                         status_code=400,
@@ -616,83 +712,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             "fallback_chain": fallback_chain,
         }
         
-        # 判断是否为流式请求
-        is_streaming = data.get("stream", False)
-        max_attempts = self.router.sr_config.routing.fallback.max_attempts
-        retry_history = []
-        attempt = 0
-        
-        while attempt < len(candidates) and attempt < max_attempts:
-            candidate = candidates[attempt]
-            model_name = candidate["model"]
-            provider = candidate["provider"]
-            
-            data["model"] = model_name
-            modified_body = json.dumps(data).encode("utf-8")
-            request._body = modified_body
-            
-            try:
-                response = await self._call_app_directly(request, call_next)
-            except Exception as e:
-                if _is_retryable_exception(e):
-                    error_type = type(e).__name__
-                    retry_history.append({
-                        "model": model_name,
-                        "provider": provider,
-                        "status_code": 0,
-                        "error_type": error_type,
-                        "error": str(e),
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    })
-                    console.print(f"[yellow]模型 {model_name} (provider: {provider}) 调用异常 [{error_type}]: {e}[/yellow]")
-                    if attempt < len(candidates) - 1 and attempt < max_attempts - 1:
-                        console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
-                        await asyncio.sleep(10)
-                    attempt += 1
-                    continue
-                raise
-            
-            if _is_retryable_status(response.status_code):
-                # 提取错误类型（从响应体或状态码推断）
-                error_type = self._infer_error_type(response.status_code)
-                retry_history.append({
-                    "model": model_name,
-                    "provider": provider,
-                    "status_code": response.status_code,
-                    "error_type": error_type,
-                    "error": None,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
-                console.print(f"[yellow]模型 {model_name} (provider: {provider}) 返回 {response.status_code} ({error_type})，准备重试[/yellow]")
-                
-                if attempt < len(candidates) - 1 and attempt < max_attempts - 1:
-                    console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
-                    await asyncio.sleep(10)
-                attempt += 1
-                continue
-            
-            # 成功
-            request.state.smart_router_selected = model_name
-            request.state.smart_router_retry_count = attempt
-            request.state.smart_router_retry_history = retry_history
-            console.print(f"[green]模型 {model_name} (provider: {provider}) 调用成功（尝试 {attempt + 1}/{max_attempts}）[/green]")
-            return response
-        
-        # 所有候选耗尽
-        console.print(f"[red]所有模型均失败，已尝试: {[r['model'] for r in retry_history]}[/red]")
-        request.state.smart_router_retry_history = retry_history
-        return JSONResponse(
-            status_code=503,
-            content={
-                "error": {
-                    "message": "All models failed",
-                    "type": "service_unavailable",
-                    "code": "503",
-                    "attempted_models": [r["model"] for r in retry_history],
-                    "retry_history": retry_history,
-                }
-            }
-        )
+        return await self._try_candidates(request, call_next, data, candidates)
     
     def _build_fallback_candidates(self, selected: str, ranked_models: list) -> list[dict]:
         """构建带 provider 信息的 fallback 候选列表

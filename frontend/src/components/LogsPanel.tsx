@@ -5,7 +5,7 @@ import { useTranslation } from '../i18n/I18nProvider'
 
 const LOG_SOURCES: { key: LogSource; label: string }[] = [
   { key: 'service', label: 'SERVICE' },
-  { key: 'dashboard', label: 'DASHBOARD log' },
+  { key: 'dashboard', label: 'DASHBOARD LOG' },
 ]
 
 const LOG_LEVELS = [

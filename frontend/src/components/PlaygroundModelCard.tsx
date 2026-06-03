@@ -37,20 +37,20 @@ export function PlaygroundModelCard({ result }: PlaygroundModelCardProps) {
             {/* MetaBar */}
             <div className="flex flex-wrap gap-3 text-xs text-[#636366]">
               <div className="flex items-center gap-1">
-                <span>⏱️</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider">{t('LAT')}</span>
                 <span>{result.latency_ms}{t('ms')}</span>
               </div>
               <div className="flex items-center gap-1">
-                <span>📝</span>
-                <span>{result.prompt_tokens} {t('Prompt Tokens')}</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider">{t('Prompt Tokens')}</span>
+                <span>{result.prompt_tokens}</span>
               </div>
               <div className="flex items-center gap-1">
-                <span>✨</span>
-                <span>{result.completion_tokens} {t('Completion Tokens')}</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider">{t('Completion Tokens')}</span>
+                <span>{result.completion_tokens}</span>
               </div>
               {result.estimated_cost !== null && (
                 <div className="flex items-center gap-1">
-                  <span>💰</span>
+                  <span className="text-[10px] font-mono uppercase tracking-wider">{t('EST COST')}</span>
                   <span>${result.estimated_cost.toFixed(6)}</span>
                 </div>
               )}

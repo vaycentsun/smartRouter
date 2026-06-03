@@ -4,7 +4,14 @@ import { RecentRequestsPanel } from './RecentRequestsPanel'
 import type { RequestRoutingRecord } from '../types'
 
 function formatTimeForTest(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString('zh-CN', { hour12: false })
+  const d = new Date(timestamp)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`
 }
 
 const mockRequests: RequestRoutingRecord[] = [
@@ -165,7 +172,7 @@ describe('RecentRequestsPanel', () => {
     render(<RecentRequestsPanel requests={mockRequests} />)
     const retryBadges = screen.getAllByTestId('retry-badge')
     expect(retryBadges).toHaveLength(1)
-    expect(retryBadges[0]).toHaveTextContent('↻2')
+    expect(retryBadges[0]).toHaveTextContent('重试 2')
   })
 
   it('shows retry history in detail card', () => {
