@@ -50,8 +50,8 @@ export function RecentRequestsPanel({ requests = [] }: RecentRequestsPanelProps)
                 }`}
               >
                 {/* Timestamp */}
-                <div className="w-36 shrink-0">
-                  <span className="text-xs font-mono text-[#636366]">
+                <div className="w-44 shrink-0">
+                  <span className="text-xs font-mono text-[#636366] whitespace-nowrap">
                     {formatTime(req.timestamp)}
                   </span>
                 </div>
