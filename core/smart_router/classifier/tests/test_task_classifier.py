@@ -373,3 +373,66 @@ class TestTaskClassifierDifficultyAdjustment:
     def test_lower_easy_stays_easy(self, task_classifier):
         """easy 已最低档，应保持不变"""
         assert task_classifier._lower_difficulty("easy") == "easy"
+
+
+class TestTaskClassifierMultimodalContent:
+    """测试多模态消息格式（OpenAI vision: content 为 list）"""
+
+    @pytest.fixture
+    def classifier(self):
+        return TaskClassifier(
+            rules=[],
+            embedding_config={},
+            task_configs={
+                "writing": {
+                    "keywords": ["写", "文章", "write"],
+                    "description": "写作任务"
+                },
+                "chat": {
+                    "keywords": [],
+                    "description": "普通对话"
+                }
+            }
+        )
+
+    def test_classify_with_multimodal_list_content(self, classifier):
+        """content 为 list（多模态格式）时不应抛出异常"""
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "帮我写一篇文章"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/image.png"}}
+            ]
+        }]
+        # 不应抛出 TypeError
+        result = classifier.classify(messages)
+        assert isinstance(result, ClassificationResult)
+        assert result.task_type == "writing"
+
+    def test_classify_with_multimodal_no_text(self, classifier):
+        """多模态消息中无 text 类型时应返回默认分类"""
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": "https://example.com/image.png"}}
+            ]
+        }]
+        result = classifier.classify(messages)
+        assert isinstance(result, ClassificationResult)
+        # 无文本内容，应返回默认分类
+        assert result.task_type == "chat"
+
+    def test_classify_with_mixed_content_types(self, classifier):
+        """混合字符串和 list content 的消息"""
+        messages = [
+            {"role": "user", "content": "你好"},
+            {"role": "assistant", "content": "你好！有什么可以帮你的？"},
+            {"role": "user", "content": [
+                {"type": "text", "text": "写一段代码"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/code.png"}}
+            ]}
+        ]
+        result = classifier.classify(messages)
+        assert isinstance(result, ClassificationResult)
+        # 最后一个用户消息包含 "写" 和 "代码"
+        assert result.task_type == "writing"

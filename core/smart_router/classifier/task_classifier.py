@@ -28,6 +28,28 @@ class TaskTypeResult:
     source: str  # "keyword" | "embedding" | "default"
 
 
+def _extract_text_content(content) -> str:
+    """从消息 content 中提取纯文本
+
+    支持两种格式：
+    - str: 普通文本消息
+    - list[dict]: OpenAI 多模态格式，提取 type="text" 的文本
+
+    Args:
+        content: 消息内容
+
+    Returns:
+        提取的纯文本
+    """
+    if isinstance(content, list):
+        text_parts = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                text_parts.append(item.get("text", ""))
+        return " ".join(text_parts)
+    return content if isinstance(content, str) else ""
+
+
 class TaskTypeClassifier:
     """任务类型分类器（支持 Keywords + Embedding 匹配）
     
@@ -77,7 +99,7 @@ class TaskTypeClassifier:
         user_content = ""
         for msg in messages:
             if msg.get("role") == "user":
-                user_content += msg.get("content", "") + " "
+                user_content += _extract_text_content(msg.get("content", "")) + " "
         user_content = user_content.strip().lower()
         
         if not user_content:
@@ -293,7 +315,7 @@ class TaskClassifier:
         user_message_count = 0
         for msg in messages:
             if msg.get("role") == "user":
-                content = msg.get("content", "")
+                content = _extract_text_content(msg.get("content", ""))
                 if content:
                     user_content += content + " "
                     user_message_count += 1
