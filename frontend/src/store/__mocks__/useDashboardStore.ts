@@ -11,7 +11,7 @@ export const mockStoreState: Record<string, unknown> = {
   analyticsDaily: [],
   analyticsByModel: [],
   analyticsTopModels: [],
-  isLoadingAnalytics: false,
+  isLoadingAnalytics: true,
   analyticsError: null,
   fetchAnalytics: vi.fn().mockResolvedValue(undefined),
   // Playground

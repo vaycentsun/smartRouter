@@ -159,35 +159,44 @@ export function ModelMappingTab() {
   const [config, setConfig] = useState<ModelMappingConfig>({ enabled: false, mappings: [] })
   const [viewMode, setViewMode] = useState<'table' | 'yaml'>('table')
   const [yamlText, setYamlText] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingRule, setEditingRule] = useState<ModelMappingRule | null>(null)
   const { t } = useTranslation()
 
   useEffect(() => {
-    fetchConfig()
-    fetchYaml()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    let cancelled = false
 
-  const fetchConfig = async () => {
-    try {
-      const data = await api.getModelMappings()
-      setConfig(data)
-    } catch (err: any) {
-      setError(`${t('LOAD FAILED')}: ${err.message}`)
+    const loadData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const [configData, yamlData] = await Promise.all([
+          api.getModelMappings(),
+          api.getModelMappingsYaml(),
+        ])
+        if (!cancelled) {
+          setConfig(configData)
+          setYamlText(yamlData.yaml)
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(`${t('LOAD FAILED')}: ${err.message}`)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
     }
-  }
 
-  const fetchYaml = async () => {
-    try {
-      const data = await api.getModelMappingsYaml()
-      setYamlText(data.yaml)
-    } catch (err: any) {
-      setError(`${t('LOAD FAILED')}: ${err.message}`)
+    loadData()
+
+    return () => {
+      cancelled = true
     }
-  }
+  }, [t])
 
   const saveConfig = async () => {
     setLoading(true)
@@ -333,14 +342,21 @@ export function ModelMappingTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1a1a2e]">
-                {config.mappings.length === 0 && (
+                {loading && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-[#636366] font-mono">
+                      {t('LOADING')}
+                    </td>
+                  </tr>
+                )}
+                {!loading && config.mappings.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-[#636366] font-mono">
                       {t('No mappings configured')}
                     </td>
                   </tr>
                 )}
-                {config.mappings.map((rule) => (
+                {!loading && config.mappings.map((rule) => (
                   <tr key={rule.id} className="data-row">
                     <td className="px-4 py-3 font-medium text-[#e8e8ed] font-mono text-xs">{rule.from_model}</td>
                     <td className="px-4 py-3 text-[#e8e8ed] font-mono text-xs">{rule.to_model}</td>
