@@ -7,12 +7,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Request
+from fastapi import Request, HTTPException
 from rich.console import Console
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from ..config.loader import ConfigLoader
+from ..config.loader import ConfigLoader, ConfigError
 from ..config.schema import Config
 from ..config.watcher import ConfigWatcher
 from ..router.plugin import SmartRouter
@@ -1053,6 +1053,64 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
             clear_override_state()
             app.state.global_model_override = {"provider": None, "model": None, "enabled": False}
             return {"provider": None, "model": None, "enabled": False}
+        
+        # 注册模型映射 API
+        from ..config.mapping_loader import ModelMappingLoader
+        from pydantic import ValidationError
+
+        @app.get("/api/model-mappings")
+        async def get_model_mappings():
+            """返回当前 model_mappings.yaml 的结构化内容"""
+            loader = ModelMappingLoader(config_dir)
+            config = loader.load()
+            return {
+                "enabled": config.enabled,
+                "mappings": [
+                    {
+                        "id": r.id,
+                        "enabled": r.enabled,
+                        "from_model": r.from_model,
+                        "to_provider": r.to_provider,
+                        "to_model": r.to_model,
+                        "to_litellm_provider": r.to_litellm_provider,
+                        "to_base_url": r.to_base_url,
+                        "to_api_key": r.to_api_key,
+                    }
+                    for r in config.mappings
+                ]
+            }
+
+        @app.put("/api/model-mappings")
+        async def update_model_mappings(body: dict):
+            """接收 JSON，验证后保存为 YAML 并触发热重载"""
+            try:
+                config = ModelMappingConfig(**body)
+                loader = ModelMappingLoader(config_dir)
+                loader.save(config)
+                return {"success": True}
+            except ValidationError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            except ConfigError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+
+        @app.get("/api/model-mappings/yaml")
+        async def get_model_mappings_yaml():
+            """返回原始 YAML 文本，供编辑器使用"""
+            filepath = config_dir / "model_mappings.yaml"
+            if not filepath.exists():
+                return {"yaml": "enabled: false\nmappings: []\n"}
+            return {"yaml": filepath.read_text(encoding="utf-8")}
+
+        @app.put("/api/model-mappings/yaml")
+        async def update_model_mappings_yaml(body: dict):
+            """接收 YAML 文本，验证后保存并触发热重载"""
+            raw_yaml = body.get("yaml", "")
+            try:
+                loader = ModelMappingLoader(config_dir)
+                loader.save_raw(raw_yaml)
+                return {"success": True}
+            except ConfigError as e:
+                raise HTTPException(status_code=400, detail=str(e))
         
         # 注册错误统计 API（供 Dashboard 展示模型失败率）
         @app.get("/api/analytics/error-stats")

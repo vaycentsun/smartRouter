@@ -30,6 +30,7 @@ import type {
   FormulaPreviewResponse,
   RequestRoutingRecord,
   ErrorStatsResponse,
+  ModelMappingConfig,
 } from '../types'
 
 export interface AlertTestResult {
@@ -150,4 +151,13 @@ export const api = {
     client.post<{ success: boolean; provider: ProviderInfo; error?: string }>('/api/providers', data).then((r) => r.data),
   addModel: (providerName: string, data: AddModelRequest) =>
     client.post<{ success: boolean; model: ModelInfo; error?: string }>(`/api/providers/${providerName}/models`, data).then((r) => r.data),
+  // Model Mappings
+  getModelMappings: () =>
+    client.get<ModelMappingConfig>('/api/model-mappings').then((r) => r.data),
+  updateModelMappings: (data: ModelMappingConfig) =>
+    client.put<{ success: boolean }>('/api/model-mappings', data).then((r) => r.data),
+  getModelMappingsYaml: () =>
+    client.get<{ yaml: string }>('/api/model-mappings/yaml').then((r) => r.data),
+  updateModelMappingsYaml: (yaml: string) =>
+    client.put<{ success: boolean }>('/api/model-mappings/yaml', { yaml }).then((r) => r.data),
 }
