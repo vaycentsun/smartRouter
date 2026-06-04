@@ -48,7 +48,7 @@ function RuleFormModal({ rule, onClose, onSave }: RuleFormModalProps) {
     onSave(form)
   }
 
-  const updateField = (field: keyof ModelMappingRule, value: string | boolean) => {
+  const updateField = (field: keyof ModelMappingRule, value: string | boolean | string[]) => {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
