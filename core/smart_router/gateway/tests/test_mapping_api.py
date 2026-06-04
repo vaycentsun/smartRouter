@@ -567,3 +567,237 @@ class TestMiddlewareMappingResponseHeaders:
         assert "X-Smart-Router-Mapped" not in response.headers
         assert "X-Smart-Router-Mapped-From" not in response.headers
         assert "X-Smart-Router-Mapped-To" not in response.headers
+
+
+# ==================== 场景 7: /v1/responses 端点支持模型映射 ====================
+
+class TestResponsesEndpointMapping:
+    """/v1/responses 端点支持模型映射"""
+
+    @pytest.mark.asyncio
+    async def test_responses_endpoint_model_mapping(self, mock_router_with_mappings, mock_app):
+        """/v1/responses 请求匹配映射规则时，model 被替换"""
+        middleware = SmartRouterMiddleware(mock_app, router=mock_router_with_mappings)
+
+        captured_body = None
+
+        async def mock_call_next(request):
+            nonlocal captured_body
+            body = await request.body()
+            captured_body = json.loads(body)
+            return Response(content=b'ok', status_code=200)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/responses",
+            "headers": [],
+            "app": mock_app,
+        }
+
+        body = json.dumps({"model": "gpt-4", "input": "hello"}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert captured_body is not None
+        assert captured_body["model"] == "claude-3-opus"
+        assert captured_body["input"] == "hello"
+
+    @pytest.mark.asyncio
+    async def test_responses_endpoint_mapping_response_headers(self, mock_router_with_mappings, mock_app):
+        """映射后的 /v1/responses 响应包含正确头"""
+        middleware = SmartRouterMiddleware(mock_app, router=mock_router_with_mappings)
+
+        async def mock_call_next(request):
+            return Response(content=b'ok', status_code=200)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/responses",
+            "headers": [],
+            "app": mock_app,
+        }
+
+        body = json.dumps({"model": "gpt-4", "input": []}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert response.headers["X-Smart-Router-Mapped"] == "true"
+        assert response.headers["X-Smart-Router-Mapped-From"] == "gpt-4"
+        assert response.headers["X-Smart-Router-Mapped-To"] == "claude-3-opus"
+
+
+# ==================== 场景 8: /v1/responses 端点支持 Model Override ====================
+
+class TestResponsesEndpointOverride:
+    """/v1/responses 端点支持 Model Override"""
+
+    @pytest.mark.asyncio
+    async def test_responses_endpoint_override_header(self, mock_app):
+        """带 Override 头的 /v1/responses 请求，model 被替换"""
+        router = MagicMock()
+        router.model_mappings = None
+        
+        # mock config
+        config = MagicMock()
+        model_config = MagicMock()
+        model_config.provider = "openai"
+        config.models = {"gpt-4o": model_config}
+        config.is_model_available = MagicMock(return_value=True)
+        router.sr_config = config
+        
+        middleware = SmartRouterMiddleware(mock_app, router=router)
+
+        captured_body = None
+
+        async def mock_call_next(request):
+            nonlocal captured_body
+            body = await request.body()
+            captured_body = json.loads(body)
+            return Response(content=b'ok', status_code=200)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/responses",
+            "headers": [
+                (b"x-smart-router-override-provider", b"openai"),
+                (b"x-smart-router-override-model", b"gpt-4o"),
+            ],
+            "app": mock_app,
+        }
+
+        body = json.dumps({"model": "gpt-4", "input": "hello"}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert captured_body is not None
+        assert captured_body["model"] == "gpt-4o"
+        assert response.headers["X-Smart-Router-Override-Active"] == "true"
+        assert response.headers["X-Smart-Router-Override-Provider"] == "openai"
+        assert response.headers["X-Smart-Router-Override-Model"] == "gpt-4o"
+
+
+# ==================== 场景 9: /v1/responses 端点无映射时直接透传 ====================
+
+class TestResponsesEndpointPassthrough:
+    """/v1/responses 端点无映射/覆盖时直接透传，不走智能路由"""
+
+    @pytest.mark.asyncio
+    async def test_responses_endpoint_no_mapping_no_route(self, mock_router_no_mappings, mock_app):
+        """无映射、无覆盖时，请求体不变，_route_with_retry 不被调用"""
+        middleware = SmartRouterMiddleware(mock_app, router=mock_router_no_mappings)
+
+        captured_body = None
+        route_called = False
+
+        original_route_with_retry = middleware._route_with_retry
+
+        async def mock_route_with_retry(request, call_next, data, original_model):
+            nonlocal route_called
+            route_called = True
+            return await original_route_with_retry(request, call_next, data, original_model)
+
+        middleware._route_with_retry = mock_route_with_retry
+
+        async def mock_call_next(request):
+            nonlocal captured_body
+            body = await request.body()
+            captured_body = json.loads(body)
+            return Response(content=b'ok', status_code=200)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/responses",
+            "headers": [],
+            "app": mock_app,
+        }
+
+        body = json.dumps({"model": "auto", "input": "test"}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert captured_body is not None
+        assert captured_body["model"] == "auto"
+        assert route_called is False
+
+
+# ==================== 场景 9: /v1/chat/completions 回归测试 ====================
+
+class TestChatCompletionsRegression:
+    """确保 /v1/chat/completions 的现有行为不受影响"""
+
+    @pytest.mark.asyncio
+    async def test_chat_completions_routing_still_works(self, mock_router_with_mappings, mock_app):
+        """chat/completions 上的智能路由仍然被触发"""
+        middleware = SmartRouterMiddleware(mock_app, router=mock_router_with_mappings)
+
+        route_called = False
+
+        original_route_with_retry = middleware._route_with_retry
+
+        async def mock_route_with_retry(request, call_next, data, original_model):
+            nonlocal route_called
+            route_called = True
+            return Response(content=b'routed', status_code=200)
+
+        middleware._route_with_retry = mock_route_with_retry
+
+        async def mock_call_next(request):
+            return Response(content=b'ok', status_code=200)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": mock_app,
+        }
+
+        body = json.dumps({"model": "auto", "messages": [{"role": "user", "content": "hi"}]}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert route_called is True

@@ -297,6 +297,13 @@ export function ModelMappingTab() {
 
   return (
     <div className="space-y-4">
+      {/* 说明提示 */}
+      <div className="tech-card rounded-sm p-3 border border-[rgba(0,212,170,0.15)]">
+        <p className="text-xs font-mono text-[#636366]">
+          <span className="text-[#00d4aa]">ℹ</span> {t('Mapping applies to both chat/completions and responses endpoints')}
+        </p>
+      </div>
+
       {/* 全局开关 + 视图切换 */}
       <div className="tech-card rounded-sm p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">

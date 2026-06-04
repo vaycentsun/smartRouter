@@ -263,6 +263,7 @@ const dict: Record<string, Record<Lang, string>> = {
   // ===== Model Mappings =====
   'MAPPINGS': { zh: '模型映射', en: 'MAPPINGS' },
   'Model Mapping': { zh: '模型映射', en: 'Model Mapping' },
+  'Mapping applies to both chat/completions and responses endpoints': { zh: '映射规则同时适用于 /v1/chat/completions 和 /v1/responses 端点', en: 'Mapping rules apply to both /v1/chat/completions and /v1/responses endpoints' },
   'Global Enabled': { zh: '全局启用', en: 'Global Enabled' },
   'From Model': { zh: '源模型', en: 'From Model' },
   'To Model': { zh: '目标模型', en: 'To Model' },

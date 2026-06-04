@@ -173,8 +173,15 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         
         routed = False  # 标记是否已由路由逻辑处理
         
-        # 只处理 chat/completions 请求
-        if request.url.path == "/v1/chat/completions" and request.method == "POST":
+        # 支持 chat/completions 和 responses 端点
+        is_chat_completions = (
+            request.url.path == "/v1/chat/completions" and request.method == "POST"
+        )
+        is_responses = (
+            request.url.path == "/v1/responses" and request.method == "POST"
+        )
+        
+        if is_chat_completions or is_responses:
             try:
                 # 读取请求体
                 body = await request.body()
@@ -312,18 +319,19 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             else:
                                 console.print(f"[yellow]全局模型覆盖无效: 未知模型 {go_model}[/yellow]")
                         else:
-                            # 没有覆盖请求头，走原有智能路由逻辑
-                            should_route = (
-                                original_model in ("auto", "smart-router", "default") or
-                                original_model.startswith("stage:") or
-                                original_model.startswith("strategy-")
-                            )
-                            
-                            if should_route:
-                                response = await self._route_with_retry(
-                                    request, call_next, data, original_model
+                            # 没有覆盖请求头，走原有智能路由逻辑（仅在 chat/completions）
+                            if is_chat_completions:
+                                should_route = (
+                                    original_model in ("auto", "smart-router", "default") or
+                                    original_model.startswith("stage:") or
+                                    original_model.startswith("strategy-")
                                 )
-                                routed = True
+                                
+                                if should_route:
+                                    response = await self._route_with_retry(
+                                        request, call_next, data, original_model
+                                    )
+                                    routed = True
             except Exception as e:
                 console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                 import traceback
@@ -351,7 +359,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             response.headers["X-Smart-Router-Override-Model"] = request.state.smart_router_override_model
         
         # Token 统计：拦截 chat/completions 响应
-        if request.url.path == "/v1/chat/completions" and request.method == "POST":
+        if is_chat_completions:
             console.print(f"[cyan]✓ Attempting token stats for POST /v1/chat/completions[/cyan]")
             content_type = response.headers.get("content-type", "")
             console.print(f"[dim]Content-Type: {content_type}[/dim]")
