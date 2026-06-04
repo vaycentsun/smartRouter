@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Dict, Optional, Any
 
 from litellm.router import Router
@@ -8,6 +9,8 @@ from ..classifier import TaskClassifier
 from ..classifier.types import ClassificationResult, get_default_classification
 from ..selector.v3_selector import V3ModelSelector, SelectionResult
 from ..config.schema import Config, ModelConfig
+from ..config.mapping_loader import ModelMappingLoader
+from ..config.mapping_schema import ModelMappingConfig
 from ..exceptions import NoModelAvailableError
 
 
@@ -42,8 +45,10 @@ class SmartRouter(Router):
     - cost: 成本优先（带质量门槛）
     """
     
-    def __init__(self, config: Config, *args, **kwargs):
+    def __init__(self, config: Config, config_dir: Optional[Path] = None, *args, **kwargs):
         self.sr_config = config
+        self.config_dir = config_dir
+        self.model_mappings: Optional[ModelMappingConfig] = None
         # 存储最后选中的模型，用于响应头
         self.last_selected_model: Optional[str] = None
         
@@ -85,14 +90,11 @@ class SmartRouter(Router):
         # 使用 V3 选择器
         self.selector = V3ModelSelector(config=config, available_models=available_models)
         
-        # 构建 LiteLLM 模型列表（只包含可用模型）
-        litellm_model_list = []
-        for model_name in available_models:
-            litellm_params = config.get_litellm_params(model_name)
-            litellm_model_list.append({
-                "model_name": model_name,
-                "litellm_params": litellm_params
-            })
+        # 加载模型映射配置
+        self._load_model_mappings()
+        
+        # 构建 LiteLLM 模型列表（包含原有模型 + 映射目标虚拟模型）
+        litellm_model_list = self._build_litellm_model_list(config, self.model_mappings)
         
         # 构建 LiteLLM fallbacks（只包含可用模型的 fallback 链）
         fallbacks = []
@@ -243,6 +245,43 @@ class SmartRouter(Router):
         """获取模型的 fallback 链"""
         return self.sr_config.get_fallback_chain(model_name)
     
+    def _load_model_mappings(self) -> None:
+        """从 config_dir 加载 model_mappings.yaml"""
+        if self.config_dir:
+            try:
+                loader = ModelMappingLoader(self.config_dir)
+                self.model_mappings = loader.load()
+            except Exception:
+                self.model_mappings = None
+    
+    def _build_litellm_model_list(self, config: Config, mappings: Optional[ModelMappingConfig]) -> list[dict]:
+        """构建 LiteLLM model_list，包含原有可用模型 + 映射目标虚拟模型"""
+        model_list = []
+        
+        # 1. 原有可用模型
+        for model_name in config.get_available_models():
+            litellm_params = config.get_litellm_params(model_name)
+            model_list.append({"model_name": model_name, "litellm_params": litellm_params})
+        
+        # 2. 映射目标虚拟模型
+        if mappings and mappings.enabled:
+            for rule in mappings.mappings:
+                if not rule.enabled:
+                    continue
+                api_key = ModelMappingLoader.resolve_api_key(rule.to_api_key)
+                litellm_model = f"{rule.to_litellm_provider}/{rule.to_model}"
+                model_list.append({
+                    "model_name": rule.to_model,
+                    "litellm_params": {
+                        "model": litellm_model,
+                        "api_base": rule.to_base_url,
+                        "api_key": api_key,
+                        "timeout": 30,
+                    }
+                })
+        
+        return model_list
+    
     def reload_config(self, config: Config):
         """运行时重新加载配置
         
@@ -286,14 +325,12 @@ class SmartRouter(Router):
         available_models = config.get_available_models()
         self.selector = V3ModelSelector(config=config, available_models=available_models)
         
-        # 更新 LiteLLM Router 的模型列表（如果父类已初始化且支持）
-        litellm_model_list = []
-        for model_name in available_models:
-            litellm_params = config.get_litellm_params(model_name)
-            litellm_model_list.append({
-                "model_name": model_name,
-                "litellm_params": litellm_params
-            })
+        # 重新加载映射配置
+        if self.config_dir:
+            self._load_model_mappings()
+        
+        # 更新 LiteLLM Router 的模型列表（包含映射目标虚拟模型）
+        litellm_model_list = self._build_litellm_model_list(config, self.model_mappings)
         
         fallbacks = []
         for model_name in available_models:

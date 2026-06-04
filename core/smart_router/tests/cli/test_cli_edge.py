@@ -81,6 +81,7 @@ class TestInitCommandEdgeCases:
             models_dir.mkdir(exist_ok=True)
             (models_dir / "dummy.yaml").write_text("dummy")
             (Path(tmpdir) / "routing.yaml").write_text("dummy")
+            (Path(tmpdir) / "model_mappings.yaml").write_text("dummy")
 
             result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe"])
 
@@ -97,6 +98,7 @@ class TestInitCommandEdgeCases:
             models_dir.mkdir(exist_ok=True)
             (models_dir / "existing.yaml").write_text("existing")
             (Path(tmpdir) / "routing.yaml").write_text("existing")
+            (Path(tmpdir) / "model_mappings.yaml").write_text("existing")
 
             result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe", "--force"])
 
@@ -112,6 +114,7 @@ class TestInitCommandEdgeCases:
             models_dir.mkdir(exist_ok=True)
             # models/ 为空，没有 yaml 文件
             (Path(tmpdir) / "routing.yaml").write_text("dummy")
+            (Path(tmpdir) / "model_mappings.yaml").write_text("dummy")
 
             result = runner.invoke(app, ["init", "--output", str(tmpdir), "--safe"])
 

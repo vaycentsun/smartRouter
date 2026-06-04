@@ -337,3 +337,19 @@ export interface AddModelRequest {
   supported_tasks: string[]
   enabled?: boolean
 }
+
+export interface ModelMappingRule {
+  id: string
+  enabled: boolean
+  from_model: string
+  to_provider: string
+  to_model: string
+  to_litellm_provider: string
+  to_base_url: string
+  to_api_key: string
+}
+
+export interface ModelMappingConfig {
+  enabled: boolean
+  mappings: ModelMappingRule[]
+}

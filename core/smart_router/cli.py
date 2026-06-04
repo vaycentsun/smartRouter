@@ -76,7 +76,7 @@ def init(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    top_level_files = ["providers.yaml", "routing.yaml"]
+    top_level_files = ["providers.yaml", "routing.yaml", "model_mappings.yaml"]
     models_dir_name = "models"
     all_items = top_level_files + [models_dir_name]
 
@@ -150,7 +150,7 @@ def init(
 def _write_default_configs(output_dir: Path, items: Optional[List[str]] = None):
     """写入默认配置文件（回退方案）"""
     if items is None:
-        items = ["providers.yaml", "models", "routing.yaml"]
+        items = ["providers.yaml", "models", "routing.yaml", "model_mappings.yaml"]
 
     # providers.yaml
     providers_content = '''# Providers Configuration
@@ -364,6 +364,25 @@ fallback:
   max_attempts: 3
 '''
 
+    # model_mappings.yaml
+    model_mappings_content = '''# Model Mappings Configuration
+# 模型映射表：将特定模型名称的请求转发到目标服务商
+# 优先级：映射表 > Model Override > 智能路由
+
+enabled: false  # 全局开关
+
+mappings: []
+  # 映射规则示例（取消注释并修改后生效）：
+  # - id: "map-gpt4-to-qwen"
+  #   enabled: true
+  #   from_model: "gpt-4"
+  #   to_provider: "aliyun"
+  #   to_model: "qwen-max"
+  #   to_litellm_provider: "openai"
+  #   to_base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  #   to_api_key: "os.environ/DASHSCOPE_API_KEY"
+'''
+
     # 写入文件
     if "providers.yaml" in items:
         (output_dir / "providers.yaml").write_text(providers_content)
@@ -373,6 +392,8 @@ fallback:
         (models_dir / "default.yaml").write_text(models_default_content)
     if "routing.yaml" in items:
         (output_dir / "routing.yaml").write_text(routing_content)
+    if "model_mappings.yaml" in items:
+        (output_dir / "model_mappings.yaml").write_text(model_mappings_content)
 
 @app.command()
 def start(

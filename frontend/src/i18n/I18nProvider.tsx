@@ -260,6 +260,22 @@ const dict: Record<string, Record<Lang, string>> = {
 
   // ===== Footer =====
 
+  // ===== Model Mappings =====
+  'MAPPINGS': { zh: '模型映射', en: 'MAPPINGS' },
+  'Model Mapping': { zh: '模型映射', en: 'Model Mapping' },
+  'Global Enabled': { zh: '全局启用', en: 'Global Enabled' },
+  'From Model': { zh: '源模型', en: 'From Model' },
+  'To Model': { zh: '目标模型', en: 'To Model' },
+  'To Provider': { zh: '目标 Provider', en: 'To Provider' },
+  'To Base URL': { zh: '目标 Base URL', en: 'To Base URL' },
+  'To API Key': { zh: '目标 API Key', en: 'To API Key' },
+  'Add Mapping': { zh: '添加映射', en: 'Add Mapping' },
+  'Edit Mapping': { zh: '编辑映射', en: 'Edit Mapping' },
+  'Delete Mapping': { zh: '删除映射', en: 'Delete Mapping' },
+  'YAML Editor': { zh: 'YAML 编辑器', en: 'YAML Editor' },
+  'Table View': { zh: '表格视图', en: 'Table View' },
+  'No mappings configured': { zh: '暂无映射规则', en: 'No mappings configured' },
+
   // ===== Missing keys for new components =====
   'MODE': { zh: '模式', en: 'MODE' },
   'NO MODELS AVAILABLE': { zh: '暂无可用模型', en: 'NO MODELS AVAILABLE' },
