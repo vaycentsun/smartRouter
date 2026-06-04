@@ -34,6 +34,7 @@ describe('ModelMappingTab', () => {
           to_litellm_provider: 'anthropic',
           to_base_url: 'https://api.anthropic.com',
           to_api_key: '',
+          endpoints: ['chat', 'responses'],
         },
       ],
     })
@@ -99,6 +100,7 @@ describe('ModelMappingTab', () => {
           to_litellm_provider: 'anthropic',
           to_base_url: '',
           to_api_key: '',
+          endpoints: ['chat', 'responses'],
         },
       ],
     })
