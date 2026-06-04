@@ -198,6 +198,16 @@ export function ModelMappingTab() {
     }
   }, [t])
 
+  const fetchConfig = async () => {
+    const data = await api.getModelMappings()
+    setConfig(data)
+  }
+
+  const fetchYaml = async () => {
+    const data = await api.getModelMappingsYaml()
+    setYamlText(data.yaml)
+  }
+
   const saveConfig = async () => {
     setLoading(true)
     setError(null)
