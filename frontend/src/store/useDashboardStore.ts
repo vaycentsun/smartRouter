@@ -180,7 +180,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   analyticsByModel: [],
   analyticsTopModels: [],
   recentRequests: [],
-  isLoadingAnalytics: false,
+  isLoadingAnalytics: true,
   analyticsError: null,
 
   // Error Stats
