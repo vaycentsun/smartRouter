@@ -156,6 +156,16 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             headers=headers,
         )
     
+    def _apply_model_mapping(self, model_name: str) -> Optional[str]:
+        """检查模型映射表，返回映射后的模型名，无匹配返回 None"""
+        mappings = getattr(self.router, 'model_mappings', None)
+        if not mappings or not mappings.enabled:
+            return None
+        for rule in mappings.mappings:
+            if rule.enabled and rule.from_model == model_name:
+                return rule.to_model
+        return None
+
     async def dispatch(self, request: Request, call_next):
         # 递归保护：如果是内部 fallback 重试调用，直接透传
         if request.scope.get("_smart_router_internal_retry"):
@@ -171,6 +181,41 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 if body:
                     data = json.loads(body)
                     original_model = data.get("model", "")
+                    
+                    # ====== 模型映射检查（优先级最高）======
+                    mapped_model = self._apply_model_mapping(original_model)
+                    if mapped_model:
+                        data["model"] = mapped_model
+                        modified_body = json.dumps(data).encode("utf-8")
+                        request._body = modified_body
+                        
+                        request.state.smart_router_mapped = True
+                        request.state.smart_router_mapped_from = original_model
+                        request.state.smart_router_mapped_to = mapped_model
+                        
+                        request_id = str(uuid.uuid4())[:8]
+                        request.state.smart_router_request_id = request_id
+                        request.state.smart_router_routing_info = {
+                            "request_id": request_id,
+                            "original_model": original_model,
+                            "selected_model": mapped_model,
+                            "task_type": "mapping",
+                            "difficulty": None,
+                            "strategy": "mapping",
+                            "fallback_chain": [],
+                        }
+                        
+                        console.print(f"[cyan]模型映射: {original_model} -> {mapped_model}[/cyan]")
+                        
+                        # 映射后直接透传，不再进入后续路由逻辑
+                        response = await call_next(request)
+                        
+                        # 添加映射响应头
+                        response.headers["X-Smart-Router-Mapped"] = "true"
+                        response.headers["X-Smart-Router-Mapped-From"] = original_model
+                        response.headers["X-Smart-Router-Mapped-To"] = mapped_model
+                        
+                        return response
                     
                     # 检查是否有模型覆盖请求头
                     override_provider = request.headers.get("X-Smart-Router-Override-Provider")
