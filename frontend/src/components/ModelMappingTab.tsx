@@ -12,6 +12,7 @@ const EMPTY_RULE: ModelMappingRule = {
   to_litellm_provider: '',
   to_base_url: '',
   to_api_key: '',
+  endpoints: ['chat', 'responses'],
 }
 
 function ToggleSwitch({ checked, onChange, disabled = false }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
@@ -128,6 +129,39 @@ function RuleFormModal({ rule, onClose, onSave }: RuleFormModalProps) {
                 className="w-full px-3 py-2 rounded-sm border border-[#1a1a2e] bg-[#0a0a0f] text-sm text-[#e8e8ed] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20 tech-input"
                 placeholder="sk-... or os.environ/KEY_NAME"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-[#636366] uppercase tracking-wider mb-2">{t('Endpoints')}</label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.endpoints.includes('chat')}
+                    onChange={(e) => {
+                      const newEndpoints = e.target.checked
+                        ? [...form.endpoints, 'chat']
+                        : form.endpoints.filter((ep) => ep !== 'chat')
+                      updateField('endpoints', newEndpoints)
+                    }}
+                    className="w-4 h-4 rounded-sm border border-[#2a2a3e] bg-[#0a0a0f] text-[#00d4aa] focus:ring-[#00d4aa]/20"
+                  />
+                  <span className="text-sm text-[#e8e8ed] font-mono">{t('Chat Completions')}</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.endpoints.includes('responses')}
+                    onChange={(e) => {
+                      const newEndpoints = e.target.checked
+                        ? [...form.endpoints, 'responses']
+                        : form.endpoints.filter((ep) => ep !== 'responses')
+                      updateField('endpoints', newEndpoints)
+                    }}
+                    className="w-4 h-4 rounded-sm border border-[#2a2a3e] bg-[#0a0a0f] text-[#00d4aa] focus:ring-[#00d4aa]/20"
+                  />
+                  <span className="text-sm text-[#e8e8ed] font-mono">{t('Responses')}</span>
+                </label>
+              </div>
             </div>
             <div className="flex items-center gap-3 pt-2">
               <ToggleSwitch checked={form.enabled} onChange={() => updateField('enabled', !form.enabled)} />
@@ -353,6 +387,7 @@ export function ModelMappingTab() {
                   <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest">{t('From Model')}</th>
                   <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest">{t('To Model')}</th>
                   <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest">{t('To Provider')}</th>
+                  <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest">{t('Endpoints')}</th>
                   <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest">{t('To Base URL')}</th>
                   <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest w-20">{t('ENABLED')}</th>
                   <th className="px-4 py-3 text-[10px] text-[#636366] font-mono uppercase tracking-widest w-28">{t('ACTIONS')}</th>
@@ -361,14 +396,14 @@ export function ModelMappingTab() {
               <tbody className="divide-y divide-[#1a1a2e]">
                 {loading && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-[#636366] font-mono">
+                    <td colSpan={7} className="px-4 py-8 text-center text-[#636366] font-mono">
                       {t('LOADING')}
                     </td>
                   </tr>
                 )}
                 {!loading && config.mappings.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-[#636366] font-mono">
+                    <td colSpan={7} className="px-4 py-8 text-center text-[#636366] font-mono">
                       {t('No mappings configured')}
                     </td>
                   </tr>
@@ -378,6 +413,7 @@ export function ModelMappingTab() {
                     <td className="px-4 py-3 font-medium text-[#e8e8ed] font-mono text-xs">{rule.from_model}</td>
                     <td className="px-4 py-3 text-[#e8e8ed] font-mono text-xs">{rule.to_model}</td>
                     <td className="px-4 py-3 text-[#636366] font-mono text-xs">{rule.to_provider}</td>
+                    <td className="px-4 py-3 text-[#636366] font-mono text-xs">{rule.endpoints?.join(', ') || 'chat, responses'}</td>
                     <td className="px-4 py-3 text-[#636366] font-mono text-xs max-w-[200px] truncate">{rule.to_base_url}</td>
                     <td className="px-4 py-3">
                       <ToggleSwitch checked={rule.enabled} onChange={() => handleToggleRule(rule.id, !rule.enabled)} />

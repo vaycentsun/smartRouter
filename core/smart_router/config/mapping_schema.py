@@ -27,6 +27,10 @@ class ModelMappingRule(BaseModel):
     )
     to_base_url: str = Field(description="目标服务商 API Base URL")
     to_api_key: str = Field(description="目标 API Key，支持 os.environ/KEY_NAME 格式")
+    endpoints: List[str] = Field(
+        default_factory=lambda: ["chat", "responses"],
+        description="适用端点列表，可选值: chat, responses"
+    )
 
     @model_validator(mode="after")
     def validate_fields(self):
@@ -38,6 +42,13 @@ class ModelMappingRule(BaseModel):
         # 校验 base_url 必须以 http:// 或 https:// 开头
         if not self.to_base_url.startswith(("http://", "https://")):
             raise ValueError("to_base_url must start with http:// or https://")
+        # 校验 endpoints 非空且值合法
+        if not self.endpoints:
+            raise ValueError("endpoints cannot be empty")
+        valid_endpoints = {"chat", "responses"}
+        invalid = set(self.endpoints) - valid_endpoints
+        if invalid:
+            raise ValueError(f"Invalid endpoints: {invalid}. Allowed: {valid_endpoints}")
         return self
 
 

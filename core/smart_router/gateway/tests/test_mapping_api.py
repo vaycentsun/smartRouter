@@ -801,3 +801,220 @@ class TestChatCompletionsRegression:
 
         assert response.status_code == 200
         assert route_called is True
+
+
+# ==================== 场景 10: 端点过滤逻辑 ====================
+
+class TestEndpointFiltering:
+    """映射规则按端点过滤"""
+
+    @pytest.fixture
+    def mock_router_with_endpoint_rules(self):
+        """返回带有端点过滤规则的 mock router"""
+        router = MagicMock()
+        router.model_mappings = ModelMappingConfig(
+            enabled=True,
+            mappings=[
+                ModelMappingRule(
+                    id="map_chat_only",
+                    enabled=True,
+                    from_model="gpt-4",
+                    to_provider="anthropic",
+                    to_model="claude-chat",
+                    to_litellm_provider="anthropic",
+                    to_base_url="https://api.anthropic.com/v1",
+                    to_api_key="sk-test",
+                    endpoints=["chat"],
+                ),
+                ModelMappingRule(
+                    id="map_responses_only",
+                    enabled=True,
+                    from_model="gpt-4",
+                    to_provider="openai",
+                    to_model="gpt-4o-resp",
+                    to_litellm_provider="openai",
+                    to_base_url="https://api.openai.com/v1",
+                    to_api_key="sk-test",
+                    endpoints=["responses"],
+                ),
+                ModelMappingRule(
+                    id="map_both",
+                    enabled=True,
+                    from_model="gpt-3.5",
+                    to_provider="aliyun",
+                    to_model="qwen-turbo",
+                    to_litellm_provider="openai",
+                    to_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    to_api_key="sk-test",
+                    endpoints=["chat", "responses"],
+                ),
+            ]
+        )
+        router.sr_config = MagicMock()
+        return router
+
+    @pytest.mark.asyncio
+    async def test_chat_endpoint_only_matches_chat_rules(self, mock_router_with_endpoint_rules, mock_app):
+        """chat 端点只匹配含 chat 的规则"""
+        middleware = SmartRouterMiddleware(mock_app, router=mock_router_with_endpoint_rules)
+
+        captured_body = None
+
+        async def mock_call_next(request):
+            nonlocal captured_body
+            body = await request.body()
+            captured_body = json.loads(body)
+            return Response(content=b'ok', status_code=200)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "app": mock_app,
+        }
+
+        body = json.dumps({"model": "gpt-4", "messages": []}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert captured_body is not None
+        assert captured_body["model"] == "claude-chat"
+
+    @pytest.mark.asyncio
+    async def test_responses_endpoint_only_matches_responses_rules(self, mock_router_with_endpoint_rules, mock_app):
+        """responses 端点只匹配含 responses 的规则"""
+        middleware = SmartRouterMiddleware(mock_app, router=mock_router_with_endpoint_rules)
+
+        captured_body = None
+
+        async def mock_call_next(request):
+            nonlocal captured_body
+            body = await request.body()
+            captured_body = json.loads(body)
+            return Response(content=b'ok', status_code=200)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/responses",
+            "headers": [],
+            "app": mock_app,
+        }
+
+        body = json.dumps({"model": "gpt-4", "input": "test"}).encode()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            pass
+
+        request = Request(scope, receive, send)
+        response = await middleware.dispatch(request, mock_call_next)
+
+        assert response.status_code == 200
+        assert captured_body is not None
+        assert captured_body["model"] == "gpt-4o-resp"
+
+    @pytest.mark.asyncio
+    async def test_both_endpoints_matches_both_rules(self, mock_router_with_endpoint_rules, mock_app):
+        """两个端点都匹配含两个端点的规则"""
+        middleware = SmartRouterMiddleware(mock_app, router=mock_router_with_endpoint_rules)
+
+        for path, endpoint_type in [("/v1/chat/completions", "chat"), ("/v1/responses", "responses")]:
+            captured_body = None
+
+            async def mock_call_next(request):
+                nonlocal captured_body
+                body = await request.body()
+                captured_body = json.loads(body)
+                return Response(content=b'ok', status_code=200)
+
+            scope = {
+                "type": "http",
+                "method": "POST",
+                "path": path,
+                "headers": [],
+                "app": mock_app,
+            }
+
+            body_key = "messages" if endpoint_type == "chat" else "input"
+            body = json.dumps({"model": "gpt-3.5", body_key: []}).encode()
+
+            async def receive():
+                return {"type": "http.request", "body": body, "more_body": False}
+
+            async def send(message):
+                pass
+
+            request = Request(scope, receive, send)
+            response = await middleware.dispatch(request, mock_call_next)
+
+            assert response.status_code == 200
+            assert captured_body is not None
+            assert captured_body["model"] == "qwen-turbo", f"Failed for {path}"
+
+    @pytest.mark.asyncio
+    async def test_default_endpoints_backward_compatible(self, mock_app):
+        """无 endpoints 字段时默认匹配两个端点（向后兼容）"""
+        router = MagicMock()
+        router.model_mappings = ModelMappingConfig(
+            enabled=True,
+            mappings=[
+                ModelMappingRule(
+                    id="map_default",
+                    enabled=True,
+                    from_model="gpt-4",
+                    to_provider="anthropic",
+                    to_model="claude-default",
+                    to_litellm_provider="anthropic",
+                    to_base_url="https://api.anthropic.com/v1",
+                    to_api_key="sk-test",
+                    # 不指定 endpoints，使用默认值
+                ),
+            ]
+        )
+        router.sr_config = MagicMock()
+        middleware = SmartRouterMiddleware(mock_app, router=router)
+
+        for path in ["/v1/chat/completions", "/v1/responses"]:
+            captured_body = None
+
+            async def mock_call_next(request):
+                nonlocal captured_body
+                body = await request.body()
+                captured_body = json.loads(body)
+                return Response(content=b'ok', status_code=200)
+
+            scope = {
+                "type": "http",
+                "method": "POST",
+                "path": path,
+                "headers": [],
+                "app": mock_app,
+            }
+
+            body_key = "messages" if path == "/v1/chat/completions" else "input"
+            body = json.dumps({"model": "gpt-4", body_key: []}).encode()
+
+            async def receive():
+                return {"type": "http.request", "body": body, "more_body": False}
+
+            async def send(message):
+                pass
+
+            request = Request(scope, receive, send)
+            response = await middleware.dispatch(request, mock_call_next)
+
+            assert response.status_code == 200
+            assert captured_body is not None
+            assert captured_body["model"] == "claude-default", f"Failed for {path}"

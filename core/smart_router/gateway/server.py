@@ -156,14 +156,20 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             headers=headers,
         )
     
-    def _apply_model_mapping(self, model_name: str) -> Optional[str]:
-        """检查模型映射表，返回映射后的模型名，无匹配返回 None"""
+    def _apply_model_mapping(self, model_name: str, endpoint_type: str) -> Optional[str]:
+        """检查模型映射表，返回映射后的模型名，无匹配返回 None
+        
+        Args:
+            model_name: 请求体中的模型名
+            endpoint_type: 端点类型，"chat" 或 "responses"
+        """
         mappings = getattr(self.router, 'model_mappings', None)
         if not mappings or not mappings.enabled:
             return None
         for rule in mappings.mappings:
             if rule.enabled and rule.from_model == model_name:
-                return rule.to_model
+                if endpoint_type in rule.endpoints:
+                    return rule.to_model
         return None
 
     async def dispatch(self, request: Request, call_next):
@@ -190,7 +196,8 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                     original_model = data.get("model", "")
                     
                     # ====== 模型映射检查（优先级最高）======
-                    mapped_model = self._apply_model_mapping(original_model)
+                    endpoint_type = "chat" if is_chat_completions else "responses"
+                    mapped_model = self._apply_model_mapping(original_model, endpoint_type)
                     if mapped_model:
                         data["model"] = mapped_model
                         modified_body = json.dumps(data).encode("utf-8")

@@ -347,6 +347,7 @@ export interface ModelMappingRule {
   to_litellm_provider: string
   to_base_url: string
   to_api_key: string
+  endpoints: string[]
 }
 
 export interface ModelMappingConfig {
