@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 # 先导入，运行测试时预期失败（因为文件尚未创建）
-from smart_router.config.mapping_schema import ModelMappingRule, ModelMappingConfig
+from smart_router.config.mapping_schema import ModelMappingConfig, ModelMappingRule
 
 
 class TestModelMappingRule:

@@ -1,7 +1,8 @@
 """model_selector (v2) 测试 — 覆盖遗留选择器核心逻辑"""
 
 import pytest
-from smart_router.selector.model_selector import ModelSelector, ModelSelectionResult
+
+from smart_router.selector.model_selector import ModelSelectionResult, ModelSelector
 
 
 class TestModelSelectorInit:
@@ -29,7 +30,7 @@ class TestModelSelectorInit:
             "available_models": ["model-a"],
             "default_model": "model-a"
         }
-        
+
         selector = ModelSelector(pool)
         assert "model-a" in selector.capabilities
         assert "model-b" not in selector.capabilities
@@ -45,7 +46,7 @@ class TestModelSelectorInit:
                 }
             }
         }
-        
+
         selector = ModelSelector(pool)
         assert "model-a" in selector.capabilities
 
@@ -62,7 +63,7 @@ class TestModelSelectorInit:
             "default_model": "nonexistent",
             "available_models": ["model-a"]
         }
-        
+
         selector = ModelSelector(pool)
         assert selector.default_model == "model-a"
 
@@ -74,7 +75,7 @@ class TestModelSelectorInit:
             },
             "default_model": "missing"
         }
-        
+
         selector = ModelSelector(pool)
         assert selector.default_model == "model-a"
 

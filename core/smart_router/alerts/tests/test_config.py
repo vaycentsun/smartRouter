@@ -1,11 +1,13 @@
 """AlertConfig 单元测试"""
 
 import json
-from pathlib import Path
 
-import pytest
-
-from smart_router.alerts.config import AlertConfig, AlertRule, AlertCondition, AlertChannel
+from smart_router.alerts.config import (
+    AlertChannel,
+    AlertCondition,
+    AlertConfig,
+    AlertRule,
+)
 
 
 class TestAlertConfig:

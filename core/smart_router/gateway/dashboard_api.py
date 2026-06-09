@@ -4,32 +4,33 @@
 现将 API 路由逻辑提取到本模块，供 daemon.py 的前台/后台模式共用。
 """
 
+import json
 import logging
 import os
 import signal
 import socket
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
-from starlette.responses import FileResponse, PlainTextResponse, Response
-from pydantic import BaseModel
 
 from smart_router import __version__
 from smart_router.utils.log_parser import parse_log_line
-from ..config.loader import ConfigLoader, ConfigError
-from ..classifier.task_classifier import TaskTypeClassifier
-from ..classifier.difficulty_classifier import DifficultyClassifier
-from ..selector.v3_selector import V3ModelSelector
-from ..utils.markers import parse_markers
-from ..utils.health_checker import ProviderHealthChecker
-from .playground_api import playground_router
-from ..alerts.config import AlertConfig, AlertRule, AlertCondition, AlertChannel
 
+from ..alerts.config import AlertChannel, AlertCondition, AlertConfig, AlertRule
+from ..classifier.difficulty_classifier import DifficultyClassifier
+from ..classifier.task_classifier import TaskTypeClassifier
+from ..config.loader import ConfigError, ConfigLoader
+from ..selector.v3_selector import V3ModelSelector
+from ..utils.health_checker import ProviderHealthChecker
+from ..utils.markers import parse_markers
+from .playground_api import playground_router
 
 # ==================== 进程管理工具（从 daemon.py 内联，避免循环导入）====================
 
@@ -43,7 +44,7 @@ def _get_pid() -> Optional[int]:
     if DEFAULT_PID_FILE.exists():
         try:
             return int(DEFAULT_PID_FILE.read_text().strip())
-        except (ValueError, IOError):
+        except (OSError, ValueError):
             return None
     return None
 
@@ -62,7 +63,7 @@ def _is_port_in_use(port: int = DEFAULT_PORT) -> bool:
             s.settimeout(1)
             result = s.connect_ex(("127.0.0.1", port))
             return result == 0
-    except (OSError, socket.error):
+    except OSError:
         return False
 
 
@@ -70,7 +71,7 @@ def get_start_time() -> Optional[float]:
     if START_TIME_FILE.exists():
         try:
             return float(START_TIME_FILE.read_text().strip())
-        except (ValueError, IOError):
+        except (OSError, ValueError):
             return None
     return None
 
@@ -161,7 +162,7 @@ class AlertRuleCreate(BaseModel):
     name: str
     enabled: bool = True
     condition: AlertCondition
-    severity: str = "warning"
+    severity: Literal["info", "warning", "critical"] = "warning"
     time_window: str = "1d"
     channels: list[AlertChannel] = []
     cooldown_minutes: int = 60
@@ -171,7 +172,7 @@ class AlertRuleUpdate(BaseModel):
     name: Optional[str] = None
     enabled: Optional[bool] = None
     condition: Optional[AlertCondition] = None
-    severity: Optional[str] = None
+    severity: Optional[Literal["info", "warning", "critical"]] = None
     time_window: Optional[str] = None
     channels: Optional[list[AlertChannel]] = None
     cooldown_minutes: Optional[int] = None
@@ -236,7 +237,7 @@ def read_log_lines(source: str, offset: int = 0, limit: int = 500, level: str = 
             raise ValueError(f"Invalid log level: {level}")
 
     # 读取从 offset 到文件末尾的内容
-    with open(log_file, "r", encoding="utf-8") as f:
+    with open(log_file, encoding="utf-8") as f:
         f.seek(offset)
         content = f.read()
         new_offset = f.tell()
@@ -322,18 +323,18 @@ async def models(request: Request):
         checker = getattr(request.app.state, "health_checker", None)
         if not checker:
             return "unknown"
-        
+
         health = checker.get_cached(model.provider)
         if not health:
             return "unknown"
-        
+
         if health.status != "healthy":
             return health.status
-        
+
         # 提取 litellm_model 后半部分进行匹配
         litellm_model = model.litellm_model
         model_id = litellm_model.split("/")[-1] if "/" in litellm_model else litellm_model
-        
+
         if model_id in health.models:
             return "available"
         return "not_found"
@@ -817,19 +818,18 @@ async def update_formula(request: Request, body: FormulaUpdate):
     config_dir = Path.home() / ".smart-router"
     try:
         loader = ConfigLoader(config_dir)
-        
+
         # 验证权重
         from ..config.schema import FormulaConfig
-        from pydantic import ValidationError
         try:
             FormulaConfig(weights=body.weights)
         except (ValueError, ValidationError) as e:
             raise HTTPException(status_code=400, detail=str(e))
-        
+
         # 加载当前 routing.yaml
         current = loader._load_yaml("routing.yaml")
         current["formula"] = {"weights": body.weights}
-        
+
         # 保存
         try:
             loader.save_routing(current)
@@ -848,29 +848,28 @@ async def preview_formula(request: Request, body: FormulaPreviewRequest):
     try:
         loader = ConfigLoader(config_dir)
         cfg = loader.load()
-        
+
         # 验证权重
         from ..config.schema import FormulaConfig
-        from pydantic import ValidationError
         try:
             FormulaConfig(weights=body.weights)
         except (ValueError, ValidationError) as e:
             raise HTTPException(status_code=400, detail=str(e))
-        
+
         # 使用临时 evaluator
         temp_formula = FormulaConfig(weights=body.weights)
         from ..selector.formula_evaluator import FormulaEvaluator
         evaluator = FormulaEvaluator(temp_formula)
-        
+
         # 计算所有可用模型的得分
         models = []
         for name, model in cfg.models.items():
             if cfg.is_model_available(name):
                 score = evaluator.evaluate(model.capabilities)
                 models.append({"name": name, "score": round(score, 2)})
-        
-        models.sort(key=lambda x: x["score"], reverse=True)
-        
+
+        models.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+
         return {
             "task_type": "chat",
             "difficulty": "medium",
@@ -1101,7 +1100,6 @@ async def analytics_daily(days: int = 7):
     stats = TokenStats()
     config = _load_config_for_analytics()
     # 获取最近 days 天的日期范围
-    import time
     from datetime import datetime, timedelta
     now = datetime.utcnow()
     result = []
@@ -1224,9 +1222,9 @@ async def analytics_error_stats(request: Request, days: int = 7):
 
     records = history.get_recent(limit=100)
 
-    model_stats = {}
-    error_type_counts = {}
-    provider_error_counts = {}
+    model_stats: dict[str, dict] = {}
+    error_type_counts: dict[str, int] = {}
+    provider_error_counts: dict[str, int] = {}
     total_requests = len(records)
     total_failures = 0
 
@@ -1385,10 +1383,9 @@ async def get_alert_history(limit: int = 50):
 
 async def test_alert_rule(request: AlertRuleCreate):
     """测试告警规则（不保存）"""
-    from fastapi import HTTPException
+    from ..alerts.checker import AlertChecker
     from ..utils.token_stats import TokenStats
     from .error_counter import ErrorCounter
-    from ..alerts.checker import AlertChecker
 
     cfg = AlertConfig(ALERTS_CONFIG_PATH)
     rule = AlertRule(
@@ -1446,7 +1443,10 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
         app.state.health_checker = None
 
     # 初始化请求路由历史（使用文件持久化，与 Proxy 进程共享）
-    from ..utils.request_routing_history import RequestRoutingHistory, DEFAULT_HISTORY_FILE
+    from ..utils.request_routing_history import (
+        DEFAULT_HISTORY_FILE,
+        RequestRoutingHistory,
+    )
     app.state.request_routing_history = RequestRoutingHistory(
         max_size=50, persist_file=DEFAULT_HISTORY_FILE
     )
@@ -1496,7 +1496,6 @@ def build_dashboard_app(static_dir: Optional[Path] = None):
     # Model Mappings API
     from ..config.mapping_loader import ModelMappingLoader
     from ..config.mapping_schema import ModelMappingConfig
-    from pydantic import ValidationError
 
     @app.get("/api/model-mappings")
     async def get_model_mappings():

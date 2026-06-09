@@ -88,14 +88,14 @@ class ProviderHealthChecker:
         all_existing_ids: set[str] = set()
         if models_dir.exists():
             for other_file in models_dir.glob("*.yaml"):
-                with open(other_file, "r", encoding="utf-8") as f:
+                with open(other_file, encoding="utf-8") as f:
                     data = yaml.safe_load(f) or {}
                 all_existing_ids.update(data.get("models", {}).keys())
 
         # 读取当前 Provider 文件的现有配置
         existing_models: dict = {}
         if filepath.exists():
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
             existing_models = data.get("models", {})
 

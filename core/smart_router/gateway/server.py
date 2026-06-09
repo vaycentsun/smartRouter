@@ -1,22 +1,21 @@
 import asyncio
+import json
 import os
 import sys
-import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 from rich.console import Console
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from ..config.loader import ConfigLoader, ConfigError
-from ..config.schema import Config
+from ..config.loader import ConfigError, ConfigLoader
+from ..config.mapping_schema import ModelMappingConfig
 from ..config.watcher import ConfigWatcher
 from ..router.plugin import SmartRouter
-
 
 console = Console()
 
@@ -75,11 +74,11 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
     使用 BaseHTTPMiddleware 子类而非 @app.middleware 装饰器，
     确保可以通过 app.add_middleware() 在条件分支内注册，防止重复添加。
     """
-    
+
     def __init__(self, app, router: SmartRouter):
         super().__init__(app)
         self.router = router
-    
+
     async def _call_app_directly(self, request: Request, call_next=None) -> Response:
         """直接调用下游 ASGI app，绕过 call_next 的单次限制
         
@@ -91,14 +90,14 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         如果提供了 call_next，会回退到 call_next 以保持向后兼容。
         """
         from starlette.responses import Response as StarletteResponse
-        
+
         # 设置递归保护标记，防止再次进入 _route_with_retry
         request.scope["_smart_router_internal_retry"] = True
-        
+
         response_messages = []
         _body_sent = False
         response_complete = asyncio.Event()
-        
+
         async def mock_receive():
             nonlocal _body_sent
             if not _body_sent:
@@ -109,12 +108,12 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             # 等待 stream_response 完成后再返回 disconnect，避免过早触发 listen_for_disconnect 取消 stream
             await response_complete.wait()
             return {"type": "http.disconnect"}
-        
+
         async def mock_send(message):
             response_messages.append(message)
             if message["type"] == "http.response.body" and not message.get("more_body", True):
                 response_complete.set()
-        
+
         try:
             # 清除 LiteLLM 在 scope 中缓存的解析后 body，确保修改后的 request._body 能被正确读取
             request.scope.pop("parsed_body", None)
@@ -123,24 +122,24 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             if call_next:
                 return await call_next(request)
             raise
-        
+
         if not response_messages:
             if call_next:
                 return await call_next(request)
             raise RuntimeError("No response from app")
-        
+
         start_msg = response_messages[0]
         if start_msg["type"] != "http.response.start":
             raise RuntimeError(f"Unexpected response type: {start_msg['type']}")
-        
+
         # 收集 body
         body_chunks = []
         for msg in response_messages[1:]:
             if msg["type"] == "http.response.body":
                 body_chunks.append(msg.get("body", b""))
-        
+
         body = b"".join(body_chunks)
-        
+
         # raw_headers 是 bytes 对列表，需要解码为 str dict
         headers = {}
         for k, v in start_msg.get("headers", []):
@@ -149,13 +148,13 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             if isinstance(v, bytes):
                 v = v.decode("latin-1")
             headers[k] = v
-        
+
         return StarletteResponse(
             content=body,
             status_code=start_msg["status"],
             headers=headers,
         )
-    
+
     def _apply_model_mapping(self, model_name: str, endpoint_type: str) -> Optional[str]:
         """检查模型映射表，返回映射后的模型名，无匹配返回 None
         
@@ -176,9 +175,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         # 递归保护：如果是内部 fallback 重试调用，直接透传
         if request.scope.get("_smart_router_internal_retry"):
             return await call_next(request)
-        
+
         routed = False  # 标记是否已由路由逻辑处理
-        
+
         # 支持 chat/completions 和 responses 端点
         is_chat_completions = (
             request.url.path == "/v1/chat/completions" and request.method == "POST"
@@ -186,7 +185,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         is_responses = (
             request.url.path == "/v1/responses" and request.method == "POST"
         )
-        
+
         if is_chat_completions or is_responses:
             try:
                 # 读取请求体
@@ -194,7 +193,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 if body:
                     data = json.loads(body)
                     original_model = data.get("model", "")
-                    
+
                     # ====== 模型映射检查（优先级最高）======
                     endpoint_type = "chat" if is_chat_completions else "responses"
                     mapped_model = self._apply_model_mapping(original_model, endpoint_type)
@@ -202,11 +201,11 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         data["model"] = mapped_model
                         modified_body = json.dumps(data).encode("utf-8")
                         request._body = modified_body
-                        
+
                         request.state.smart_router_mapped = True
                         request.state.smart_router_mapped_from = original_model
                         request.state.smart_router_mapped_to = mapped_model
-                        
+
                         request_id = str(uuid.uuid4())[:8]
                         request.state.smart_router_request_id = request_id
                         request.state.smart_router_routing_info = {
@@ -218,34 +217,34 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             "strategy": "mapping",
                             "fallback_chain": [],
                         }
-                        
+
                         console.print(f"[cyan]模型映射: {original_model} -> {mapped_model}[/cyan]")
-                        
+
                         # 映射后直接透传，不再进入后续路由逻辑
                         response = await call_next(request)
-                        
+
                         # 添加映射响应头
                         response.headers["X-Smart-Router-Mapped"] = "true"
                         response.headers["X-Smart-Router-Mapped-From"] = original_model
                         response.headers["X-Smart-Router-Mapped-To"] = mapped_model
-                        
+
                         return response
-                    
+
                     # 检查是否有模型覆盖请求头
                     override_provider = request.headers.get("X-Smart-Router-Override-Provider")
                     override_model = request.headers.get("X-Smart-Router-Override-Model")
-                    
+
                     if override_provider and override_model:
                         # 验证覆盖的模型是否有效
                         config = self.router.sr_config
                         model_name = override_model
-                        
+
                         if model_name in config.models:
                             model_config = config.models[model_name]
                             if model_config.provider == override_provider and config.is_model_available(model_name):
                                 # 有效覆盖：直接设置模型，跳过路由逻辑
                                 data["model"] = model_name
-                                
+
                                 # 保存到 request.state 供后续使用
                                 request.state.smart_router_selected = model_name
                                 request.state.smart_router_override = True
@@ -253,7 +252,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                 request.state.smart_router_override_model = model_name
                                 request.state.smart_router_original = original_model
                                 request.state.smart_router_task = "override"
-                                
+
                                 request_id = str(uuid.uuid4())[:8]
                                 request.state.smart_router_request_id = request_id
                                 request.state.smart_router_routing_info = {
@@ -265,9 +264,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                     "strategy": "override",
                                     "fallback_chain": [],
                                 }
-                                
+
                                 console.print(f"[cyan]模型覆盖: {original_model} -> {model_name} (provider: {override_provider})[/cyan]")
-                                
+
                                 # 重新构建请求体
                                 modified_body = json.dumps(data).encode("utf-8")
 
@@ -281,28 +280,28 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         # 检查全局模型覆盖（管理员通过 Dashboard 设置）
                         # 优先从文件读取，实现 Dashboard 与 Proxy 跨进程状态共享
                         from ..utils.model_override_store import load_override_state
-                        global_override = load_override_state()
-                        if not global_override.get('enabled'):
+                        global_override: Optional[dict] = load_override_state()
+                        if not global_override or not global_override.get('enabled'):
                             # 回退到内存状态（兼容旧逻辑）
                             global_override = getattr(request.app.state, 'global_model_override', None)
                         if global_override and global_override.get('enabled'):
                             config = self.router.sr_config
                             go_provider = global_override.get('provider')
                             go_model = global_override.get('model')
-                            
+
                             if go_model in config.models:
                                 model_config = config.models[go_model]
                                 if model_config.provider == go_provider and config.is_model_available(go_model):
                                     # 全局覆盖生效：替换模型，但保留原始 model 供统计
                                     data["model"] = go_model
-                                    
+
                                     request.state.smart_router_selected = go_model
                                     request.state.smart_router_original = original_model
                                     request.state.smart_router_task = "override"
                                     request.state.smart_router_override = True
                                     request.state.smart_router_override_provider = go_provider
                                     request.state.smart_router_override_model = go_model
-                                    
+
                                     request_id = str(uuid.uuid4())[:8]
                                     request.state.smart_router_request_id = request_id
                                     request.state.smart_router_routing_info = {
@@ -314,9 +313,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                         "strategy": "override",
                                         "fallback_chain": [],
                                     }
-                                    
+
                                     console.print(f"[cyan]全局模型覆盖: {original_model} -> {go_model} (provider: {go_provider})[/cyan]")
-                                    
+
                                     modified_body = json.dumps(data).encode("utf-8")
 
                                     # 直接修改原始 request 的缓存 body，确保下游能读取到修改后的内容
@@ -325,25 +324,24 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                     console.print(f"[yellow]全局模型覆盖无效: {go_provider}/{go_model} (不可用或 provider 不匹配)[/yellow]")
                             else:
                                 console.print(f"[yellow]全局模型覆盖无效: 未知模型 {go_model}[/yellow]")
-                        else:
-                            # 没有覆盖请求头，走原有智能路由逻辑（仅在 chat/completions）
-                            if is_chat_completions:
-                                should_route = (
-                                    original_model in ("auto", "smart-router", "default") or
-                                    original_model.startswith("stage:") or
-                                    original_model.startswith("strategy-")
+                        # 没有覆盖请求头，走原有智能路由逻辑（仅在 chat/completions）
+                        elif is_chat_completions:
+                            should_route = (
+                                original_model in ("auto", "smart-router", "default") or
+                                original_model.startswith("stage:") or
+                                original_model.startswith("strategy-")
+                            )
+
+                            if should_route:
+                                response = await self._route_with_retry(
+                                    request, call_next, data, original_model
                                 )
-                                
-                                if should_route:
-                                    response = await self._route_with_retry(
-                                        request, call_next, data, original_model
-                                    )
-                                    routed = True
+                                routed = True
             except Exception as e:
                 console.print(f"[yellow]智能路由处理失败: {e}[/yellow]")
                 import traceback
                 console.print(traceback.format_exc())
-        
+
         # 如果路由逻辑尚未产生响应，则调用下游
         if not routed:
             response = await call_next(request)
@@ -353,27 +351,27 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             request.app.state.error_counter.record(not (200 <= response.status_code < 300))
 
         console.print(f"[dim]Middleware: path={request.url.path} method={request.method} selected={getattr(request.state, 'smart_router_selected', None)}[/dim]")
-        
+
         # 添加响应头
         if hasattr(request.state, 'smart_router_selected'):
             response.headers["X-Smart-Router-Model"] = request.state.smart_router_selected
             response.headers["X-Smart-Router-Original"] = request.state.smart_router_original
             response.headers["X-Smart-Router-Task"] = request.state.smart_router_task
-        
+
         if hasattr(request.state, 'smart_router_override'):
             response.headers["X-Smart-Router-Override-Active"] = "true"
             response.headers["X-Smart-Router-Override-Provider"] = request.state.smart_router_override_provider
             response.headers["X-Smart-Router-Override-Model"] = request.state.smart_router_override_model
-        
+
         # Token 统计：拦截 chat/completions 响应
         if is_chat_completions:
-            console.print(f"[cyan]✓ Attempting token stats for POST /v1/chat/completions[/cyan]")
+            console.print("[cyan]✓ Attempting token stats for POST /v1/chat/completions[/cyan]")
             content_type = response.headers.get("content-type", "")
             console.print(f"[dim]Content-Type: {content_type}[/dim]")
-            
+
             try:
                 # 确定统计模型名（按优先级）
-                model_name = getattr(request.state, 'smart_router_selected', None)
+                model_name: Optional[str] = getattr(request.state, 'smart_router_selected', None)
                 if not model_name:
                     model_name = getattr(request.state, 'smart_router_override_model', None)
                 if not model_name:
@@ -385,9 +383,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             model_name = req_data.get("model", None)
                     except Exception as e:
                         console.print(f"[yellow]Failed to parse request body: {e}[/yellow]")
-                
+
                 console.print(f"[dim]Model name resolved: {model_name}[/dim]")
-                
+
                 if model_name:
                     # 消费响应 body
                     body_bytes = b""
@@ -396,13 +394,13 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             body_bytes += chunk
                     else:
                         body_bytes = response.body
-                    
+
                     console.print(f"[dim]Response body size: {len(body_bytes)} bytes[/dim]")
-                    
+
                     # 解析 usage（支持普通 JSON 和 SSE 流式格式）
                     usage = {}
                     is_sse = "text/event-stream" in content_type
-                    
+
                     if is_sse:
                         # 解析 SSE 格式，从 data: 行中提取包含 usage 的 JSON
                         try:
@@ -429,28 +427,28 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             console.print(f"[dim]Usage field: {usage}[/dim]")
                         except json.JSONDecodeError as e:
                             console.print(f"[red]Failed to parse response JSON: {e}[/red]")
-                            console.print(f"[dim]Body preview: {body_bytes[:200]}[/dim]")
+                            console.print(f"[dim]Body preview: {body_bytes[:200].decode('utf-8', errors='replace')}[/dim]")
                         except Exception as e:
                             console.print(f"[yellow]Error parsing response: {e}[/yellow]")
-                    
+
                     if usage:
                         prompt_tokens = usage.get("prompt_tokens", 0)
                         completion_tokens = usage.get("completion_tokens", 0)
                         total_tokens = usage.get("total_tokens", 0)
-                        
+
                         # 提取 reasoning_tokens 和 cached_tokens（OpenAI 等格式）
                         reasoning_tokens = 0
                         completion_details = usage.get("completion_tokens_details", {})
                         if completion_details:
                             reasoning_tokens = completion_details.get("reasoning_tokens", 0)
-                        
+
                         cached_tokens = 0
                         prompt_details = usage.get("prompt_tokens_details", {})
                         if prompt_details:
                             cached_tokens = prompt_details.get("cached_tokens", 0)
-                        
+
                         console.print(f"[green]✓ Recording tokens: {model_name} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens} reasoning:{reasoning_tokens} cached:{cached_tokens}[/green]")
-                        
+
                         token_stats = request.app.state.token_stats
                         await token_stats.record(
                             model_name, prompt_tokens, completion_tokens, total_tokens,
@@ -458,7 +456,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         )
                     else:
                         console.print("[yellow]No usage data in response[/yellow]")
-                    
+
                     # 在解析 usage 后，增加 actual_model 解析
                     actual_model = None
 
@@ -511,7 +509,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                                 error_info = f"{last_error['model']}: HTTP {last_error['status_code']}"
                             final_error_type = last_error.get("error_type")
 
-                        from smart_router.utils.request_routing_history import RequestRoutingEntry
+                        from smart_router.utils.request_routing_history import (
+                            RequestRoutingEntry,
+                        )
 
                         entry = RequestRoutingEntry(
                             request_id=routing_info["request_id"],
@@ -539,10 +539,10 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         history = getattr(request.app.state, 'request_routing_history', None)
                         if history:
                             await history.record(entry)
-                
+
                 else:
                     console.print("[yellow]No model name resolved, skipping stats[/yellow]")
-                
+
                 # 重建 Response，确保下游正常消费
                 if is_sse:
                     async def _stream_body():
@@ -566,9 +566,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 import traceback
                 console.print(f"[red]Token stats error: {e}[/red]")
                 console.print(traceback.format_exc())
-        
+
         return response
-    
+
     async def _try_candidates(
         self,
         request: Request,
@@ -614,7 +614,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                     })
                     console.print(f"[yellow]模型 {model_name} (provider: {provider}) 调用异常 [{error_type}]: {e}[/yellow]")
                     if attempt < len(candidates) - 1 and attempt < max_attempts - 1:
-                        console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
+                        console.print("[dim]等待 10 秒后重试下一个模型...[/dim]")
                         await asyncio.sleep(10)
                     attempt += 1
                     continue
@@ -633,7 +633,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 console.print(f"[yellow]模型 {model_name} (provider: {provider}) 返回 {response.status_code} ({error_type})，准备重试[/yellow]")
 
                 if attempt < len(candidates) - 1 and attempt < max_attempts - 1:
-                    console.print(f"[dim]等待 10 秒后重试下一个模型...[/dim]")
+                    console.print("[dim]等待 10 秒后重试下一个模型...[/dim]")
                     await asyncio.sleep(10)
                 attempt += 1
                 continue
@@ -677,9 +677,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         4. 详细记录每次尝试的错误信息供后续分析
         """
         from starlette.responses import JSONResponse
-        
+
         messages = data.get("messages", [])
-        
+
         try:
             result = self.router.select_model(
                 model_hint=original_model,
@@ -689,7 +689,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             console.print(f"[yellow]智能路由失败: {e}[/yellow]")
             import traceback
             console.print(traceback.format_exc())
-            
+
             # 对于保留模型名，尝试 fallback 到所有可用模型（逐个重试）
             if original_model in ("auto", "smart-router", "default"):
                 try:
@@ -699,7 +699,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             status_code=400,
                             content={"error": {"message": "No model available for routing", "type": "invalid_request_error", "code": "400"}}
                         )
-                    
+
                     # 构建降级候选列表（所有可用模型）
                     config = self.router.sr_config
                     candidates = []
@@ -710,10 +710,10 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                             "provider": model_config.provider,
                             "source": "degradation",
                         })
-                    
+
                     request.state.smart_router_original = original_model
                     request.state.smart_router_task = "fallback"
-                    
+
                     request_id = str(uuid.uuid4())[:8]
                     request.state.smart_router_request_id = request_id
                     request.state.smart_router_routing_info = {
@@ -725,7 +725,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         "strategy": "fallback",
                         "fallback_chain": [c["model"] for c in candidates[1:]],
                     }
-                    
+
                     console.print(f"[yellow]智能路由异常降级，将尝试 {len(candidates)} 个模型[/yellow]")
                     return await self._try_candidates(request, call_next, data, candidates)
                 except Exception as fallback_e:
@@ -736,24 +736,24 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             else:
                 # stage: 前缀等，直接透传
                 return await self._call_app_directly(request, call_next)
-        
+
         selected = result.model_name
         console.print(f"[green]智能路由: {original_model} -> {selected} ({result.task_type}, {result.difficulty})[/green]")
-        
+
         # 保存基础路由信息
         request.state.smart_router_original = original_model
         request.state.smart_router_task = result.task_type
         request.state.smart_router_difficulty = result.difficulty
         request.state.smart_router_strategy = result.strategy
-        
+
         request_id = str(uuid.uuid4())[:8]
         request.state.smart_router_request_id = request_id
-        
+
         # 构建智能 fallback 候选列表（含 provider 信息）
         candidates = self._build_fallback_candidates(
             selected, result.ranked_models or [selected]
         )
-        
+
         # fallback_chain 保持与 get_fallback_chain 一致（不包含 selected）
         fallback_chain = []
         if hasattr(self.router, 'get_fallback_chain') and selected:
@@ -761,7 +761,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 fallback_chain = self.router.get_fallback_chain(selected)
             except Exception:
                 pass
-        
+
         request.state.smart_router_routing_info = {
             "request_id": request_id,
             "original_model": original_model,
@@ -771,9 +771,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
             "strategy": result.strategy,
             "fallback_chain": fallback_chain,
         }
-        
+
         return await self._try_candidates(request, call_next, data, candidates)
-    
+
     def _build_fallback_candidates(self, selected: str, ranked_models: list) -> list[dict]:
         """构建带 provider 信息的 fallback 候选列表
         
@@ -786,7 +786,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
         config = self.router.sr_config
         candidates = []
         seen = set()
-        
+
         # 0. 首选模型
         if selected and selected in config.models:
             model_config = config.models[selected]
@@ -797,7 +797,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                     "source": "selected",
                 })
                 seen.add(selected)
-        
+
         # 1. 策略排序的模型
         for model_name in ranked_models:
             if model_name in seen:
@@ -813,7 +813,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 "source": "ranked",
             })
             seen.add(model_name)
-        
+
         # 2. fallback 链中的模型（同 provider）
         if hasattr(self.router, 'get_fallback_chain') and selected:
             try:
@@ -834,7 +834,7 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                     seen.add(model_name)
             except Exception:
                 pass
-        
+
         # 3. 跨 provider 的可用模型兜底
         for model_name in config.get_available_models():
             if model_name in seen:
@@ -846,9 +846,9 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                 "source": "cross_provider",
             })
             seen.add(model_name)
-        
+
         return candidates
-    
+
     @staticmethod
     def _infer_error_type(status_code: int) -> str:
         """根据 HTTP 状态码推断错误类型"""
@@ -871,10 +871,11 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
     """启动 Smart Router 代理服务"""
     # 配置日志
     import logging
+
     from ..utils.logging_config import setup_logging
     log_file = Path.home() / ".smart-router" / "smart-router.log"
     setup_logging(log_file, level=getattr(logging, log_level.upper(), logging.INFO))
-    
+
     # config_path 是配置目录，不是单个文件
     if config_path is None:
         config_dir = Path.home() / ".smart-router"
@@ -884,7 +885,7 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
             config_dir = config_path
         else:
             config_dir = config_path.parent
-    
+
     # 加载配置
     try:
         loader = ConfigLoader(config_dir)
@@ -893,7 +894,7 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
     except Exception as e:
         console.print(f"[red]配置加载失败: {e}[/red]")
         sys.exit(1)
-    
+
     # 验证配置
     errors = loader.validate()
     if errors:
@@ -901,31 +902,31 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
         for err in errors:
             console.print(f"  - {err}")
         sys.exit(1)
-    
+
     # 从环境变量获取 master_key（可选，未设置时不启用认证）
     master_key = os.environ.get("SMART_ROUTER_MASTER_KEY")
     if master_key:
         os.environ["LITELLM_MASTER_KEY"] = master_key
     else:
         console.print("[yellow]警告: 未设置 SMART_ROUTER_MASTER_KEY，服务将无认证运行[/yellow]")
-    
+
     console.print("[cyan]正在初始化智能路由...[/cyan]")
     router = SmartRouter(config=config)
-    
+
     try:
         from litellm.proxy.proxy_server import ProxyConfig, initialize
-        
+
         proxy_config = ProxyConfig()
-        
+
         # 获取可用模型（API Key 已配置的模型）
         available_models = config.get_available_models()
-        
+
         if not available_models:
             console.print("[red]错误: 没有可用的模型，请检查 API Key 配置[/red]")
             sys.exit(1)
-        
+
         console.print(f"[dim]可用模型: {len(available_models)} / {len(config.models)}[/dim]")
-        
+
         # 将配置转换为 LiteLLM 格式（只包含可用模型）
         model_list = []
         for model_name in available_models:
@@ -934,7 +935,7 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
                 "model_name": model_name,
                 "litellm_params": litellm_params
             })
-        
+
         # 禁用 LiteLLM 内置 fallback — Smart Router 已在中间件层实现策略排序重试
         # 保留注释以备未来需要恢复流式兜底
         # fallbacks = []
@@ -942,7 +943,7 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
         #     chain = config.get_fallback_chain(model_name)
         #     if chain:
         #         fallbacks.append({model_name: chain})
-        
+
         litellm_config = {
             "model_list": model_list,
             "router_settings": {
@@ -952,46 +953,49 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
         if master_key:
             litellm_config["general_settings"] = {"master_key": master_key}
         # 不传入 fallbacks，由 SmartRouterMiddleware 自行处理重试
-        
+
         # 将配置写入临时文件
         import json
         import tempfile
         config_fd, config_path_temp = tempfile.mkstemp(suffix='.json')
         with os.fdopen(config_fd, 'w') as f:
             json.dump(litellm_config, f)
-        
+
         # 初始化 LiteLLM Proxy 配置
         import asyncio
         asyncio.run(initialize(config=config_path_temp))
-        
+
         # 安全删除临时配置文件（包含敏感信息）
         try:
             os.unlink(config_path_temp)
         except OSError:
             pass
-        
+
         # 从环境变量获取 host/port
         host = os.environ.get("SMART_ROUTER_HOST", "127.0.0.1")
         port = int(os.environ.get("SMART_ROUTER_PORT", "4000"))
-        
+
         console.print(f"[green]✓[/green] 配置加载完成，共 {len(config.models)} 个模型")
         console.print(f"[green]✓[/green] 启动服务于 http://{host}:{port}")
-        
+
         import uvicorn
         from litellm.proxy.proxy_server import app
-        
+
         app.state.smart_router = router
-        
+
         # 初始化全局模型覆盖状态（优先从文件加载，实现 Dashboard 与 Proxy 跨进程共享）
         from ..utils.model_override_store import load_override_state
         app.state.global_model_override = load_override_state()
-        
+
         # 初始化 Token 统计
         from ..utils.token_stats import TokenStats
         app.state.token_stats = TokenStats()
 
         # 初始化请求路由历史（使用文件持久化，支持 Dashboard 跨进程读取）
-        from ..utils.request_routing_history import RequestRoutingHistory, DEFAULT_HISTORY_FILE
+        from ..utils.request_routing_history import (
+            DEFAULT_HISTORY_FILE,
+            RequestRoutingHistory,
+        )
         app.state.request_routing_history = RequestRoutingHistory(
             max_size=100, persist_file=DEFAULT_HISTORY_FILE
         )
@@ -1001,8 +1005,8 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
         app.state.error_counter = ErrorCounter()
 
         # 初始化告警系统
-        from ..alerts.config import AlertConfig
         from ..alerts.checker import AlertChecker
+        from ..alerts.config import AlertConfig
         from ..alerts.notifier import AlertNotifier
         alerts_config = AlertConfig(config_dir / "alerts.yaml")
         app.state.alert_checker = AlertChecker(alerts_config, app.state.token_stats, app.state.error_counter)
@@ -1011,6 +1015,7 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
 
         # 注册后台告警检查协程（通过 startup 事件）
         import asyncio
+
         from fastapi import BackgroundTasks
 
         @app.on_event("startup")
@@ -1063,12 +1068,12 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
                         console.print(f"[yellow]Alert background task error: {e}[/yellow]")
 
             app.state._alert_task = asyncio.create_task(_alert_background_task())
-        
+
         # 在应用启动时只添加一次中间件
         if not getattr(app.state, '_smart_router_middleware_added', False):
             app.add_middleware(SmartRouterMiddleware, router=router)
             app.state._smart_router_middleware_added = True
-        
+
         # 注册 Dashboard API：获取可用的模型覆盖选项
         @app.get("/api/model-overrides")
         async def get_model_overrides():
@@ -1080,15 +1085,19 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
                         overrides[model.provider] = []
                     overrides[model.provider].append(name)
             return {"overrides": overrides}
-        
+
         # 注册 model-override API（供 Proxy 直接查询/设置，解决 Dashboard 与 Proxy 跨进程状态不同步）
-        from ..utils.model_override_store import load_override_state, save_override_state, clear_override_state
-        
+        from ..utils.model_override_store import (
+            clear_override_state,
+            load_override_state,
+            save_override_state,
+        )
+
         @app.get("/api/model-override")
         async def _get_model_override():
             state = load_override_state()
             return state
-        
+
         @app.post("/api/model-override")
         async def _set_model_override(body: dict):
             provider = body.get("provider")
@@ -1101,22 +1110,23 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
                 raise HTTPException(status_code=400, detail=f"未知模型: {model}")
             model_cfg = config.models[model]
             if model_cfg.provider != provider:
-                raise HTTPException(status_code=400, detail=f"Provider 不匹配")
+                raise HTTPException(status_code=400, detail="Provider 不匹配")
             if not config.is_model_available(model):
                 raise HTTPException(status_code=400, detail=f"模型不可用: {model}")
             save_override_state(provider, model, True)
             app.state.global_model_override = {"provider": provider, "model": model, "enabled": True}
             return {"provider": provider, "model": model, "enabled": True}
-        
+
         @app.delete("/api/model-override")
         async def _delete_model_override():
             clear_override_state()
             app.state.global_model_override = {"provider": None, "model": None, "enabled": False}
             return {"provider": None, "model": None, "enabled": False}
-        
+
         # 注册模型映射 API
-        from ..config.mapping_loader import ModelMappingLoader
         from pydantic import ValidationError
+
+        from ..config.mapping_loader import ModelMappingLoader
 
         @app.get("/api/model-mappings")
         async def get_model_mappings():
@@ -1171,16 +1181,16 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
                 return {"success": True}
             except ConfigError as e:
                 raise HTTPException(status_code=400, detail=str(e))
-        
+
         # 注册错误统计 API（供 Dashboard 展示模型失败率）
         @app.get("/api/analytics/error-stats")
         async def _get_error_stats(days: int = 7):
             """获取模型错误统计
-            
+
             返回每个模型的失败次数、成功率、常见错误类型分布。
             数据来源于 RequestRoutingHistory 中的 retry_history。
             """
-            history = getattr(request.app.state, 'request_routing_history', None)
+            history = getattr(app.state, 'request_routing_history', None)
             if not history:
                 return {
                     "models": [],
@@ -1190,30 +1200,30 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
                     "total_failures": 0,
                     "failure_rate": 0.0,
                 }
-            
+
             records = history.get_recent(limit=100)
-            
+
             # 按模型聚合统计
-            model_stats = {}
-            error_type_counts = {}
-            provider_error_counts = {}
+            model_stats: dict[str, dict] = {}
+            error_type_counts: dict[str, int] = {}
+            provider_error_counts: dict[str, int] = {}
             total_requests = len(records)
             total_failures = 0
-            
+
             for record in records:
                 retry_history = record.get("retry_history", [])
-                
+
                 # 统计最终是否成功（有 retry_history 但最终 status_code 不是 503 表示成功 fallback）
                 is_failed = record.get("status_code", 200) >= 500 or record.get("error_info")
                 if is_failed:
                     total_failures += 1
-                
+
                 # 统计每次重试的错误
                 for retry in retry_history:
                     model_name = retry.get("model", "unknown")
                     provider = retry.get("provider", "unknown")
                     error_type = retry.get("error_type", "Unknown")
-                    
+
                     # 模型统计
                     if model_name not in model_stats:
                         model_stats[model_name] = {
@@ -1225,17 +1235,17 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
                         }
                     model_stats[model_name]["total_attempts"] += 1
                     model_stats[model_name]["failures"] += 1
-                    
+
                     err_types = model_stats[model_name]["error_types"]
                     err_types[error_type] = err_types.get(error_type, 0) + 1
-                    
+
                     # 全局错误类型统计
                     error_type_counts[error_type] = error_type_counts.get(error_type, 0) + 1
-                    
+
                     # Provider 错误统计
                     provider_key = f"{provider}:{error_type}"
                     provider_error_counts[provider_key] = provider_error_counts.get(provider_key, 0) + 1
-            
+
             # 计算成功率
             model_list = []
             for model_name, stats in model_stats.items():
@@ -1250,22 +1260,22 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
                     "success_rate": round(success_rate, 1),
                     "error_types": stats["error_types"],
                 })
-            
+
             # 按失败次数降序排列
             model_list.sort(key=lambda x: x["failures"], reverse=True)
-            
+
             # 错误类型排行
             error_types_list = [
                 {"error_type": k, "count": v}
                 for k, v in sorted(error_type_counts.items(), key=lambda x: x[1], reverse=True)
             ]
-            
+
             # Provider 错误分布
             provider_errors_list = [
                 {"provider": k.split(":")[0], "error_type": k.split(":")[1], "count": v}
                 for k, v in sorted(provider_error_counts.items(), key=lambda x: x[1], reverse=True)
             ]
-            
+
             return {
                 "models": model_list,
                 "error_types": error_types_list,
@@ -1274,7 +1284,7 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
                 "total_failures": total_failures,
                 "failure_rate": round(total_failures / total_requests * 100, 1) if total_requests > 0 else 0.0,
             }
-        
+
         # 启动配置热重载监听
         watcher = ConfigWatcher(
             config_dir=config_dir,
@@ -1282,7 +1292,7 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
         )
         watcher.start()
         console.print("[dim]配置热重载已启用[/dim]")
-        
+
         try:
             uvicorn.run(
                 app,
@@ -1291,7 +1301,7 @@ def start_server(config_path: Optional[Path] = None, log_level: str = "INFO"):
             )
         finally:
             watcher.stop()
-        
+
     except ImportError as e:
         console.print(f"[red]启动失败: {e}[/red]")
         console.print("[yellow]提示: 请确保已安装 litellm[proxy] 依赖[/yellow]")

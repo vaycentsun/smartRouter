@@ -1,9 +1,9 @@
 """CLI 边缘情况测试 — 覆盖 init --force、doctor 失败路径、list 异常、coffee 各模式"""
 
-import pytest
-from typer.testing import CliRunner
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+from typer.testing import CliRunner
 
 from smart_router.cli import app
 
@@ -131,7 +131,7 @@ class TestDoctorCommandEdgeCases:
         """配置文件缺失时报告错误"""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(app, ["doctor", "--config", str(tmpdir)])
-            
+
             assert result.exit_code == 0
             assert "配置文件缺失" in result.stdout
 
@@ -175,14 +175,14 @@ fallback:
   mode: auto
 """)
             result = runner.invoke(app, ["doctor", "--config", str(tmpdir)])
-            
+
             # 配置加载失败会打印错误信息
             assert "配置加载失败" in result.stdout or "配置验证失败" in result.stdout
 
     def test_doctor_python_version_check(self):
         """doctor 应检查 Python 版本"""
         result = runner.invoke(app, ["doctor"])
-        
+
         assert result.exit_code == 0
         assert "Python 版本" in result.stdout
 
@@ -194,7 +194,7 @@ class TestListCommandEdgeCases:
         """配置文件缺失时提示"""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(app, ["list", "--config", str(tmpdir)])
-            
+
             assert result.exit_code != 0 or "配置文件缺失" in result.stdout
 
     def test_list_config_error(self):
@@ -202,9 +202,9 @@ class TestListCommandEdgeCases:
         with tempfile.TemporaryDirectory() as tmpdir:
             # 创建无效的 YAML
             (Path(tmpdir) / "providers.yaml").write_text("invalid: [")
-            
+
             result = runner.invoke(app, ["list", "--config", str(tmpdir)])
-            
+
             # 命令应失败或显示错误信息
             assert result.exit_code != 0 or "失败" in result.stdout
 
@@ -215,14 +215,14 @@ class TestCoffeeCommandEdgeCases:
     def test_coffee_open_option(self):
         """coffee --open 打开图片"""
         result = runner.invoke(app, ["coffee", "--open"])
-        
+
         # 可能因为没有二维码而提示，但不应崩溃
         assert result.exit_code == 0
 
     def test_coffee_default_no_image(self):
         """coffee 默认模式（无二维码图片）"""
         result = runner.invoke(app, ["coffee"])
-        
+
         # 应显示提示信息
         assert result.exit_code == 0
         assert "Buy Me a Coffee" in result.stdout or "请支持作者" in result.stdout
@@ -230,7 +230,7 @@ class TestCoffeeCommandEdgeCases:
     def test_coffee_ascii_mode(self):
         """coffee --ascii 纯文字模式"""
         result = runner.invoke(app, ["coffee", "--ascii"])
-        
+
         assert result.exit_code == 0
         assert "Buy Me a Coffee" in result.stdout or "请支持作者" in result.stdout
 
@@ -243,11 +243,11 @@ class TestServiceCommandEdgeCases:
         from unittest.mock import MagicMock
         mock_restart = MagicMock()
         monkeypatch.setattr("smart_router.cli.restart_daemon", mock_restart)
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir)
             result = runner.invoke(app, ["restart", "--config", str(config_path)])
-            
+
             assert result.exit_code == 0
             mock_restart.assert_called_once_with(config_path=config_path)
 
@@ -256,9 +256,9 @@ class TestServiceCommandEdgeCases:
         from unittest.mock import MagicMock
         mock_view = MagicMock()
         monkeypatch.setattr("smart_router.cli.view_logs", mock_view)
-        
+
         result = runner.invoke(app, ["logs", "--lines", "20"])
-        
+
         assert result.exit_code == 0
         mock_view.assert_called_once_with(lines=20, follow=False)
 
@@ -267,8 +267,8 @@ class TestServiceCommandEdgeCases:
         from unittest.mock import MagicMock
         mock_view = MagicMock()
         monkeypatch.setattr("smart_router.cli.view_logs", mock_view)
-        
+
         result = runner.invoke(app, ["logs", "--follow"])
-        
+
         assert result.exit_code == 0
         mock_view.assert_called_once_with(lines=50, follow=True)

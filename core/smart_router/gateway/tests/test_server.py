@@ -1,9 +1,10 @@
 """server 模块测试 — 中间件逻辑与启动行为"""
 
-import pytest
 import json
-from unittest.mock import MagicMock, AsyncMock, patch, Mock
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 class TestSmartRouterSelectModel:
@@ -11,11 +12,18 @@ class TestSmartRouterSelectModel:
 
     def test_select_model_auto_strategy(self):
         """测试 auto 策略路由"""
-        from smart_router.selector.v3_selector import V3ModelSelector
         from smart_router.config import (
-            Config, ProviderConfig, ModelConfig, ModelCapabilities,
-            RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig
+            Config,
+            DifficultyConfig,
+            FallbackConfig,
+            ModelCapabilities,
+            ModelConfig,
+            ProviderConfig,
+            RoutingConfig,
+            StrategyConfig,
+            TaskConfig,
         )
+        from smart_router.selector.v3_selector import V3ModelSelector
 
         config = Config(
             providers={
@@ -70,7 +78,7 @@ class TestSmartRouterSelectModel:
         """测试 strategy- 前缀解析"""
         # strategy 前缀在 select_model 函数中解析，这里测试解析逻辑
         model_hint = "strategy-cost"
-        
+
         if model_hint.startswith("strategy-"):
             strategy = model_hint.replace("strategy-", "")
             assert strategy == "cost"
@@ -126,7 +134,6 @@ class TestStartServer:
 
     def test_config_path_resolves_to_directory(self):
         """config_path 正确解析为目录"""
-        from pathlib import Path
 
         # 测试目录路径
         config_dir = Path("/tmp/.smart-router")
@@ -217,7 +224,6 @@ class TestStartServerEdgeCases:
 
     def test_config_path_is_file(self):
         """config_path 传入文件时解析到父目录"""
-        from pathlib import Path
         config_file = Path("/tmp/test/config.yaml")
         expected_dir = config_file.parent
         assert expected_dir == Path("/tmp/test")
@@ -299,9 +305,10 @@ class TestMiddlewareLogic:
     @pytest.mark.asyncio
     async def test_middleware_select_model_exception_fallback(self):
         """select_model 异常时，保留模型名应 fallback 到第一个可用模型"""
-        from smart_router.gateway.server import SmartRouterMiddleware
         from starlette.requests import Request
         from starlette.responses import Response
+
+        from smart_router.gateway.server import SmartRouterMiddleware
 
         mock_router = MagicMock()
         mock_router.select_model.side_effect = Exception("Simulated routing failure")
@@ -345,8 +352,9 @@ class TestMiddlewareLogic:
     @pytest.mark.asyncio
     async def test_middleware_select_model_exception_no_available_models(self):
         """select_model 异常且没有可用模型时，应返回 400"""
-        from smart_router.gateway.server import SmartRouterMiddleware
         from starlette.requests import Request
+
+        from smart_router.gateway.server import SmartRouterMiddleware
 
         mock_router = MagicMock()
         mock_router.select_model.side_effect = Exception("Simulated routing failure")
@@ -385,9 +393,10 @@ class TestMiddlewareLogic:
     @pytest.mark.asyncio
     async def test_middleware_select_model_exception_for_stage_prefix(self):
         """stage: 前缀在 select_model 异常时不应 fallback（保留原始值继续向下游传递）"""
-        from smart_router.gateway.server import SmartRouterMiddleware
         from starlette.requests import Request
         from starlette.responses import Response
+
+        from smart_router.gateway.server import SmartRouterMiddleware
 
         mock_router = MagicMock()
         mock_router.select_model.side_effect = Exception("Simulated routing failure")
@@ -428,9 +437,10 @@ class TestMiddlewareLogic:
     @pytest.mark.asyncio
     async def test_middleware_replaces_model_in_request_body(self):
         """model=auto 时，中间件应修改 request body 中的 model 为实际选择的模型"""
-        from smart_router.gateway.server import SmartRouterMiddleware
         from starlette.requests import Request
         from starlette.responses import Response
+
+        from smart_router.gateway.server import SmartRouterMiddleware
         from smart_router.selector.v3_selector import SelectionResult
 
         mock_router = MagicMock()
@@ -503,7 +513,7 @@ class TestMiddlewareLogic:
                 self.smart_router_selected = "gpt-4o"
                 self.smart_router_original = "auto"
                 self.smart_router_task = "chat"
-        
+
         state = MockState()
         assert hasattr(state, 'smart_router_selected')
         assert hasattr(state, 'smart_router_original')
@@ -514,33 +524,34 @@ class TestMiddlewareLogic:
         """测试没有路由状态时不添加响应头"""
         class MockState:
             pass
-        
+
         state = MockState()
         assert not hasattr(state, 'smart_router_selected')
 
     def test_middleware_class_prevents_double_registration(self):
         """SmartRouterMiddleware 应通过 add_middleware 条件注册，防止重复"""
         from unittest.mock import MagicMock
+
         from smart_router.gateway.server import SmartRouterMiddleware
-        
+
         mock_app = MagicMock()
         mock_router = MagicMock()
-        
+
         # 第一次添加
         SmartRouterMiddleware(mock_app, router=mock_router)
         assert mock_app.add_middleware.call_count == 0  # 构造时不调用
-        
+
         # 验证类存在且可实例化
         assert SmartRouterMiddleware is not None
-        
+
     def test_middleware_added_only_once_via_flag(self):
         """_smart_router_middleware_added 标志防止重复添加"""
         from unittest.mock import MagicMock
-        
+
         app = MagicMock()
         app.state = MagicMock()
         app.state._smart_router_middleware_added = True
-        
+
         # 当标志已设置时，不应再次调用 add_middleware
         # 这个测试验证的是 start_server 中的条件逻辑
         assert getattr(app.state, '_smart_router_middleware_added', False) is True
@@ -550,7 +561,7 @@ class TestMiddlewareLogic:
         """测试模型覆盖请求头存在时跳过智能路由"""
         override_provider = "openai"
         override_model = "gpt-4o"
-        
+
         # 验证逻辑：当 override header 存在时，不应触发路由判断
         original_model = "auto"
         should_route = (
@@ -561,7 +572,7 @@ class TestMiddlewareLogic:
         # 有 override header 时，should_route 仍然为 True，但中间件会先处理 override
         # 这个测试验证的是 override 优先级高于路由逻辑
         assert should_route is True
-        
+
         # 模拟覆盖后的模型名
         overridden_model = override_model
         assert overridden_model == "gpt-4o"
@@ -569,10 +580,17 @@ class TestMiddlewareLogic:
     def test_override_header_invalid_model(self):
         """测试无效的模型覆盖请求头"""
         from smart_router.config import (
-            Config, ProviderConfig, ModelConfig, ModelCapabilities,
-            RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig
+            Config,
+            DifficultyConfig,
+            FallbackConfig,
+            ModelCapabilities,
+            ModelConfig,
+            ProviderConfig,
+            RoutingConfig,
+            StrategyConfig,
+            TaskConfig,
         )
-        
+
         config = Config(
             providers={
                 "openai": ProviderConfig(api_base="https://api.openai.com/v1", api_key="test")
@@ -598,15 +616,15 @@ class TestMiddlewareLogic:
                 fallback=FallbackConfig(mode="auto")
             )
         )
-        
+
         # 未知模型
         assert "gpt-4-turbo" not in config.models
-        
+
         # provider 不匹配
         model_config = config.models.get("gpt-4o")
         assert model_config is not None
         assert model_config.provider != "anthropic"
-        
+
         # 模型不可用（当 api_key 无效时）
         assert config.is_model_available("gpt-4o") is True  # 这里 test key 直接配置了
 
@@ -618,16 +636,14 @@ class TestMiddlewareLogic:
                 self.smart_router_override_provider = "openai"
                 self.smart_router_override_model = "gpt-4o"
                 self.smart_router_original = "auto"
-        
+
         state = MockState()
         assert hasattr(state, 'smart_router_override')
         assert state.smart_router_override_provider == "openai"
         assert state.smart_router_override_model == "gpt-4o"
 
 
-import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -643,10 +659,10 @@ class TestTokenStatsMiddleware:
     async def test_middleware_records_usage(self, mock_router, tmp_path):
         from smart_router.gateway.server import SmartRouterMiddleware
         from smart_router.utils.token_stats import TokenStats
-        
+
         stats_file = tmp_path / "token_stats.json"
         token_stats = TokenStats(stats_file=stats_file)
-        
+
         async def mock_call_next(request):
             return Response(
                 content=json.dumps({
@@ -656,13 +672,13 @@ class TestTokenStatsMiddleware:
                 status_code=200,
                 headers={"content-type": "application/json"},
             )
-        
+
         app = MagicMock()
         app.state = MagicMock()
         app.state.token_stats = token_stats
-        
+
         middleware = SmartRouterMiddleware(app, router=mock_router)
-        
+
         scope = {
             "type": "http",
             "method": "POST",
@@ -670,20 +686,20 @@ class TestTokenStatsMiddleware:
             "headers": [],
             "app": app,
         }
-        
+
         async def receive():
             return {"type": "http.request", "body": b'{}', "more_body": False}
-        
+
         async def send(message):
             pass
-        
+
         request = Request(scope, receive, send)
         request.state.smart_router_selected = "gpt-4o"
         request.state.smart_router_original = "auto"
         request.state.smart_router_task = "chat"
-        
+
         response = await middleware.dispatch(request, mock_call_next)
-        
+
         all_stats = token_stats.get_all()
         assert "gpt-4o" in all_stats
         assert all_stats["gpt-4o"]["prompt_tokens"] == 100
@@ -693,10 +709,10 @@ class TestTokenStatsMiddleware:
     async def test_middleware_uses_override_model(self, mock_router, tmp_path):
         from smart_router.gateway.server import SmartRouterMiddleware
         from smart_router.utils.token_stats import TokenStats
-        
+
         stats_file = tmp_path / "token_stats.json"
         token_stats = TokenStats(stats_file=stats_file)
-        
+
         async def mock_call_next(request):
             return Response(
                 content=json.dumps({
@@ -705,13 +721,13 @@ class TestTokenStatsMiddleware:
                 status_code=200,
                 headers={"content-type": "application/json"},
             )
-        
+
         app = MagicMock()
         app.state = MagicMock()
         app.state.token_stats = token_stats
-        
+
         middleware = SmartRouterMiddleware(app, router=mock_router)
-        
+
         scope = {
             "type": "http",
             "method": "POST",
@@ -719,18 +735,18 @@ class TestTokenStatsMiddleware:
             "headers": [],
             "app": app,
         }
-        
+
         async def receive():
             return {"type": "http.request", "body": b'{}', "more_body": False}
-        
+
         async def send(message):
             pass
-        
+
         request = Request(scope, receive, send)
         request.state.smart_router_override_model = "claude-3-sonnet"
-        
+
         response = await middleware.dispatch(request, mock_call_next)
-        
+
         all_stats = token_stats.get_all()
         assert "claude-3-sonnet" in all_stats
         assert all_stats["claude-3-sonnet"]["request_count"] == 1
@@ -739,10 +755,10 @@ class TestTokenStatsMiddleware:
     async def test_middleware_uses_request_body_model(self, mock_router, tmp_path):
         from smart_router.gateway.server import SmartRouterMiddleware
         from smart_router.utils.token_stats import TokenStats
-        
+
         stats_file = tmp_path / "token_stats.json"
         token_stats = TokenStats(stats_file=stats_file)
-        
+
         async def mock_call_next(request):
             return Response(
                 content=json.dumps({
@@ -751,13 +767,13 @@ class TestTokenStatsMiddleware:
                 status_code=200,
                 headers={"content-type": "application/json"},
             )
-        
+
         app = MagicMock()
         app.state = MagicMock()
         app.state.token_stats = token_stats
-        
+
         middleware = SmartRouterMiddleware(app, router=mock_router)
-        
+
         scope = {
             "type": "http",
             "method": "POST",
@@ -765,18 +781,18 @@ class TestTokenStatsMiddleware:
             "headers": [],
             "app": app,
         }
-        
+
         async def receive():
             return {"type": "http.request", "body": b'{"model": "gpt-3.5-turbo"}', "more_body": False}
-        
+
         async def send(message):
             pass
-        
+
         request = Request(scope, receive, send)
         # 不设置 smart_router_selected 或 override_model
-        
+
         response = await middleware.dispatch(request, mock_call_next)
-        
+
         all_stats = token_stats.get_all()
         assert "gpt-3.5-turbo" in all_stats
         assert all_stats["gpt-3.5-turbo"]["request_count"] == 1
@@ -785,17 +801,17 @@ class TestTokenStatsMiddleware:
     async def test_middleware_skips_streaming_no_usage(self, mock_router):
         """SSE 流式响应不含 usage 时不记录"""
         from smart_router.gateway.server import SmartRouterMiddleware
-        
+
         async def mock_call_next(request):
             body = b'data: {"choices": [{"delta": {"content": "hello"}}]}\n\ndata: [DONE]\n\n'
             return Response(content=body, status_code=200, headers={"content-type": "text/event-stream"})
-        
+
         app = MagicMock()
         app.state = MagicMock()
         app.state.token_stats = MagicMock()
-        
+
         middleware = SmartRouterMiddleware(app, router=mock_router)
-        
+
         scope = {
             "type": "http",
             "method": "POST",
@@ -803,20 +819,20 @@ class TestTokenStatsMiddleware:
             "headers": [],
             "app": app,
         }
-        
+
         async def receive():
             return {"type": "http.request", "body": b'{}', "more_body": False}
-        
+
         async def send(message):
             pass
-        
+
         request = Request(scope, receive, send)
         request.state.smart_router_selected = "gpt-4o"
         request.state.smart_router_original = "auto"
         request.state.smart_router_task = "chat"
-        
+
         response = await middleware.dispatch(request, mock_call_next)
-        
+
         app.state.token_stats.record.assert_not_called()
         # 验证返回的是 StreamingResponse
         from starlette.responses import StreamingResponse
@@ -827,10 +843,10 @@ class TestTokenStatsMiddleware:
         """SSE 流式响应包含 usage 时正确记录"""
         from smart_router.gateway.server import SmartRouterMiddleware
         from smart_router.utils.token_stats import TokenStats
-        
+
         stats_file = tmp_path / "token_stats.json"
         token_stats = TokenStats(stats_file=stats_file)
-        
+
         async def mock_call_next(request):
             body = (
                 b'data: {"choices": [{"delta": {"content": "hello"}}]}\n\n'
@@ -838,13 +854,13 @@ class TestTokenStatsMiddleware:
                 b'data: [DONE]\n\n'
             )
             return Response(content=body, status_code=200, headers={"content-type": "text/event-stream"})
-        
+
         app = MagicMock()
         app.state = MagicMock()
         app.state.token_stats = token_stats
-        
+
         middleware = SmartRouterMiddleware(app, router=mock_router)
-        
+
         scope = {
             "type": "http",
             "method": "POST",
@@ -852,20 +868,20 @@ class TestTokenStatsMiddleware:
             "headers": [],
             "app": app,
         }
-        
+
         async def receive():
             return {"type": "http.request", "body": b'{}', "more_body": False}
-        
+
         async def send(message):
             pass
-        
+
         request = Request(scope, receive, send)
         request.state.smart_router_selected = "gpt-4o"
         request.state.smart_router_original = "auto"
         request.state.smart_router_task = "chat"
-        
+
         response = await middleware.dispatch(request, mock_call_next)
-        
+
         all_stats = token_stats.get_all()
         assert "gpt-4o" in all_stats
         assert all_stats["gpt-4o"]["prompt_tokens"] == 50
@@ -874,7 +890,7 @@ class TestTokenStatsMiddleware:
         assert all_stats["gpt-4o"]["reasoning_tokens"] == 0
         assert all_stats["gpt-4o"]["cached_tokens"] == 0
         assert all_stats["gpt-4o"]["request_count"] == 1
-        
+
         # 验证返回的是 StreamingResponse
         from starlette.responses import StreamingResponse
         assert isinstance(response, StreamingResponse)
@@ -905,8 +921,9 @@ class TestErrorCounter:
 
     def test_window_expires_old_entries(self, monkeypatch):
         """超过 5 分钟的数据应被清除"""
-        from smart_router.gateway.error_counter import ErrorCounter
         import time
+
+        from smart_router.gateway.error_counter import ErrorCounter
         ec = ErrorCounter()
         # 模拟一个旧时间戳
         old_time = time.time() - 400  # 6 分 40 秒前
@@ -930,8 +947,8 @@ class TestMiddlewareErrorCounter:
 
     @pytest.mark.asyncio
     async def test_middleware_records_error_on_non_2xx(self, mock_router):
-        from smart_router.gateway.server import SmartRouterMiddleware
         from smart_router.gateway.error_counter import ErrorCounter
+        from smart_router.gateway.server import SmartRouterMiddleware
 
         async def mock_call_next(request):
             return Response(content=b'error', status_code=500, headers={})
@@ -964,8 +981,8 @@ class TestMiddlewareErrorCounter:
 
     @pytest.mark.asyncio
     async def test_middleware_records_success_on_2xx(self, mock_router):
-        from smart_router.gateway.server import SmartRouterMiddleware
         from smart_router.gateway.error_counter import ErrorCounter
+        from smart_router.gateway.server import SmartRouterMiddleware
 
         async def mock_call_next(request):
             return Response(content=b'ok', status_code=200, headers={})
@@ -998,8 +1015,8 @@ class TestMiddlewareErrorCounter:
 
     @pytest.mark.asyncio
     async def test_middleware_mixed_responses(self, mock_router):
-        from smart_router.gateway.server import SmartRouterMiddleware
         from smart_router.gateway.error_counter import ErrorCounter
+        from smart_router.gateway.server import SmartRouterMiddleware
 
         app = MagicMock()
         app.state = MagicMock()
@@ -1044,7 +1061,7 @@ class TestMiddlewareStrategyFallback:
         router = MagicMock()
         config = MagicMock()
         config.routing.fallback.max_attempts = 3
-        
+
         # 默认模型配置，供 _build_fallback_candidates 使用
         model_a = MagicMock()
         model_a.provider = "openai"
@@ -1066,10 +1083,11 @@ class TestMiddlewareStrategyFallback:
     @pytest.mark.asyncio
     async def test_non_stream_retry_on_502(self, mock_router):
         """非流式请求，首个模型返回 502，应按策略排序 fallback 到次优模型"""
-        from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.selector.v3_selector import SelectionResult
         from starlette.requests import Request
         from starlette.responses import Response
+
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
 
         result = SelectionResult(
             model_name="model-a",
@@ -1130,10 +1148,11 @@ class TestMiddlewareStrategyFallback:
     @pytest.mark.asyncio
     async def test_non_stream_retry_exhausted(self, mock_router):
         """所有候选模型都失败时，应返回 503"""
-        from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.selector.v3_selector import SelectionResult
         from starlette.requests import Request
         from starlette.responses import Response
+
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
 
         result = SelectionResult(
             model_name="model-a",
@@ -1185,10 +1204,11 @@ class TestMiddlewareStrategyFallback:
     @pytest.mark.asyncio
     async def test_stream_request_no_custom_retry(self, mock_router):
         """流式请求不触发自建重试（单次调用）"""
-        from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.selector.v3_selector import SelectionResult
         from starlette.requests import Request
         from starlette.responses import Response
+
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
 
         result = SelectionResult(
             model_name="model-a",
@@ -1243,10 +1263,11 @@ class TestMiddlewareStrategyFallback:
     @pytest.mark.asyncio
     async def test_404_triggers_fallback_to_next_model(self, mock_router):
         """404 模型不存在时应触发 fallback 到下一个候选模型"""
-        from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.selector.v3_selector import SelectionResult
         from starlette.requests import Request
         from starlette.responses import Response
+
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
 
         # 设置模型配置
         model_a_config = MagicMock()
@@ -1321,10 +1342,11 @@ class TestMiddlewareStrategyFallback:
     @pytest.mark.asyncio
     async def test_401_retries_all_candidates(self, mock_router):
         """401 认证错误时也应继续尝试所有候选（包括同 provider）"""
-        from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.selector.v3_selector import SelectionResult
         from starlette.requests import Request
         from starlette.responses import Response
+
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
 
         # 设置模型配置，让 model-a/model-b 同 provider，model-c 不同 provider
         model_a_config = MagicMock()
@@ -1406,10 +1428,11 @@ class TestMiddlewareStrategyFallback:
     @pytest.mark.asyncio
     async def test_retry_history_includes_provider_and_error_type(self, mock_router):
         """重试历史应包含 provider 和 error_type 字段"""
-        from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.selector.v3_selector import SelectionResult
         from starlette.requests import Request
         from starlette.responses import Response
+
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
 
         model_a_config = MagicMock()
         model_a_config.provider = "openai"
@@ -1474,20 +1497,20 @@ class TestGlobalModelOverride:
     def mock_router(self):
         router = MagicMock()
         config = MagicMock()
-        
+
         # 模拟模型配置
         model_config = MagicMock()
         model_config.provider = "aliyun"
-        
+
         gpt4o_config = MagicMock()
         gpt4o_config.provider = "openai"
-        
+
         config.models = {
             "gui-plus-2026-02-26": model_config,
             "gpt-4o": gpt4o_config,
         }
         config.is_model_available = MagicMock(return_value=True)
-        
+
         router.sr_config = config
         return router
 
@@ -1647,8 +1670,8 @@ class TestRoutingHistoryMiddleware:
     async def test_middleware_records_routing_info(self, mock_router):
         """验证中间件正确记录路由信息到 RequestRoutingHistory"""
         from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.utils.request_routing_history import RequestRoutingHistory
         from smart_router.selector.v3_selector import SelectionResult
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
 
         mock_router.select_model.return_value = SelectionResult(
             model_name="gpt-4o",
@@ -1733,8 +1756,8 @@ class TestRoutingHistoryMiddleware:
     async def test_middleware_detects_fallback(self, mock_router):
         """验证 actual_model 与 selected_model 不一致时 did_fallback=True"""
         from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.utils.request_routing_history import RequestRoutingHistory
         from smart_router.selector.v3_selector import SelectionResult
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
 
         mock_router.select_model.return_value = SelectionResult(
             model_name="gpt-4o",
@@ -1803,8 +1826,8 @@ class TestRoutingHistoryMiddleware:
     async def test_middleware_no_fallback(self, mock_router):
         """验证 actual_model 与 selected_model 一致时 did_fallback=False"""
         from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.utils.request_routing_history import RequestRoutingHistory
         from smart_router.selector.v3_selector import SelectionResult
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
 
         mock_router.select_model.return_value = SelectionResult(
             model_name="gpt-4o",
@@ -2015,12 +2038,14 @@ class TestRoutingHistoryMiddleware:
     @pytest.mark.asyncio
     async def test_middleware_records_fallback_with_attempted_count(self, mock_router):
         """验证 fallback 场景下 attempted_fallbacks 与 retry_history 一致"""
-        from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.utils.request_routing_history import RequestRoutingHistory
-        from smart_router.selector.v3_selector import SelectionResult
+        from unittest.mock import MagicMock, patch
+
         from starlette.requests import Request
         from starlette.responses import Response
-        from unittest.mock import patch, MagicMock
+
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
 
         model_a_config = MagicMock()
         model_a_config.provider = "aliyun"
@@ -2122,12 +2147,14 @@ class TestRoutingHistoryMiddleware:
     @pytest.mark.asyncio
     async def test_middleware_records_all_failed_503(self, mock_router):
         """验证所有候选模型均失败（503）时也能正确记录路由历史"""
-        from smart_router.gateway.server import SmartRouterMiddleware
-        from smart_router.utils.request_routing_history import RequestRoutingHistory
-        from smart_router.selector.v3_selector import SelectionResult
+        from unittest.mock import MagicMock, patch
+
         from starlette.requests import Request
         from starlette.responses import Response
-        from unittest.mock import patch, MagicMock
+
+        from smart_router.gateway.server import SmartRouterMiddleware
+        from smart_router.selector.v3_selector import SelectionResult
+        from smart_router.utils.request_routing_history import RequestRoutingHistory
 
         model_a_config = MagicMock()
         model_a_config.provider = "openai"

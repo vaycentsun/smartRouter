@@ -72,7 +72,7 @@ class RequestRoutingHistory:
         if not self._persist_file or not self._persist_file.exists():
             return
         try:
-            with open(self._persist_file, "r", encoding="utf-8") as f:
+            with open(self._persist_file, encoding="utf-8") as f:
                 data = json.load(f)
             records = data.get("records", [])
             for item in records:
@@ -100,7 +100,7 @@ class RequestRoutingHistory:
                 )
                 self._buffer.append(entry)
             logger.debug(f"Loaded {len(self._buffer)} routing history records from {self._persist_file}")
-        except (json.JSONDecodeError, KeyError, IOError) as e:
+        except (OSError, json.JSONDecodeError, KeyError) as e:
             logger.warning(f"Failed to load routing history from {self._persist_file}: {e}")
 
     def _save(self) -> None:
@@ -123,7 +123,7 @@ class RequestRoutingHistory:
                 os.chmod(self._persist_file, 0o600)
             except OSError:
                 pass
-        except IOError as e:
+        except OSError as e:
             logger.warning(f"Failed to save routing history: {e}")
 
     async def record(self, entry: RequestRoutingEntry) -> None:

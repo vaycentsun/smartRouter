@@ -1,12 +1,11 @@
 """AlertNotifier — 告警通知器"""
 
-import json
 import logging
 
 import httpx
 
-from .config import AlertRule, AlertChannel
 from .checker import AlertTrigger
+from .config import AlertChannel, AlertRule
 
 logger = logging.getLogger(__name__)
 

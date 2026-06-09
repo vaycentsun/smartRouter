@@ -1,7 +1,7 @@
 """Dashboard Formula API 测试"""
 
+
 import pytest
-from pathlib import Path
 from fastapi.testclient import TestClient
 
 from smart_router.gateway.dashboard_api import build_dashboard_app
@@ -15,7 +15,7 @@ class TestFormulaAPI:
         """创建临时配置目录"""
         config_dir = tmp_path / ".smart-router"
         config_dir.mkdir()
-        
+
         # providers.yaml
         providers = {
             "providers": {
@@ -28,7 +28,7 @@ class TestFormulaAPI:
         import yaml
         with open(config_dir / "providers.yaml", "w") as f:
             yaml.safe_dump(providers, f)
-        
+
         # models/
         models_dir = config_dir / "models"
         models_dir.mkdir()
@@ -60,7 +60,7 @@ class TestFormulaAPI:
         }
         with open(models_dir / "test.yaml", "w") as f:
             yaml.safe_dump(models, f)
-        
+
         # routing.yaml
         routing = {
             "tasks": {
@@ -86,7 +86,7 @@ class TestFormulaAPI:
         }
         with open(config_dir / "routing.yaml", "w") as f:
             yaml.safe_dump(routing, f)
-        
+
         return config_dir
 
     @pytest.fixture
@@ -118,7 +118,7 @@ class TestFormulaAPI:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        
+
         # 验证更新后 GET 返回新值
         response = client.get("/api/formula")
         data = response.json()
@@ -155,7 +155,7 @@ class TestFormulaAPI:
         data = response.json()
         assert "models" in data
         assert len(data["models"]) == 2
-        
+
         # 按 quality 优先，gpt-4o (quality=9) 应该排第一
         models = data["models"]
         assert models[0]["name"] == "gpt-4o"

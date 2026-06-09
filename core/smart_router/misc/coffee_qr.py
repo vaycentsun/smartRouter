@@ -1,7 +1,6 @@
 """赞助二维码显示模块"""
 
 import base64
-import io
 from pathlib import Path
 from typing import Optional
 
@@ -23,10 +22,10 @@ def display_image_terminal(image_path: Path, width: int = 300) -> bool:
         是否成功显示
     """
     import os
-    import sys
     import shutil
     import subprocess
-    
+    import sys
+
     try:
         # 1. 检测 kitty 终端 (使用 icat)
         if os.environ.get("TERM") == "xterm-kitty" or shutil.which("kitty"):
@@ -34,21 +33,20 @@ def display_image_terminal(image_path: Path, width: int = 300) -> bool:
                 result = subprocess.run(
                     ["kitty", "+kitten", "icat", "--align", "center", str(image_path)],
                     capture_output=True,
-                    text=True,
                     timeout=5
                 )
                 if result.returncode == 0:
                     return True
             except:
                 pass
-        
+
         # 2. 检测 iTerm2 (macOS) - inline image protocol
         if os.environ.get("TERM_PROGRAM") == "iTerm.app":
             try:
                 with open(image_path, "rb") as f:
                     image_data = f.read()
                 encoded = base64.b64encode(image_data).decode()
-                
+
                 # iTerm2 图片协议
                 # width=300px 控制显示大小
                 sys.stdout.write(f"\033]1337;File=inline=1;width={width}px:{encoded}\007\n")
@@ -56,7 +54,7 @@ def display_image_terminal(image_path: Path, width: int = 300) -> bool:
                 return True
             except:
                 pass
-        
+
         # 3. 尝试使用 chafa (最通用的终端图片查看器)
         if shutil.which("chafa"):
             try:
@@ -71,7 +69,7 @@ def display_image_terminal(image_path: Path, width: int = 300) -> bool:
                     return True
             except:
                 pass
-        
+
         # 4. 尝试使用 catimg
         if shutil.which("catimg"):
             try:
@@ -84,7 +82,7 @@ def display_image_terminal(image_path: Path, width: int = 300) -> bool:
                     return True
             except:
                 pass
-        
+
         # 5. 尝试使用 viu
         if shutil.which("viu"):
             try:
@@ -97,7 +95,7 @@ def display_image_terminal(image_path: Path, width: int = 300) -> bool:
                     return True
             except:
                 pass
-        
+
         # 6. 尝试使用 imgcat (iTerm2 的工具)
         if shutil.which("imgcat"):
             try:
@@ -110,10 +108,10 @@ def display_image_terminal(image_path: Path, width: int = 300) -> bool:
                     return True
             except:
                 pass
-                
+
     except Exception:
         pass
-    
+
     return False
 
 
@@ -131,13 +129,13 @@ def open_image_system(image_path: Path) -> bool:
     Returns:
         是否成功打开
     """
+    import os
     import platform
     import subprocess
-    import os
-    
+
     try:
         system = platform.system()
-        
+
         if system == "Darwin":  # macOS
             subprocess.run(["open", str(image_path)], check=True)
             return True
@@ -145,12 +143,12 @@ def open_image_system(image_path: Path) -> bool:
             subprocess.run(["xdg-open", str(image_path)], check=True)
             return True
         elif system == "Windows":
-            os.startfile(str(image_path))
+            os.startfile(str(image_path))  # type: ignore[attr-defined]
             return True
-            
+
     except Exception:
         pass
-    
+
     return False
 
 
@@ -165,24 +163,24 @@ def copy_to_clipboard(text: str) -> bool:
     """
     import platform
     import subprocess
-    
+
     try:
         system = platform.system()
-        
+
         if system == "Darwin":  # macOS
             subprocess.run(["pbcopy"], input=text.encode(), check=True)
             return True
         elif system == "Linux":
-            subprocess.run(["xclip", "-selection", "clipboard"], 
+            subprocess.run(["xclip", "-selection", "clipboard"],
                          input=text.encode(), check=True)
             return True
         elif system == "Windows":
             subprocess.run(["clip"], input=text.encode(), check=True)
             return True
-            
+
     except Exception:
         pass
-    
+
     return False
 
 

@@ -1,20 +1,18 @@
 """model_mappings 中间件映射逻辑与 Dashboard API 集成测试"""
 
 import json
+from unittest.mock import MagicMock
+
 import pytest
 import yaml
-from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock, patch
-
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 from starlette.responses import Response
 
-from smart_router.config.mapping_schema import ModelMappingConfig, ModelMappingRule
 from smart_router.config.mapping_loader import ModelMappingLoader
+from smart_router.config.mapping_schema import ModelMappingConfig, ModelMappingRule
 from smart_router.gateway.server import SmartRouterMiddleware
-
 
 # ==================== Fixtures ====================
 
@@ -654,7 +652,7 @@ class TestResponsesEndpointOverride:
         """带 Override 头的 /v1/responses 请求，model 被替换"""
         router = MagicMock()
         router.model_mappings = None
-        
+
         # mock config
         config = MagicMock()
         model_config = MagicMock()
@@ -662,7 +660,7 @@ class TestResponsesEndpointOverride:
         config.models = {"gpt-4o": model_config}
         config.is_model_available = MagicMock(return_value=True)
         router.sr_config = config
-        
+
         middleware = SmartRouterMiddleware(mock_app, router=router)
 
         captured_body = None

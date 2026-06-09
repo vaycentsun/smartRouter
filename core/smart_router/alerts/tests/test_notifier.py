@@ -2,13 +2,12 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 import httpx
+import pytest
 
-from smart_router.alerts.config import AlertRule, AlertCondition, AlertChannel
 from smart_router.alerts.checker import AlertTrigger
+from smart_router.alerts.config import AlertChannel, AlertCondition, AlertRule
 from smart_router.alerts.notifier import AlertNotifier
-
 
 pytestmark = pytest.mark.asyncio
 

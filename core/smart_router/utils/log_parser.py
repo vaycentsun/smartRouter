@@ -1,7 +1,7 @@
 """日志行解析器，支持新旧格式"""
 
-import re
 import logging
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -31,14 +31,14 @@ def parse_log_line(line: str) -> LogEntry:
     # 格式: YYYY-MM-DD HH:MM:SS,mmm - name - LEVEL - message
     pattern = r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) - (\S+) - (DEBUG|INFO|WARNING|ERROR|CRITICAL) - (.*)$'
     match = re.match(pattern, line.strip())
-    
+
     if match:
         timestamp = match.group(1)
         name = match.group(2)
         level_str = match.group(3)
         message = match.group(4)
         levelno = getattr(logging, level_str, logging.INFO)
-        
+
         return LogEntry(
             timestamp=timestamp,
             level=level_str,
@@ -47,7 +47,7 @@ def parse_log_line(line: str) -> LogEntry:
             message=message,
             raw=line,
         )
-    
+
     # 旧格式：整个行作为 message，标记为 INFO
     return LogEntry(
         timestamp=None,

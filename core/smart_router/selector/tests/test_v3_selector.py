@@ -1,25 +1,26 @@
 """Tests for V3 Model Selector - Refactored for FormulaEvaluator"""
 
+
 import pytest
-import warnings
-from smart_router.selector.v3_selector import V3ModelSelector, NoModelAvailableError
+
 from smart_router.config.schema import (
     Config,
-    ProviderConfig,
-    ModelConfig,
-    ModelCapabilities,
-    TaskConfig,
     DifficultyConfig,
-    StrategyConfig,
     FallbackConfig,
-    RoutingConfig,
     FormulaConfig,
+    ModelCapabilities,
+    ModelConfig,
+    ProviderConfig,
+    RoutingConfig,
+    StrategyConfig,
+    TaskConfig,
 )
+from smart_router.selector.v3_selector import NoModelAvailableError, V3ModelSelector
 
 
 class TestV3ModelSelector:
     """Test V3 Model Selector with FormulaEvaluator"""
-    
+
     @pytest.fixture
     def sample_config(self):
         """创建测试配置 - 包含 formula 字段"""
@@ -77,28 +78,28 @@ class TestV3ModelSelector:
                 fallback=FallbackConfig(mode="auto", similarity_threshold=2)
             )
         )
-    
+
     def test_select_uses_formula_evaluator(self, sample_config):
         """select() 应使用 FormulaEvaluator 基于全局 formula 权重计算得分"""
         selector = V3ModelSelector(sample_config)
-        
+
         # formula weights: quality=0.5, cost=0.5
         # gpt-4o: 9*0.5 + 3*0.5 = 4.5 + 1.5 = 6.0
         # gpt-4o-mini: 6*0.5 + 9*0.5 = 3.0 + 4.5 = 7.5
         result = selector.select("chat", "easy", "auto")
-        
+
         assert result.strategy == "auto"
         assert result.model_name == "gpt-4o-mini"  # 更高 formula 得分
         assert result.score == 7.5
         assert "Formula score" in result.reason
-    
+
     def test_cost_strategy_emits_deprecation_warning(self, sample_config):
         """strategy='cost' 应发出 DeprecationWarning，但返回结果 strategy='auto'"""
         selector = V3ModelSelector(sample_config)
-        
+
         with pytest.warns(DeprecationWarning, match="strategy='cost' is deprecated"):
             result = selector.select("chat", "easy", "cost")
-        
+
         assert result.strategy == "auto"
         # 使用 formula 评分而非纯 cost
         assert result.model_name == "gpt-4o-mini"
@@ -107,59 +108,59 @@ class TestV3ModelSelector:
     def test_unknown_strategy_emits_deprecation_warning(self, sample_config):
         """未知策略应发出 DeprecationWarning，不再抛出异常，返回结果 strategy='auto'"""
         selector = V3ModelSelector(sample_config)
-        
+
         with pytest.warns(DeprecationWarning, match="strategy='unknown_strategy' is deprecated"):
             result = selector.select("chat", "easy", "unknown_strategy")
-        
+
         assert result.strategy == "auto"
         assert result.model_name == "gpt-4o-mini"
 
     def test_difficulty_filtering(self, sample_config):
         """难度过滤应正常工作"""
         selector = V3ModelSelector(sample_config)
-        
+
         # gpt-4o-mini 不支持 hard
         result = selector.select("chat", "hard", "auto")
         assert result.model_name == "gpt-4o"
-    
+
     def test_expert_difficulty_filtering(self, sample_config):
         """expert 难度只有 gpt-4o 支持"""
         selector = V3ModelSelector(sample_config)
-        
+
         result = selector.select("code_review", "expert", "auto")
         assert result.model_name == "gpt-4o"
-    
+
     def test_task_type_filtering(self, sample_config):
         """任务类型过滤应正常工作"""
         selector = V3ModelSelector(sample_config)
-        
+
         # gpt-4o-mini 不支持 code_review
         result = selector.select("code_review", "medium", "auto")
         assert result.model_name == "gpt-4o"
-    
+
     def test_no_model_available(self, sample_config):
         """没有可用模型时应抛异常"""
         selector = V3ModelSelector(sample_config)
-        
+
         with pytest.raises(NoModelAvailableError):
             selector.select("unknown_task", "easy", "auto")
-    
+
     def test_get_available_models(self, sample_config):
         """获取可用模型列表"""
         selector = V3ModelSelector(sample_config)
-        
+
         models = selector.get_available_models("chat", "easy")
         assert "gpt-4o" in models
         assert "gpt-4o-mini" in models
-        
+
         models = selector.get_available_models("chat", "hard")
         assert "gpt-4o" in models
         assert "gpt-4o-mini" not in models
-    
+
     def test_get_required_context_uses_max_tokens(self, sample_config):
         """get_required_context 应使用 routing.difficulties 中的 max_tokens"""
         selector = V3ModelSelector(sample_config)
-        
+
         assert selector.get_required_context("easy") == 2000
         assert selector.get_required_context("medium") == 8000
         assert selector.get_required_context("hard") == 16000
@@ -169,7 +170,7 @@ class TestV3ModelSelector:
     def test_filter_candidates_with_available_models(self, sample_config):
         """available_models 参数过滤"""
         selector = V3ModelSelector(sample_config, available_models=["gpt-4o"])
-        
+
         candidates = selector._filter_candidates("chat", "easy")
         names = [name for name, _ in candidates]
         assert "gpt-4o" in names
@@ -178,7 +179,7 @@ class TestV3ModelSelector:
     def test_filter_candidates_with_required_context(self, sample_config):
         """required_context 过滤上下文不足的模型"""
         selector = V3ModelSelector(sample_config)
-        
+
         candidates = selector._filter_candidates("chat", "easy", required_context=200000)
         # gpt-4o 和 gpt-4o-mini 都是 128000，不足 200000
         assert len(candidates) == 0
@@ -186,7 +187,7 @@ class TestV3ModelSelector:
     def test_get_candidates_alias(self, sample_config):
         """get_candidates 是 get_available_models 的兼容别名"""
         selector = V3ModelSelector(sample_config)
-        
+
         result1 = selector.get_candidates("chat", "easy")
         result2 = selector.get_available_models("chat", "easy")
         assert result1 == result2
@@ -312,10 +313,10 @@ class TestV3ModelSelector:
                 fallback=FallbackConfig()
             )
         )
-        
+
         selector = V3ModelSelector(config)
         result = selector.select("chat", "easy", "auto")
-        
+
         # score = 8*1.0 + 5*1.0 = 13.0（不归一化）
         assert result.model_name == "model-a"
         assert result.score == 13.0
@@ -379,15 +380,15 @@ class TestV3ModelSelector:
                 fallback=FallbackConfig()
             )
         )
-        
+
         selector = V3ModelSelector(config)
-        
+
         # 不需要 vision 时，两个模型都应该出现
         candidates = selector._filter_candidates("chat", "medium", requires_vision=False)
         model_names = [name for name, _ in candidates]
         assert "gpt-4o" in model_names
         assert "gpt-4o-vision" in model_names
-        
+
         # 需要 vision 时，只有 vision=True 的模型应该出现
         candidates = selector._filter_candidates("chat", "medium", requires_vision=True)
         model_names = [name for name, _ in candidates]
@@ -423,13 +424,13 @@ class TestV3ModelSelector:
                 fallback=FallbackConfig()
             )
         )
-        
+
         selector = V3ModelSelector(config)
-        
+
         # 需要 vision 时，应该选中 vision 模型
         result = selector.select("chat", "medium", requires_vision=True)
         assert result.model_name == "gpt-4o-vision"
-        
+
         # 不需要 vision 时，可能选中任一模型（根据评分）
         result = selector.select("chat", "medium", requires_vision=False)
         assert result.model_name in ["gpt-4o", "gpt-4o-vision"]
@@ -437,15 +438,15 @@ class TestV3ModelSelector:
     def test_select_ranked_filters_and_sorts(self, sample_config):
         """select_ranked 应返回按公式得分降序排列的完整候选列表"""
         selector = V3ModelSelector(sample_config)
-        
+
         ranked = selector.select_ranked("chat", "easy")
-        
+
         # 应包含所有支持 chat/easy 的模型
         model_names = [name for name, _ in ranked]
         assert "gpt-4o" in model_names
         assert "gpt-4o-mini" in model_names
         assert "cheap-bad-model" in model_names
-        
+
         # 按 formula 得分降序排列
         # formula weights: quality=0.5, cost=0.5
         # gpt-4o: 9*0.5 + 3*0.5 = 6.0
@@ -455,27 +456,27 @@ class TestV3ModelSelector:
         assert scores["gpt-4o-mini"] == 7.5
         assert scores["gpt-4o"] == 6.0
         assert scores["cheap-bad-model"] == 6.0
-        
+
         # 验证降序
         for i in range(len(ranked) - 1):
             assert ranked[i][1] >= ranked[i + 1][1]
-    
+
     def test_select_ranked_empty_candidates(self, sample_config):
         """没有候选模型时应返回空列表"""
         selector = V3ModelSelector(sample_config)
-        
+
         ranked = selector.select_ranked("unknown_task", "easy")
         assert ranked == []
-    
+
     def test_select_ranked_respects_filters(self, sample_config):
         """select_ranked 应正确应用 difficulty 和 context 过滤"""
         selector = V3ModelSelector(sample_config)
-        
+
         # hard 难度只支持 gpt-4o
         ranked = selector.select_ranked("chat", "hard")
         model_names = [name for name, _ in ranked]
         assert model_names == ["gpt-4o"]
-        
+
         # 需要 vision 时过滤非 vision 模型
         ranked = selector.select_ranked("chat", "easy", requires_vision=True)
         model_names = [name for name, _ in ranked]
@@ -512,11 +513,11 @@ class TestV3ModelSelector:
                 fallback=FallbackConfig()
             )
         )
-        
+
         selector = V3ModelSelector(config)
         candidates = selector._filter_candidates("chat", "easy")
         model_names = [name for name, _ in candidates]
-        
+
         assert "model-enabled" in model_names
         assert "model-disabled" not in model_names
 
@@ -542,11 +543,11 @@ class TestV3ModelSelector:
                 fallback=FallbackConfig()
             )
         )
-        
+
         selector = V3ModelSelector(config)
         candidates = selector._filter_candidates("chat", "easy")
         model_names = [name for name, _ in candidates]
-        
+
         assert "model-old" in model_names
 
     def test_select_excludes_disabled_models(self):
@@ -579,10 +580,10 @@ class TestV3ModelSelector:
                 fallback=FallbackConfig()
             )
         )
-        
+
         selector = V3ModelSelector(config)
         result = selector.select("chat", "easy")
-        
+
         assert result.model_name == "model-a"
 
     def test_no_model_available_when_all_disabled(self):
@@ -607,9 +608,9 @@ class TestV3ModelSelector:
                 fallback=FallbackConfig()
             )
         )
-        
+
         selector = V3ModelSelector(config)
-        
+
         with pytest.raises(NoModelAvailableError):
             selector.select("chat", "easy")
 

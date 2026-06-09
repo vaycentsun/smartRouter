@@ -1,18 +1,18 @@
 """Smart Router 配置模块"""
 
+from ..exceptions import NoModelAvailableError, UnknownStrategyError
+from .loader import ConfigError, ConfigLoader, load_config
 from .schema import (
-    ProviderConfig,
+    Config,
+    DifficultyConfig,
+    FallbackConfig,
     ModelCapabilities,
     ModelConfig,
-    TaskConfig,
-    DifficultyConfig,
-    StrategyConfig,
-    FallbackConfig,
+    ProviderConfig,
     RoutingConfig,
-    Config,
+    StrategyConfig,
+    TaskConfig,
 )
-from .loader import ConfigLoader, ConfigError, load_config
-from ..exceptions import NoModelAvailableError, UnknownStrategyError
 
 # 向后兼容别名
 ConfigV3 = Config

@@ -3,8 +3,8 @@
 统一导出 V3 模型选择器，v2 ModelSelector 已废弃。
 """
 
-from .v3_selector import V3ModelSelector, SelectionResult, NoModelAvailableError
 from ..exceptions import UnknownStrategyError
+from .v3_selector import NoModelAvailableError, SelectionResult, V3ModelSelector
 
 # 向后兼容别名（废弃）
 ModelSelector = V3ModelSelector

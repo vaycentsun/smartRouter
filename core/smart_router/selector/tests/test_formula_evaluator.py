@@ -2,8 +2,8 @@
 
 import pytest
 
-from smart_router.selector.formula_evaluator import FormulaEvaluator
 from smart_router.config.schema import FormulaConfig, ModelCapabilities
+from smart_router.selector.formula_evaluator import FormulaEvaluator
 
 
 class TestFormulaEvaluatorSingleDimension:

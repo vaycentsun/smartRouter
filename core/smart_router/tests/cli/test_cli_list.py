@@ -1,10 +1,11 @@
 """Tests for CLI list command"""
 
-import pytest
-from typer.testing import CliRunner
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+import pytest
 import yaml
+from typer.testing import CliRunner
 
 from smart_router.cli import app
 
@@ -16,7 +17,7 @@ def mock_config_dir():
     """Create a temporary config directory with test configurations"""
     with tempfile.TemporaryDirectory() as tmpdir:
         config_dir = Path(tmpdir)
-        
+
         # Create providers.yaml
         providers = {
             "providers": {
@@ -37,7 +38,7 @@ def mock_config_dir():
                 }
             }
         }
-        
+
         # Create models/
         models = {
             "models": {
@@ -103,7 +104,7 @@ def mock_config_dir():
         (config_dir / "providers.yaml").write_text(yaml.dump(providers))
         (models_dir / "default.yaml").write_text(yaml.dump(models))
         (config_dir / "routing.yaml").write_text(yaml.dump(routing))
-        
+
         yield config_dir
 
 
@@ -118,7 +119,7 @@ def test_list_command_shows_providers(mock_config_dir, monkeypatch):
     """Test that list command displays configured providers"""
     # Use --config option instead of mocking Path.home()
     result = runner.invoke(app, ["list", "--config", str(mock_config_dir)])
-    
+
     assert result.exit_code == 0
     # Check providers are shown
     assert "openai" in result.output.lower() or "OpenAI" in result.output
@@ -130,7 +131,7 @@ def test_list_command_shows_models(mock_config_dir, monkeypatch):
     """Test that list command displays available models"""
     # Use --config option instead of mocking Path.home()
     result = runner.invoke(app, ["list", "--config", str(mock_config_dir)])
-    
+
     assert result.exit_code == 0
     # Check models are shown
     assert "gpt-4o" in result.output
@@ -142,9 +143,9 @@ def test_list_command_shows_model_availability(mock_config_dir, monkeypatch):
     """Test that list command shows model availability based on API key config"""
     # Set the environment variable for openai to simulate configured provider
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test123")
-    
+
     result = runner.invoke(app, ["list", "--config", str(mock_config_dir)])
-    
+
     assert result.exit_code == 0
     # OpenAI should show as available (has env key)
     # Anthropic and Moonshot should show as unavailable (no key)
@@ -153,7 +154,7 @@ def test_list_command_shows_model_availability(mock_config_dir, monkeypatch):
 def test_list_command_with_config_option(mock_config_dir):
     """Test list command with --config option"""
     result = runner.invoke(app, ["list", "--config", str(mock_config_dir)])
-    
+
     assert result.exit_code == 0
     assert "provider" in result.output.lower() or "提供商" in result.output or "服务商" in result.output
 
@@ -163,5 +164,5 @@ def test_list_command_handles_missing_config():
     with tempfile.TemporaryDirectory() as tmpdir:
         empty_dir = Path(tmpdir)
         result = runner.invoke(app, ["list", "--config", str(empty_dir)])
-        
+
         assert result.exit_code != 0 or "错误" in result.output or "error" in result.output.lower() or "未找到" in result.output or "not found" in result.output.lower()

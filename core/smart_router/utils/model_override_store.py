@@ -24,16 +24,16 @@ def load_override_state(path: Optional[Path] = None) -> dict:
     override_file = path or DEFAULT_OVERRIDE_FILE
     if not override_file.exists():
         return {"provider": None, "model": None, "enabled": False}
-    
+
     try:
-        with open(override_file, "r", encoding="utf-8") as f:
+        with open(override_file, encoding="utf-8") as f:
             data = json.load(f)
         return {
             "provider": data.get("provider"),
             "model": data.get("model"),
             "enabled": data.get("enabled", False),
         }
-    except (json.JSONDecodeError, IOError, KeyError) as e:
+    except (OSError, json.JSONDecodeError, KeyError) as e:
         logger.warning(f"Failed to load global model override state: {e}")
         return {"provider": None, "model": None, "enabled": False}
 
@@ -42,24 +42,24 @@ def save_override_state(provider: Optional[str], model: Optional[str], enabled: 
     """保存全局模型覆盖状态到文件"""
     override_file = path or DEFAULT_OVERRIDE_FILE
     override_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     data = {
         "provider": provider,
         "model": model,
         "enabled": enabled,
     }
-    
+
     tmp = override_file.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     os.replace(tmp, override_file)
-    
+
     # 敏感数据文件权限设为 0o600
     try:
         os.chmod(override_file, 0o600)
     except OSError:
         pass
-    
+
     logger.info(f"Global model override saved: provider={provider}, model={model}, enabled={enabled}")
 
 

@@ -1,6 +1,5 @@
 """Alerts API 测试"""
 
-import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,6 +12,7 @@ from smart_router.gateway.dashboard_api import build_dashboard_app
 @pytest.fixture
 def client(tmp_path):
     from unittest.mock import patch
+
     import smart_router.utils.request_routing_history as rrh
     # 使用临时文件隔离测试状态，避免历史记录跨测试泄漏
     temp_history = tmp_path / "request_routing_history.json"

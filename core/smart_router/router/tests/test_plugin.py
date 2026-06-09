@@ -1,20 +1,21 @@
 """Tests for SmartRouter plugin — 覆盖 select_model 与路由决策"""
 
-import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
-from smart_router.router.plugin import SmartRouter, _message_contains_image
+import pytest
+
 from smart_router.config.schema import (
     Config,
-    ProviderConfig,
-    ModelConfig,
-    ModelCapabilities,
-    RoutingConfig,
-    TaskConfig,
     DifficultyConfig,
-    StrategyConfig,
     FallbackConfig,
+    ModelCapabilities,
+    ModelConfig,
+    ProviderConfig,
+    RoutingConfig,
+    StrategyConfig,
+    TaskConfig,
 )
+from smart_router.router.plugin import SmartRouter, _message_contains_image
 
 
 @pytest.fixture
@@ -183,7 +184,7 @@ class TestSmartRouterFallbacks:
     def test_fallbacks_passed_to_litellm_router(self):
         """SmartRouter 应将 Config 的 fallback 链转为 LiteLLM fallbacks 格式并传入 Router"""
         from smart_router.config.schema import FallbackConfig
-        
+
         config = Config(
             providers={
                 "openai": ProviderConfig(
@@ -214,17 +215,17 @@ class TestSmartRouterFallbacks:
                 fallback=FallbackConfig(similarity_threshold=2)
             )
         )
-        
+
         with patch('smart_router.router.plugin.Router.__init__', return_value=None) as mock_super:
             SmartRouter(config=config)
-            
+
             call_kwargs = mock_super.call_args.kwargs
             assert "fallbacks" in call_kwargs, "fallbacks 参数应传入 Router.__init__"
-            
+
             fallbacks = call_kwargs["fallbacks"]
             assert isinstance(fallbacks, list), "fallbacks 应为列表"
             assert len(fallbacks) > 0, "fallbacks 不应为空（存在 quality 差异 <=2 的模型）"
-            
+
             # 验证格式: [{"model-a": ["model-b"]}]
             model_a_entry = next((f for f in fallbacks if "model-a" in f), None)
             assert model_a_entry is not None, "model-a 的 fallback 条目应存在"
@@ -309,8 +310,17 @@ class TestSmartRouterGracefulFallback:
 
     def test_select_model_returns_ranked_models(self):
         """select_model 应返回包含策略排序列表的 SelectionResult"""
-        from smart_router.config.schema import ProviderConfig, ModelConfig, ModelCapabilities
-        from smart_router.config.schema import RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, FormulaConfig
+        from smart_router.config.schema import (
+            DifficultyConfig,
+            FallbackConfig,
+            FormulaConfig,
+            ModelCapabilities,
+            ModelConfig,
+            ProviderConfig,
+            RoutingConfig,
+            StrategyConfig,
+            TaskConfig,
+        )
 
         config = Config(
             providers={
@@ -355,8 +365,17 @@ class TestSmartRouterGracefulFallback:
 
     def test_select_model_graceful_fallback_ranked_models(self):
         """graceful fallback 时 ranked_models 应为可用模型列表"""
-        from smart_router.config.schema import ProviderConfig, ModelConfig, ModelCapabilities
-        from smart_router.config.schema import RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, FormulaConfig
+        from smart_router.config.schema import (
+            DifficultyConfig,
+            FallbackConfig,
+            FormulaConfig,
+            ModelCapabilities,
+            ModelConfig,
+            ProviderConfig,
+            RoutingConfig,
+            StrategyConfig,
+            TaskConfig,
+        )
 
         config = Config(
             providers={
@@ -397,8 +416,16 @@ class TestSmartRouterReloadConfig:
 
     def test_reload_config_updates_selector(self):
         """reload_config 应更新 selector 以反映新配置"""
-        from smart_router.config.schema import ProviderConfig, ModelConfig, ModelCapabilities
-        from smart_router.config.schema import RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig
+        from smart_router.config.schema import (
+            DifficultyConfig,
+            FallbackConfig,
+            ModelCapabilities,
+            ModelConfig,
+            ProviderConfig,
+            RoutingConfig,
+            StrategyConfig,
+            TaskConfig,
+        )
 
         config1 = Config(
             providers={
@@ -463,17 +490,17 @@ class TestSmartRouterGetAvailableDeployment:
     async def test_get_available_deployment_for_auto_delegates_to_select_model(self, smart_router):
         """model=auto 时应调用 select_model 并传入 super"""
         from smart_router.selector.v3_selector import SelectionResult
-        
+
         with patch.object(smart_router, 'select_model') as mock_select:
             mock_select.return_value = SelectionResult(
                 model_name='gpt-4o', task_type='chat', difficulty='medium',
                 strategy='auto', score=0.9, reason='test'
             )
-            
+
             with patch('smart_router.router.plugin.Router.get_available_deployment', new_callable=AsyncMock) as mock_super:
                 mock_super.return_value = {"model": "gpt-4o"}
                 await smart_router.get_available_deployment("auto", messages=[{"role": "user", "content": "hi"}])
-                
+
                 mock_select.assert_called_once()
                 mock_super.assert_called_once()
                 # 验证 super 被调用时传入选中的模型名
@@ -483,7 +510,7 @@ class TestSmartRouterGetAvailableDeployment:
 
 class TestMessageContainsImage:
     """测试 _message_contains_image 函数"""
-    
+
     def test_text_only_returns_false(self):
         """纯文本消息应返回 False"""
         messages = [
@@ -491,7 +518,7 @@ class TestMessageContainsImage:
             {"role": "assistant", "content": "I'm fine, thank you!"}
         ]
         assert _message_contains_image(messages) is False
-    
+
     def test_single_image_url_returns_true(self):
         """包含 image_url 的消息应返回 True"""
         messages = [
@@ -504,7 +531,7 @@ class TestMessageContainsImage:
             }
         ]
         assert _message_contains_image(messages) is True
-    
+
     def test_multiple_messages_with_image(self):
         """多消息中有一张图片应返回 True"""
         messages = [
@@ -517,11 +544,11 @@ class TestMessageContainsImage:
             }
         ]
         assert _message_contains_image(messages) is True
-    
+
     def test_empty_messages_returns_false(self):
         """空消息列表应返回 False"""
         assert _message_contains_image([]) is False
-    
+
     def test_text_only_multimodal_content(self):
         """多模态内容但只有文本应返回 False"""
         messages = [
@@ -537,7 +564,7 @@ class TestMessageContainsImage:
 
 class TestSelectModelVision:
     """测试 select_model 正确传递 requires_vision"""
-    
+
     def test_select_model_with_image_sets_requires_vision(self, smart_router):
         """包含图片的消息应将 requires_vision=True 传递给 selector"""
         messages_with_image = [
@@ -549,7 +576,7 @@ class TestSelectModelVision:
                 ]
             }
         ]
-        
+
         # Mock classification to avoid processing multimodal content
         with patch.object(smart_router, '_get_classification') as mock_classify:
             mock_classify.return_value = type('ClassificationResult', (), {
@@ -558,7 +585,7 @@ class TestSelectModelVision:
                 'confidence': 1.0,
                 'source': 'test'
             })()
-            
+
             with patch.object(smart_router.selector, 'select') as mock_select:
                 mock_select.return_value = type('Result', (), {
                     'model_name': 'gpt-4o',
@@ -568,19 +595,19 @@ class TestSelectModelVision:
                     'score': 0.9,
                     'reason': 'test'
                 })()
-                
+
                 smart_router.select_model("auto", messages_with_image)
-                
+
                 # 验证 requires_vision=True 被传递
                 call_kwargs = mock_select.call_args.kwargs
                 assert call_kwargs.get('requires_vision') is True
-    
+
     def test_select_model_without_image_requires_vision_false(self, smart_router):
         """不包含图片的消息应将 requires_vision=False 传递给 selector"""
         messages_without_image = [
             {"role": "user", "content": "Hello, how are you?"}
         ]
-        
+
         with patch.object(smart_router, '_get_classification') as mock_classify:
             mock_classify.return_value = type('ClassificationResult', (), {
                 'task_type': 'chat',
@@ -588,7 +615,7 @@ class TestSelectModelVision:
                 'confidence': 1.0,
                 'source': 'test'
             })()
-            
+
             with patch.object(smart_router.selector, 'select') as mock_select:
                 mock_select.return_value = type('Result', (), {
                     'model_name': 'gpt-4o',
@@ -598,9 +625,9 @@ class TestSelectModelVision:
                     'score': 0.9,
                     'reason': 'test'
                 })()
-                
+
                 smart_router.select_model("auto", messages_without_image)
-                
+
                 # 验证 requires_vision=False 被传递
                 call_kwargs = mock_select.call_args.kwargs
                 assert call_kwargs.get('requires_vision') is False

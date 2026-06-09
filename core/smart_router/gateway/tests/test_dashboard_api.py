@@ -1,10 +1,8 @@
 """dashboard_api 模块单元测试"""
 
-import pytest
-import os
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from smart_router.gateway.dashboard_api import build_dashboard_app
@@ -13,6 +11,7 @@ from smart_router.gateway.dashboard_api import build_dashboard_app
 @pytest.fixture
 def client(tmp_path):
     from unittest.mock import patch
+
     import smart_router.utils.request_routing_history as rrh
     # 使用临时文件隔离测试状态，避免历史记录跨测试泄漏
     temp_history = tmp_path / "request_routing_history.json"
@@ -94,8 +93,17 @@ class TestDryRun:
     def test_dry_run_returns_fallback_chain(self, client):
         """dry-run 成功时应返回选中模型的 fallback 链"""
         with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
-            from smart_router.config.schema import Config, ProviderConfig, ModelConfig, ModelCapabilities
-            from smart_router.config.schema import RoutingConfig, TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig
+            from smart_router.config.schema import (
+                Config,
+                DifficultyConfig,
+                FallbackConfig,
+                ModelCapabilities,
+                ModelConfig,
+                ProviderConfig,
+                RoutingConfig,
+                StrategyConfig,
+                TaskConfig,
+            )
 
             cfg = Config(
                 providers={
@@ -211,7 +219,7 @@ class TestStaticFiles:
 
 
 import json
-from unittest.mock import patch
+
 from smart_router.utils.token_stats import TokenStats as RealTokenStats
 
 
@@ -442,7 +450,6 @@ class TestProviderHealthAPI:
 
     def test_models_with_health_status(self, client):
         """/api/models 返回包含 health_status"""
-        from smart_router.config.schema import ModelConfig, ModelCapabilities
 
         with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
             mock_cfg = MagicMock()
@@ -482,7 +489,6 @@ class TestProviderHealthAPI:
 
     def test_models_with_not_found_status(self, client):
         """Provider healthy 但模型不在列表中时返回 not_found"""
-        from smart_router.config.schema import ModelConfig, ModelCapabilities
 
         with patch("smart_router.gateway.dashboard_api.ConfigLoader") as mock_loader:
             mock_cfg = MagicMock()

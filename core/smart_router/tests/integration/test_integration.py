@@ -1,19 +1,27 @@
 """集成测试 - V3 架构"""
 
-import pytest
-from pathlib import Path
 import tempfile
-import yaml
+from pathlib import Path
 
+import pytest
+
+from smart_router.classifier.difficulty_classifier import DifficultyClassifier
+from smart_router.classifier.task_classifier import TaskTypeClassifier
 from smart_router.config.loader import ConfigLoader
 from smart_router.config.schema import (
-    Config, ProviderConfig, ModelConfig, ModelCapabilities,
-    TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, RoutingConfig, FormulaConfig
+    Config,
+    DifficultyConfig,
+    FallbackConfig,
+    FormulaConfig,
+    ModelCapabilities,
+    ModelConfig,
+    ProviderConfig,
+    RoutingConfig,
+    StrategyConfig,
+    TaskConfig,
 )
-from smart_router.utils.markers import parse_markers
-from smart_router.classifier.task_classifier import TaskTypeClassifier
-from smart_router.classifier.difficulty_classifier import DifficultyClassifier
 from smart_router.selector.v3_selector import V3ModelSelector
+from smart_router.utils.markers import parse_markers
 
 
 @pytest.fixture
@@ -105,7 +113,7 @@ def test_config_load_from_yaml():
     """测试从 YAML 文件加载 V3 配置"""
     with tempfile.TemporaryDirectory() as tmpdir:
         config_dir = Path(tmpdir)
-        
+
         (config_dir / "providers.yaml").write_text("""
 providers:
   openai:
@@ -148,7 +156,7 @@ fallback:
   mode: auto
   similarity_threshold: 2
 """)
-        
+
         loader = ConfigLoader(config_dir)
         config = loader.load()
         assert "test-model" in config.models
@@ -162,11 +170,11 @@ def test_full_routing_flow_with_markers(test_config, model_pool_from_config):
     markers = parse_markers(messages)
     assert markers.stage == "writing"
     assert markers.difficulty == "hard"
-    
+
     # 2. 使用 V3 选择器
     selector = V3ModelSelector(test_config)
     result = selector.select(task_type=markers.stage, difficulty=markers.difficulty, strategy="auto")
-    
+
     # hard writing 应该选 claude-3-opus（唯一支持 hard + writing）
     assert result.model_name == "claude-3-opus"
 
@@ -192,9 +200,9 @@ def test_auto_classification_flow(test_config, model_pool_from_config):
         {"condition": "length > 200", "difficulty": "hard", "priority": 1}
     ])
     difficulty_result = difficulty_classifier.classify("你好", task_type=task_result.task_type)
-    
+
     assert difficulty_result.difficulty == "easy"
-    
+
     # 3. 模型选择（V3）
     selector = V3ModelSelector(test_config)
     selection_result = selector.select(
@@ -202,7 +210,7 @@ def test_auto_classification_flow(test_config, model_pool_from_config):
         difficulty=difficulty_result.difficulty,
         strategy="auto"
     )
-    
+
     # easy chat 应该选 gpt-4o-mini（成本更低，且支持 easy+chat）
     assert selection_result.model_name == "gpt-4o-mini"
 
@@ -220,6 +228,6 @@ def test_difficulty_rules_priority():
         {"condition": "keyword:简单", "difficulty": "easy", "priority": 1},
         {"condition": "length > 100", "difficulty": "hard", "priority": 2}
     ])
-    
+
     result = classifier.classify("简单" + "x" * 200)
     assert result.difficulty == "easy"

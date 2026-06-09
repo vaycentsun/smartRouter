@@ -4,13 +4,13 @@
 v2 格式支持双轨存储：累计 records + 按日聚合 daily_records。
 """
 
+import asyncio
 import json
 import logging
 import os
 import time
 from pathlib import Path
 from typing import Optional
-import asyncio
 
 DEFAULT_STATS_FILE = Path.home() / ".smart-router" / "token_stats.json"
 logger = logging.getLogger(__name__)
@@ -26,11 +26,11 @@ class TokenStats:
     def _load(self):
         if self.stats_file.exists():
             try:
-                with open(self.stats_file, "r", encoding="utf-8") as f:
+                with open(self.stats_file, encoding="utf-8") as f:
                     content = f.read().strip()
                     if content:
                         self._data = json.loads(content)
-            except (json.JSONDecodeError, IOError) as e:
+            except (OSError, json.JSONDecodeError) as e:
                 logger.warning(f"Token stats file corrupted or unreadable: {e}. Starting fresh.")
                 self._data = {}
         if "records" not in self._data:
@@ -45,7 +45,7 @@ class TokenStats:
         """将 v1 格式升级到 v2：保留 records，新增 daily_records，升级前备份"""
         try:
             backup_path = self.stats_file.with_suffix(".json.bak")
-            with open(self.stats_file, "r", encoding="utf-8") as f:
+            with open(self.stats_file, encoding="utf-8") as f:
                 original_content = f.read()
             with open(backup_path, "w", encoding="utf-8") as f:
                 f.write(original_content)

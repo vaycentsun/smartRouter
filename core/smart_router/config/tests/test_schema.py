@@ -5,15 +5,15 @@ from pydantic import ValidationError
 
 from smart_router.config.schema import (
     Config,
-    ProviderConfig,
-    ModelConfig,
-    ModelCapabilities,
-    ModelPrice,
-    RoutingConfig,
-    TaskConfig,
     DifficultyConfig,
-    StrategyConfig,
     FallbackConfig,
+    ModelCapabilities,
+    ModelConfig,
+    ModelPrice,
+    ProviderConfig,
+    RoutingConfig,
+    StrategyConfig,
+    TaskConfig,
 )
 
 

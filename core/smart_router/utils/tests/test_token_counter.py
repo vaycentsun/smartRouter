@@ -1,7 +1,6 @@
 """token_counter 单元测试 — 补充边界条件"""
 
-import pytest
-from smart_router.utils.token_counter import estimate_tokens, estimate_messages_tokens
+from smart_router.utils.token_counter import estimate_messages_tokens, estimate_tokens
 
 
 class TestEstimateTokens:

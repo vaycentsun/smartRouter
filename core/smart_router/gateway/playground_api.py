@@ -227,7 +227,7 @@ async def _call_model(model_name: str, prompt: str, config):
                 status_code = match.group(1)
 
         if status_code:
-            error_msg = f"{status_code} {str(e)}"
+            error_msg = f"{status_code} {e!s}"
         else:
             error_msg = str(e)
 
@@ -292,6 +292,8 @@ async def completions(request: PlaygroundRequest):
                     routing_info=routing_info,
                 ))
             else:
+                from typing import cast
+                res = cast(PlaygroundResult, res)
                 res.routing_info = routing_info
                 final_results.append(res)
     else:

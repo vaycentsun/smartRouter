@@ -1,30 +1,32 @@
 """Smart Router CLI"""
 
-import shutil
 import sys
 from pathlib import Path
 from typing import List, Optional
 
 import typer
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.align import Align
-from rich.text import Text
 from rich import box
+from rich.align import Align
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 from smart_router import __version__
 
-from .config.loader import ConfigLoader, ConfigError, load_config
-from .classifier.task_classifier import TaskTypeClassifier
 from .classifier.difficulty_classifier import DifficultyClassifier
+from .classifier.task_classifier import TaskTypeClassifier
+from .config.loader import ConfigError, ConfigLoader
+from .gateway.daemon import (
+    check_status,
+    restart_daemon,
+    start_daemon,
+    stop_daemon,
+    view_logs,
+)
+from .misc.coffee_qr import get_qr_code_path, open_image_system
 from .selector.v3_selector import V3ModelSelector
 from .utils.markers import parse_markers
-from .gateway.daemon import start_daemon, stop_daemon, restart_daemon, check_status, view_logs
-from .misc.coffee_qr import (
-    get_qr_code_path, QR_CODE_PATH,
-    open_image_system, copy_to_clipboard
-)
 
 app = typer.Typer(name="smart-router", help="智能模型路由网关")
 console = Console()
@@ -44,7 +46,7 @@ def version(
         content.append("\n")
         content.append("智能模型路由网关\n", style="dim")
         content.append("统一 API 入口，自动路由到最优模型\n", style="dim")
-        
+
         panel = Panel(
             content,
             title="[bold yellow]ℹ️ 版本信息[/bold yellow]",
@@ -464,13 +466,13 @@ def dry_run(
     else:
         config_path = Path(config)
         config_dir = config_path if config_path.is_dir() else config_path.parent
-    
+
     loader = ConfigLoader(config_dir)
     cfg = loader.load()
-    
+
     messages = [{"role": "user", "content": prompt}]
     markers = parse_markers(messages)
-    
+
     # 1. 任务分类
     # 从 V3 routing.tasks 构建任务分类器配置
     task_types_config = {
@@ -482,7 +484,7 @@ def dry_run(
         for task_id, task_config in cfg.routing.tasks.items()
     }
     task_classifier = TaskTypeClassifier(task_types_config)
-    
+
     if markers.stage:
         task_result = type('obj', (object,), {
             'task_type': markers.stage,
@@ -491,7 +493,7 @@ def dry_run(
         })()
     else:
         task_result = task_classifier.classify(messages)
-    
+
     # 2. 难度评估
     if markers.difficulty:
         difficulty_result = type('obj', (object,), {
@@ -513,23 +515,23 @@ def dry_run(
         ]
         difficulty_classifier = DifficultyClassifier(difficulty_config)
         difficulty_result = difficulty_classifier.classify(prompt, task_type=task_result.task_type)
-    
+
     # 3. 模型选择（使用 V3 选择器）
     available_models = cfg.get_available_models()
     selector = V3ModelSelector(cfg, available_models=available_models)
-    
+
     selection_result = selector.select(
         task_type=task_result.task_type,
         difficulty=difficulty_result.difficulty,
         strategy=strategy
     )
-    
+
     # 显示结果
     table = Table(title=f"路由决策详情 [策略: {strategy}]")
     table.add_column("步骤", style="cyan")
     table.add_column("结果", style="green")
     table.add_column("详情", style="dim")
-    
+
     table.add_row(
         "1. 任务分类",
         task_result.task_type,
@@ -545,9 +547,9 @@ def dry_run(
         selection_result.model_name,
         selection_result.reason
     )
-    
+
     console.print(table)
-    
+
     if show_all:
         candidates = selector.get_available_models(task_result.task_type, difficulty_result.difficulty)
         console.print(f"\n[dim]所有候选模型 ({len(candidates)} 个): {', '.join(candidates)}[/dim]")
@@ -558,13 +560,12 @@ def doctor(
     config: Optional[Path] = typer.Option(None, "--config", "-c", help="配置文件目录路径")
 ):
     """运行健康检查 - 支持 V3 三文件配置"""
-    import os
-    
+
     console.print(Panel.fit("🔍 Smart Router 健康检查", style="bold blue"))
-    
+
     checks_passed = 0
     checks_failed = 0
-    
+
     # 检查 1: Python 版本
     py_version = sys.version_info
     if py_version >= (3, 9):
@@ -573,10 +574,10 @@ def doctor(
     else:
         console.print(f"[red]✗[/red] Python 版本: {py_version.major}.{py_version.minor} (需要 3.9+)")
         checks_failed += 1
-    
+
     # 检查 2: V3 配置
     config_dir = Path(config) if config else Path.home() / ".smart-router"
-    
+
     # 检查 V3 配置文件是否存在
     missing_items = []
     if not (config_dir / "providers.yaml").exists():
@@ -589,7 +590,7 @@ def doctor(
 
     if missing_items:
         console.print(f"[red]✗[/red] V3 配置文件缺失: {', '.join(missing_items)}")
-        console.print(f"[dim]  请运行 `smart-router init` 生成配置[/dim]")
+        console.print("[dim]  请运行 `smart-router init` 生成配置[/dim]")
         checks_failed += 2
     else:
         try:
@@ -598,25 +599,25 @@ def doctor(
             cfg = loader.load()
             console.print(f"[green]✓[/green] 配置加载成功 ({len(cfg.models)} 个模型)")
             checks_passed += 1
-            
+
             # 验证配置
             errors = loader.validate()
             if errors:
-                console.print(f"[red]✗[/red] 配置验证失败:")
+                console.print("[red]✗[/red] 配置验证失败:")
                 for err in errors:
                     console.print(f"  [red]-[/red] {err}")
                 checks_failed += 1
             else:
                 console.print("[green]✓[/green] 配置验证通过")
                 checks_passed += 1
-                
+
         except ConfigError as e:
             console.print(f"[red]✗[/red] 配置加载失败: {e}")
             checks_failed += 2
         except Exception as e:
             console.print(f"[red]✗[/red] 配置加载失败: {e}")
             checks_failed += 2
-    
+
     # 检查 3: 服务状态
     from .gateway.daemon import _get_pid, _is_process_running
     pid = _get_pid()
@@ -625,7 +626,7 @@ def doctor(
         checks_passed += 1
     else:
         console.print("[dim]○ 服务未运行[/dim]")
-    
+
     # 总结
     console.print("")
     if checks_failed == 0:
@@ -646,7 +647,7 @@ def list_models(
 ):
     """列出已配置的 Provider 和可用模型"""
     config_dir = Path(config) if config else Path.home() / ".smart-router"
-    
+
     # 检查配置文件是否存在
     missing_items = []
     if not (config_dir / "providers.yaml").exists():
@@ -659,19 +660,19 @@ def list_models(
 
     if missing_items:
         console.print(f"[red]✗[/red] 配置文件缺失: {', '.join(missing_items)}")
-        console.print(f"[dim]  请运行 `smart-router init` 生成配置[/dim]")
+        console.print("[dim]  请运行 `smart-router init` 生成配置[/dim]")
         raise typer.Exit(1)
-    
+
     try:
         import os
-        
+
         # 加载配置
         loader = ConfigLoader(config_dir)
         cfg = loader.load()
-        
+
         # 显示 Providers 表格
         console.print(Panel.fit("📡 已配置的 Providers", style="bold blue"))
-        
+
         provider_table = Table(
             title="",
             box=box.ROUNDED,
@@ -682,7 +683,7 @@ def list_models(
         provider_table.add_column("API Base", style="dim", min_width=40)
         provider_table.add_column("Timeout", style="yellow", justify="right", width=10)
         provider_table.add_column("Auth", style="magenta", width=12)
-        
+
         for name, provider in cfg.providers.items():
             # 检查 API Key 类型
             if provider.api_key.startswith("os.environ/"):
@@ -693,17 +694,17 @@ def list_models(
                     auth_status = "[red]✗ missing[/red]"
             else:
                 auth_status = "[green]✓ key[/green]"
-            
+
             provider_table.add_row(
                 name,
                 provider.api_base,
                 f"{provider.timeout}s",
                 auth_status
             )
-        
+
         console.print(provider_table)
         console.print("")
-        
+
         # 预先检查每个 provider 是否有有效的 API Key
         def is_provider_available(provider_name: str) -> bool:
             """检查 provider 是否配置了有效的 API Key"""
@@ -714,10 +715,10 @@ def list_models(
                 env_var = provider.api_key.replace("os.environ/", "")
                 return os.environ.get(env_var) is not None
             return True  # 直接配置了 key
-        
+
         # 显示 Models 表格
         console.print(Panel.fit("🤖 模型清单", style="bold blue"))
-        
+
         model_table = Table(
             title="",
             box=box.ROUNDED,
@@ -731,14 +732,14 @@ def list_models(
         model_table.add_column("Cost", justify="center", width=8)
         model_table.add_column("Context", justify="right", width=10)
         model_table.add_column("支持任务", style="dim", min_width=20)
-        
+
         available_count = 0
         unavailable_count = 0
-        
+
         for name, model in cfg.models.items():
             caps = model.capabilities
             provider_available = is_provider_available(model.provider)
-            
+
             if provider_available:
                 available_count += 1
                 name_style = f"[bold green]{name}[/bold green]"
@@ -747,24 +748,24 @@ def list_models(
                 unavailable_count += 1
                 name_style = f"[dim]{name}[/dim]"
                 status_text = "[red]✗[/red]"
-            
+
             # 使用表情符号表示评分
             quality_stars = "★" * (caps.quality // 2) + "☆" * (5 - caps.quality // 2)
             cost_stars = "★" * (caps.cost // 2) + "☆" * (5 - caps.cost // 2)  # cost 越高越便宜
-            
+
             # 格式化 context
             context = caps.context
             if context >= 1000:
                 context_str = f"{context // 1000}k"
             else:
                 context_str = str(context)
-            
+
             # 格式化任务列表（显示前3个）
             tasks = model.supported_tasks[:3]
             tasks_str = ", ".join(tasks)
             if len(model.supported_tasks) > 3:
                 tasks_str += f" [dim]+{len(model.supported_tasks) - 3}[/dim]"
-            
+
             model_table.add_row(
                 name_style,
                 model.provider,
@@ -774,14 +775,14 @@ def list_models(
                 context_str,
                 tasks_str
             )
-        
+
         console.print(model_table)
         console.print("")
-        
+
         # 显示统计信息
         total_providers = len(cfg.providers)
         total_models = len(cfg.models)
-        
+
         # 统计 API Key 配置情况
         env_keys = sum(
             1 for p in cfg.providers.values()
@@ -792,24 +793,24 @@ def list_models(
             if not p.api_key.startswith("os.environ/")
         )
         missing_keys = total_providers - env_keys - direct_keys
-        
+
         stats_text = Text()
         stats_text.append(f"Providers: {total_providers} 个 | ", style="cyan")
         stats_text.append(f"模型: {available_count} 可用", style="green")
         if unavailable_count > 0:
             stats_text.append(f" / {unavailable_count} 不可用", style="red")
-        stats_text.append(f" | ", style="dim")
+        stats_text.append(" | ", style="dim")
         if missing_keys > 0:
             stats_text.append(f"API Key 缺失: {missing_keys} 个", style="red")
         else:
             stats_text.append("API Key 配置完整 ✓", style="green")
-        
+
         console.print(Panel(stats_text, border_style="dim"))
-        
+
         # 显示提示信息
         if unavailable_count > 0:
             console.print("[dim]提示: 灰色显示的模型因对应 Provider 未配置 API Key 而不可用[/dim]")
-        
+
     except ConfigError as e:
         console.print(f"[red]✗[/red] 配置加载失败: {e}")
         raise typer.Exit(1)
@@ -825,7 +826,7 @@ def coffee(
 ):
     """☕ 请作者喝一杯咖啡"""
     qr_path = get_qr_code_path()
-    
+
     if ascii:
         content = Text()
         content.append("感谢您的使用！\n\n", style="bold cyan")
@@ -845,7 +846,7 @@ def coffee(
         content.append("感谢您的使用！\n\n", style="bold cyan")
         content.append("Smart Router 是一个免费开源项目\n", style="dim")
         content.append("您的支持将帮助项目持续改进和维护\n\n", style="dim")
-        
+
         if qr_path and qr_path.exists():
             if open_image_system(qr_path):
                 content.append("\n[green]✅ 已打开二维码图片[/green]\n")
@@ -853,45 +854,44 @@ def coffee(
                 content.append(f"\n[yellow]请手动打开: {qr_path}[/yellow]\n")
         else:
             content.append("\n[red]未找到二维码图片[/red]\n")
+    elif qr_path and qr_path.exists():
+        content = Text()
+        content.append("感谢您的使用！\n\n", style="bold cyan")
+        content.append("Smart Router 是一个免费开源项目\n", style="dim")
+        content.append("您的支持将帮助项目持续改进和维护\n\n", style="dim")
+        content.append("\n")
+        content.append("─" * 40 + "\n", style="dim")
+        content.append("💚 赞助方式:\n", style="bold green")
+        content.append("   • 微信支付: 扫描下方二维码\n", style="dim")
+        content.append("   • GitHub Sponsors: github.com/sponsors\n", style="dim")
+        content.append("\n")
+
+        panel = Panel(
+            Align.center(content),
+            title="[bold yellow]☕ Buy Me a Coffee[/bold yellow]",
+            border_style="bright_yellow",
+            box=box.ROUNDED,
+            padding=(1, 4)
+        )
+        console.print(panel)
+
+        console.print("\n请使用微信扫描下方二维码:\n")
+
+        from .misc.coffee_qr import display_image_terminal
+        if not display_image_terminal(qr_path, width=150):
+            console.print("┌" + "─" * 38 + "┐", style="yellow")
+            console.print("│  📱 请运行: smr coffee --open" + " " * 5 + "│", style="bold yellow")
+            console.print("└" + "─" * 38 + "┘", style="yellow")
+
+        console.print(f"\n[dim]图片路径: {qr_path}[/dim]\n")
+        return
     else:
-        if qr_path and qr_path.exists():
-            content = Text()
-            content.append("感谢您的使用！\n\n", style="bold cyan")
-            content.append("Smart Router 是一个免费开源项目\n", style="dim")
-            content.append("您的支持将帮助项目持续改进和维护\n\n", style="dim")
-            content.append("\n")
-            content.append("─" * 40 + "\n", style="dim")
-            content.append("💚 赞助方式:\n", style="bold green")
-            content.append("   • 微信支付: 扫描下方二维码\n", style="dim")
-            content.append("   • GitHub Sponsors: github.com/sponsors\n", style="dim")
-            content.append("\n")
-            
-            panel = Panel(
-                Align.center(content),
-                title="[bold yellow]☕ Buy Me a Coffee[/bold yellow]",
-                border_style="bright_yellow",
-                box=box.ROUNDED,
-                padding=(1, 4)
-            )
-            console.print(panel)
-            
-            console.print("\n请使用微信扫描下方二维码:\n")
-            
-            from .misc.coffee_qr import display_image_terminal
-            if not display_image_terminal(qr_path, width=150):
-                console.print("┌" + "─" * 38 + "┐", style="yellow")
-                console.print("│  📱 请运行: smr coffee --open" + " " * 5 + "│", style="bold yellow")
-                console.print("└" + "─" * 38 + "┘", style="yellow")
-            
-            console.print(f"\n[dim]图片路径: {qr_path}[/dim]\n")
-            return
-        else:
-            content = Text()
-            content.append("感谢您的使用！\n\n", style="bold cyan")
-            content.append("Smart Router 是一个免费开源项目\n", style="dim")
-            content.append("\n")
-            content.append("  ☕ 请支持作者: smr coffee --open\n", style="bold yellow")
-    
+        content = Text()
+        content.append("感谢您的使用！\n\n", style="bold cyan")
+        content.append("Smart Router 是一个免费开源项目\n", style="dim")
+        content.append("\n")
+        content.append("  ☕ 请支持作者: smr coffee --open\n", style="bold yellow")
+
     panel = Panel(
         Align.center(content),
         title="[bold yellow]☕ Buy Me a Coffee[/bold yellow]",
@@ -912,9 +912,9 @@ def dashboard(
 ):
     """启动/停止 Web Dashboard（默认后台运行）"""
     from .gateway.daemon import (
+        check_dashboard_status,
         start_dashboard_daemon,
         stop_dashboard_daemon,
-        check_dashboard_status,
     )
 
     if stop:

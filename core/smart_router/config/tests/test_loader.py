@@ -1,9 +1,9 @@
 """ConfigLoader 测试"""
 
-import pytest
-from pathlib import Path
 
-from smart_router.config.loader import ConfigLoader, ConfigError
+import pytest
+
+from smart_router.config.loader import ConfigError, ConfigLoader
 
 
 class TestConfigLoaderModelsDir:

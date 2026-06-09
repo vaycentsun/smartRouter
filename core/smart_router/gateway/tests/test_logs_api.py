@@ -1,9 +1,8 @@
 """日志 API 单元测试"""
 
-import pytest
-from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from smart_router.gateway.dashboard_api import build_dashboard_app
@@ -12,6 +11,7 @@ from smart_router.gateway.dashboard_api import build_dashboard_app
 @pytest.fixture
 def client(tmp_path):
     from unittest.mock import patch
+
     import smart_router.utils.request_routing_history as rrh
     # 使用临时文件隔离测试状态，避免历史记录跨测试泄漏
     temp_history = tmp_path / "request_routing_history.json"
@@ -235,8 +235,8 @@ class TestReadLogLinesStructured:
 
     def test_structured_lines_returned(self, tmp_path):
         """测试返回结果包含 structured_lines 字段"""
-        from smart_router.gateway.dashboard_api import read_log_lines, LogReadResult
-        
+        from smart_router.gateway.dashboard_api import LogReadResult, read_log_lines
+
         log_file = tmp_path / "smart-router.log"
         # 写入符合新格式的日志
         log_content = """2026-05-07 14:23:01,234 - smart_router.gateway - INFO - Server started
@@ -244,13 +244,13 @@ class TestReadLogLinesStructured:
 2026-05-07 14:23:03,456 - smart_router.gateway - ERROR - Connection failed
 """
         log_file.write_text(log_content)
-        
+
         with patch("smart_router.gateway.dashboard_api.LOG_FILE_MAP", {
             "service": log_file,
             "dashboard": tmp_path / "dashboard.log",
         }):
             result = read_log_lines("service", offset=0, limit=500, level="ALL")
-            
+
             assert isinstance(result, LogReadResult)
             assert hasattr(result, "structured_lines")
             assert len(result.structured_lines) == 3
@@ -263,7 +263,7 @@ class TestReadLogLinesStructured:
     def test_level_filter_info(self, tmp_path):
         """测试 level=INFO 筛选（只返回 INFO 及以上）"""
         from smart_router.gateway.dashboard_api import read_log_lines
-        
+
         log_file = tmp_path / "smart-router.log"
         log_content = """2026-05-07 14:23:01,234 - smart_router.gateway - DEBUG - Debug message
 2026-05-07 14:23:02,345 - smart_router.gateway - INFO - Info message
@@ -271,13 +271,13 @@ class TestReadLogLinesStructured:
 2026-05-07 14:23:04,567 - smart_router.gateway - ERROR - Error message
 """
         log_file.write_text(log_content)
-        
+
         with patch("smart_router.gateway.dashboard_api.LOG_FILE_MAP", {
             "service": log_file,
             "dashboard": tmp_path / "dashboard.log",
         }):
             result = read_log_lines("service", offset=0, limit=500, level="INFO")
-            
+
             # DEBUG (10) < INFO (20)，应该被过滤
             assert len(result.structured_lines) == 3
             levels = [s["level"] for s in result.structured_lines]
@@ -289,7 +289,7 @@ class TestReadLogLinesStructured:
     def test_level_filter_error(self, tmp_path):
         """测试 level=ERROR 筛选（只返回 ERROR 及以上）"""
         from smart_router.gateway.dashboard_api import read_log_lines
-        
+
         log_file = tmp_path / "smart-router.log"
         log_content = """2026-05-07 14:23:01,234 - smart_router.gateway - INFO - Info message
 2026-05-07 14:23:02,345 - smart_router.gateway - WARNING - Warning message
@@ -297,13 +297,13 @@ class TestReadLogLinesStructured:
 2026-05-07 14:23:04,567 - smart_router.gateway - CRITICAL - Critical message
 """
         log_file.write_text(log_content)
-        
+
         with patch("smart_router.gateway.dashboard_api.LOG_FILE_MAP", {
             "service": log_file,
             "dashboard": tmp_path / "dashboard.log",
         }):
             result = read_log_lines("service", offset=0, limit=500, level="ERROR")
-            
+
             # INFO, WARNING < ERROR，应该被过滤
             assert len(result.structured_lines) == 2
             levels = [s["level"] for s in result.structured_lines]
@@ -315,19 +315,19 @@ class TestReadLogLinesStructured:
     def test_level_all_returns_all(self, tmp_path):
         """测试 level=ALL 返回所有日志"""
         from smart_router.gateway.dashboard_api import read_log_lines
-        
+
         log_file = tmp_path / "smart-router.log"
         log_content = """2026-05-07 14:23:01,234 - smart_router.gateway - DEBUG - Debug message
 2026-05-07 14:23:02,345 - smart_router.gateway - INFO - Info message
 """
         log_file.write_text(log_content)
-        
+
         with patch("smart_router.gateway.dashboard_api.LOG_FILE_MAP", {
             "service": log_file,
             "dashboard": tmp_path / "dashboard.log",
         }):
             result = read_log_lines("service", offset=0, limit=500, level="ALL")
-            
+
             assert len(result.structured_lines) == 2
 
     def test_api_returns_structured_lines(self, client, tmp_path):
@@ -336,7 +336,7 @@ class TestReadLogLinesStructured:
         log_content = """2026-05-07 14:23:01,234 - smart_router.gateway - INFO - Server started
 """
         log_file.write_text(log_content)
-        
+
         with patch("smart_router.gateway.dashboard_api.LOG_FILE_MAP", {
             "service": log_file,
             "dashboard": tmp_path / "dashboard.log",

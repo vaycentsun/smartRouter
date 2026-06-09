@@ -4,14 +4,14 @@
 自动重新加载配置并通过回调通知消费者。
 """
 
-import time
 import threading
+import time
 from pathlib import Path
 from typing import Callable, Optional
 
 try:
-    from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
+    from watchdog.observers import Observer
     HAS_WATCHDOG = True
 except ImportError:
     HAS_WATCHDOG = False
@@ -28,7 +28,7 @@ class ConfigWatcher:
     
     使用去抖动机制：在 debounce_seconds 窗口内多次变更合并为一次重载。
     """
-    
+
     def __init__(
         self,
         config_dir: Path,
@@ -38,43 +38,43 @@ class ConfigWatcher:
         self.config_dir = Path(config_dir)
         self.on_reload = on_reload
         self.debounce_seconds = debounce_seconds
-        
+
         self._observer: Optional[Observer] = None
         self._last_reload = 0.0
         self._lock = threading.Lock()
-    
+
     def start(self):
         """启动文件监听"""
         if not HAS_WATCHDOG:
             return
         if self._observer is not None:
             return
-        
+
         event_handler = _ConfigFileHandler(self._on_file_changed)
         self._observer = Observer()
         self._observer.schedule(event_handler, str(self.config_dir), recursive=False)
         self._observer.start()
-    
+
     def stop(self):
         """停止文件监听"""
         if self._observer is not None:
             self._observer.stop()
             self._observer.join()
             self._observer = None
-    
+
     def _on_file_changed(self, event):
         """文件变更回调（内部）"""
         # 只处理 YAML 文件
         if not event.src_path.endswith(('.yaml', '.yml')):
             return
-        
+
         # 去抖动
         with self._lock:
             now = time.time()
             if now - self._last_reload < self.debounce_seconds:
                 return
             self._last_reload = now
-        
+
         try:
             loader = ConfigLoader(self.config_dir)
             config = loader.load()

@@ -8,8 +8,8 @@
     此文件保留仅作为备用，将在未来版本中移除。
 """
 
-from typing import List, Dict, Optional, Any
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from litellm.router import Router
 
@@ -23,7 +23,7 @@ class SmartRouterV3Adapter(Router):
     
     继承 LiteLLM Router，使用 V3 三层解耦配置架构进行智能模型选择
     """
-    
+
     def __init__(self, config_dir: Path, *args, **kwargs):
         """初始化 V3 Adapter
         
@@ -32,46 +32,46 @@ class SmartRouterV3Adapter(Router):
         """
         self.config_dir = Path(config_dir)
         self.config: Config = ConfigLoader(self.config_dir).load()
-        
+
         # 获取可用模型（API Key 已配置的模型）
         self.available_models = self.config.get_available_models()
-        
+
         # 选择器只考虑可用模型
         self.selector = V3ModelSelector(self.config, available_models=self.available_models)
-        
+
         # 存储最后选中的模型，用于响应头
         self.last_selected_model: Optional[str] = None
-        
+
         # 转换 V3 可用模型列表为 LiteLLM 格式
         litellm_model_list = self._build_litellm_model_list()
-        
+
         # 构建 LiteLLM fallbacks（只包含可用模型的 fallback 链）
         fallbacks = []
         for model_name in self.available_models:
             chain = self.config.get_fallback_chain(model_name)
             if chain:
                 fallbacks.append({model_name: chain})
-        
+
         super().__init__(
             model_list=litellm_model_list,
             fallbacks=fallbacks if fallbacks else None,
             *args,
             **kwargs
         )
-    
+
     def _build_litellm_model_list(self) -> List[Dict]:
         """将 V3 可用模型列表转换为 LiteLLM 格式"""
         litellm_list = []
-        
+
         for name in self.available_models:
             params = self.config.get_litellm_params(name)
             litellm_list.append({
                 "model_name": name,
                 "litellm_params": params
             })
-        
+
         return litellm_list
-    
+
     async def get_available_deployment(
         self,
         model: str,
@@ -93,13 +93,13 @@ class SmartRouterV3Adapter(Router):
                     messages=messages,
                     request_kwargs=request_kwargs
                 )
-        
+
         if messages is None:
             messages = []
-        
+
         # 解析阶段标记
         markers = parse_markers(messages)
-        
+
         # 确定任务类型和难度
         if markers.stage:
             task_type = markers.stage
@@ -108,25 +108,25 @@ class SmartRouterV3Adapter(Router):
             # 默认使用 chat 任务
             task_type = "chat"
             difficulty = "medium"
-        
+
         # 使用 V3 Selector 选择模型
         selection = self.selector.select(
             task_type=task_type,
             difficulty=difficulty,
             strategy="auto"
         )
-        
+
         selected_model = selection.model_name
-        
+
         # 存储选中的模型用于响应头
         self.last_selected_model = selected_model
-        
+
         return await super().get_available_deployment(
             model=selected_model,
             messages=messages,
             request_kwargs=request_kwargs
         )
-    
+
     def get_fallback_chain(self, model_name: str) -> List[str]:
         """获取模型的 fallback 链"""
         return self.config.get_fallback_chain(model_name)

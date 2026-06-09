@@ -1,9 +1,9 @@
 """ConfigLoader 旧配置迁移测试"""
 
-import pytest
-from pathlib import Path
 
-from smart_router.config.loader import ConfigLoader, ConfigError
+import pytest
+
+from smart_router.config.loader import ConfigError, ConfigLoader
 from smart_router.config.schema import Config
 
 

@@ -1,10 +1,10 @@
 """init 命令生成 model_mappings.yaml 的测试"""
 
-import pytest
-from typer.testing import CliRunner
-from pathlib import Path
 import tempfile
-import yaml
+from pathlib import Path
+
+from typer.testing import CliRunner
+
 from smart_router.cli import app
 from smart_router.config.mapping_loader import ModelMappingLoader
 from smart_router.config.mapping_schema import ModelMappingConfig

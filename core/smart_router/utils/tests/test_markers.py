@@ -1,5 +1,4 @@
-import pytest
-from smart_router.utils.markers import parse_markers, strip_markers, MarkerResult
+from smart_router.utils.markers import parse_markers, strip_markers
 
 
 def test_parse_stage_marker():

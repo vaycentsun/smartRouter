@@ -1,21 +1,31 @@
 """Analytics API 测试 — 覆盖汇总、每日趋势、按模型聚合、TOP10、最近请求"""
 
-import pytest
-import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
+from smart_router.config.schema import (
+    Config,
+    FallbackConfig,
+    ModelCapabilities,
+    ModelConfig,
+    ModelPrice,
+    ProviderConfig,
+    RoutingConfig,
+)
 from smart_router.gateway.dashboard_api import build_dashboard_app
+from smart_router.utils.request_routing_history import (
+    RequestRoutingEntry,
+    RequestRoutingHistory,
+)
 from smart_router.utils.token_stats import TokenStats
-from smart_router.utils.request_routing_history import RequestRoutingHistory, RequestRoutingEntry
-from smart_router.config.schema import Config, ProviderConfig, ModelConfig, ModelCapabilities, ModelPrice, RoutingConfig, FallbackConfig
 
 
 @pytest.fixture
 def client(tmp_path):
     from unittest.mock import patch
+
     import smart_router.utils.request_routing_history as rrh
     # 使用临时文件隔离测试状态，避免历史记录跨测试泄漏
     temp_history = tmp_path / "request_routing_history.json"
@@ -117,7 +127,8 @@ class TestAnalyticsSummary:
             routing=RoutingConfig(tasks={}, difficulties={}, strategies={}, fallback=FallbackConfig())
         )
 
-        import time, asyncio
+        import asyncio
+        import time
         monkeypatch.setattr(time, "strftime", lambda fmt, t=None: "2024-01-15")
         asyncio.run(ts.record("gpt-4o", 1000, 500, 1500))
 
@@ -231,7 +242,8 @@ class TestAnalyticsByModel:
             routing=RoutingConfig(tasks={}, difficulties={}, strategies={}, fallback=FallbackConfig())
         )
 
-        import time, asyncio
+        import asyncio
+        import time
         monkeypatch.setattr(time, "strftime", lambda fmt, t=None: "2024-01-15")
         asyncio.run(ts.record("gpt-4o", 2000, 1000, 3000))
 
@@ -296,7 +308,8 @@ class TestAnalyticsTopModels:
             routing=RoutingConfig(tasks={}, difficulties={}, strategies={}, fallback=FallbackConfig())
         )
 
-        import time, asyncio
+        import asyncio
+        import time
         monkeypatch.setattr(time, "strftime", lambda fmt, t=None: "2024-01-15")
         # claude-3 有 2 次请求，gpt-4o 有 1 次，确保排序确定
         asyncio.run(ts.record("gpt-4o", 1000, 500, 1500))
@@ -342,7 +355,8 @@ class TestAnalyticsTopModels:
             routing=RoutingConfig(tasks={}, difficulties={}, strategies={}, fallback=FallbackConfig())
         )
 
-        import time, asyncio
+        import asyncio
+        import time
         monkeypatch.setattr(time, "strftime", lambda fmt, t=None: "2024-01-15")
         # model-b 有 2 次请求，model-a 有 1 次，确保排序和 limit 测试稳定
         asyncio.run(ts.record("model-a", 100, 50, 150))

@@ -1,22 +1,21 @@
 """Tests for SmartRouter model mapping support"""
 
-import os
-import pytest
-from pathlib import Path
 from unittest.mock import patch
 
-from smart_router.router.plugin import SmartRouter
+import pytest
+
 from smart_router.config.schema import (
     Config,
-    ProviderConfig,
-    ModelConfig,
-    ModelCapabilities,
-    RoutingConfig,
-    TaskConfig,
     DifficultyConfig,
-    StrategyConfig,
     FallbackConfig,
+    ModelCapabilities,
+    ModelConfig,
+    ProviderConfig,
+    RoutingConfig,
+    StrategyConfig,
+    TaskConfig,
 )
+from smart_router.router.plugin import SmartRouter
 
 
 @pytest.fixture

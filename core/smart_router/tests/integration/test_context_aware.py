@@ -1,35 +1,42 @@
 """上下文长度感知路由与动态难度校准测试"""
 
 import pytest
-from smart_router.utils.token_counter import estimate_tokens, estimate_messages_tokens
-from smart_router.selector.v3_selector import V3ModelSelector
-from smart_router.config.schema import (
-    Config, ProviderConfig, ModelConfig, ModelCapabilities,
-    TaskConfig, DifficultyConfig, StrategyConfig, FallbackConfig, RoutingConfig
-)
+
 from smart_router.classifier.task_classifier import TaskClassifier
-from smart_router.classifier.types import ClassificationResult
+from smart_router.config.schema import (
+    Config,
+    DifficultyConfig,
+    FallbackConfig,
+    ModelCapabilities,
+    ModelConfig,
+    ProviderConfig,
+    RoutingConfig,
+    StrategyConfig,
+    TaskConfig,
+)
+from smart_router.selector.v3_selector import V3ModelSelector
+from smart_router.utils.token_counter import estimate_messages_tokens, estimate_tokens
 
 
 class TestTokenCounter:
     """Token 估算工具测试"""
-    
+
     def test_estimate_tokens_empty(self):
         """测试空文本"""
         assert estimate_tokens("") == 0
-    
+
     def test_estimate_tokens_english(self):
         """测试英文文本估算"""
         text = "Hello world"
         # 英文约 4 chars/token
         assert estimate_tokens(text) == 3  # 11 / 4 = 2.75 -> ceil = 3
-    
+
     def test_estimate_tokens_chinese(self):
         """测试中文文本估算"""
         text = "你好世界"
         # 中文约 1.5 chars/token
         assert estimate_tokens(text) == 3  # 4 / 1.5 = 2.67 -> ceil = 3
-    
+
     def test_estimate_tokens_mixed(self):
         """测试中英文混合"""
         text = "Hello 世界"
@@ -38,14 +45,14 @@ class TestTokenCounter:
         # 混合平均约 7/2.5 = 2.8 -> ceil = 3
         result = estimate_tokens(text)
         assert result >= 2
-    
+
     def test_estimate_messages_tokens_single(self):
         """测试单条消息估算"""
         messages = [{"role": "user", "content": "Hello world"}]
         result = estimate_messages_tokens(messages)
         # 内容 token + 每条消息固定开销 4
         assert result >= 7  # 3 + 4
-    
+
     def test_estimate_messages_tokens_multiple(self):
         """测试多条消息估算"""
         messages = [
@@ -56,16 +63,16 @@ class TestTokenCounter:
         result = estimate_messages_tokens(messages)
         # 3条消息，每条 +4 开销
         assert result >= 12  # at least 3*4 = 12 overhead
-    
+
     def test_estimate_messages_tokens_empty_content(self):
         """测试空内容消息"""
         messages = [{"role": "user", "content": ""}]
         assert estimate_messages_tokens(messages) == 7  # 消息开销 4 + 框架 3
-    
+
     def test_estimate_messages_tokens_none_messages(self):
         """测试 None messages"""
         assert estimate_messages_tokens(None) == 0
-    
+
     def test_estimate_messages_tokens_no_content_key(self):
         """测试缺少 content 键的消息"""
         messages = [{"role": "user"}]
@@ -184,7 +191,7 @@ class TestModelSelectorContextAware:
 
 class TestDynamicDifficultyCalibration:
     """动态难度校准测试"""
-    
+
     @pytest.fixture
     def classifier(self):
         """创建集成动态难度的分类器"""
@@ -201,28 +208,28 @@ class TestDynamicDifficultyCalibration:
             }
         ]
         return TaskClassifier(rules=rules, embedding_config={})
-    
+
     def test_short_text_easy(self, classifier):
         """测试短文本被评估为 easy"""
         messages = [{"role": "user", "content": "Hi"}]
         result = classifier.classify(messages)
         assert result.estimated_difficulty == "easy"
         assert result.source == "dynamic_difficulty"
-    
+
     def test_long_text_hard(self, classifier):
         """测试长文本被评估为 hard"""
         text = "这是一个非常复杂的深度分析问题，" + "需要详细考虑各个方面。" * 50
         messages = [{"role": "user", "content": text}]
         result = classifier.classify(messages)
         assert result.estimated_difficulty == "hard"
-    
+
     def test_hard_keyword(self, classifier):
         """测试复杂关键词提升难度"""
         messages = [{"role": "user", "content": "请深入分析这个架构设计模式的问题"}]
         result = classifier.classify(messages)
         # 虽然有复杂关键词，但长度不长，可能 medium
         assert result.estimated_difficulty in ["medium", "hard"]
-    
+
     def test_multi_turn_conversation_medium(self, classifier):
         """测试多轮对话提升难度"""
         messages = [
@@ -237,19 +244,19 @@ class TestDynamicDifficultyCalibration:
         result = classifier.classify(messages)
         # 4 轮 user 消息，多轮对话升档，至少 medium
         assert result.estimated_difficulty in ["medium", "hard"]
-    
+
     def test_explicit_marker_overrides(self, classifier):
         """测试显式标记覆盖动态评估"""
         # 注意：这个测试在 TaskClassifier 层面不直接测 marker
         # marker 在 plugin.py 层面处理，TaskClassifier 只负责内容分析
         pass
-    
+
     def test_empty_messages_default(self, classifier):
         """测试空消息返回默认"""
         result = classifier.classify([])
         assert result.task_type == "chat"
         assert result.estimated_difficulty == "medium"
-    
+
     def test_combined_difficulty_factors(self, classifier):
         """测试多因素叠加评估 hard"""
         # 复杂关键词（优先级最高）
@@ -262,7 +269,7 @@ class TestDynamicDifficultyCalibration:
 
 class TestIntegrationContextAndDifficulty:
     """集成测试：上下文过滤 + 动态难度（V3 架构）"""
-    
+
     @pytest.fixture
     def full_selector(self):
         """创建完整 V3 选择器"""
@@ -303,16 +310,16 @@ class TestIntegrationContextAndDifficulty:
             )
         )
         return V3ModelSelector(config)
-    
+
     def test_long_prompt_routes_to_large_context(self, full_selector):
         """测试长提示自动路由到大上下文模型"""
         # 模拟 10000 tokens 的输入
         long_text = "a" * 40000  # ~10000 tokens
         required_context = estimate_tokens(long_text) + 2000  # + 输出预留
-        
+
         result = full_selector.select("chat", "hard", "auto", required_context=required_context)
         assert result.model_name == "mid-large"
-    
+
     def test_easy_task_short_prompt_routes_to_cheap(self, full_selector):
         """测试简单任务短提示路由到便宜模型"""
         # 简单任务，小上下文

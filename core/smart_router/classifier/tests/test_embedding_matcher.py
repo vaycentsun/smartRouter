@@ -1,6 +1,7 @@
 """embedding_matcher 模块测试 — 覆盖边缘输入和工具函数"""
 
 import pytest
+
 from smart_router.classifier.embedding_matcher import SimpleEmbeddingMatcher
 
 

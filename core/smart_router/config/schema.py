@@ -7,8 +7,9 @@
 """
 
 import os
-from typing import Dict, Optional, List, Literal
-from pydantic import BaseModel, Field, model_validator, PrivateAttr
+from typing import Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 
 class ProviderConfig(BaseModel):
@@ -104,7 +105,7 @@ class FallbackConfig(BaseModel):
     - intelligent: 智能模式，支持 provider 隔离和能力降级
     """
     mode: Literal["auto", "intelligent"] = "auto"
-    similarity_threshold: int = Field(default=2, ge=1, le=5, 
+    similarity_threshold: int = Field(default=2, ge=1, le=5,
                                       description="quality 差异阈值")
     provider_isolation: bool = Field(default=False, description="是否启用 Provider 隔离 fallback")
     max_attempts: int = Field(default=3, ge=1, le=10, description="最大 fallback 尝试次数")
@@ -116,7 +117,7 @@ class FormulaConfig(BaseModel):
         default_factory=lambda: {"quality": 0.5, "cost": 0.5},
         description="能力维度权重映射"
     )
-    
+
     @model_validator(mode='after')
     def check_weights(self):
         valid_dims = {"quality", "cost"}
@@ -152,10 +153,10 @@ class Config(BaseModel):
     providers: Dict[str, ProviderConfig]
     models: Dict[str, ModelConfig]
     routing: RoutingConfig
-    
+
     # 运行时派生数据
     _fallback_chains: Dict[str, List[str]] = PrivateAttr(default_factory=dict)
-    
+
     @model_validator(mode="after")
     def validate_references(self):
         """验证 models 引用的 provider 都存在"""
@@ -165,7 +166,7 @@ class Config(BaseModel):
                     f"Model '{name}' references unknown provider '{model.provider}'"
                 )
         return self
-    
+
     @model_validator(mode='after')
     def init_fallback_chains(self):
         """预计算 fallback 链"""
@@ -174,28 +175,28 @@ class Config(BaseModel):
         else:
             self._fallback_chains = self._derive_fallback_chains()
         return self
-    
+
     def _derive_fallback_chains(self) -> Dict[str, List[str]]:
         chains = {}
         threshold = self.routing.fallback.similarity_threshold
-        
+
         for name, model in self.models.items():
             candidates = []
             model_quality = model.capabilities.quality
-            
+
             for other_name, other in self.models.items():
                 if other_name == name:
                     continue
-                
+
                 quality_diff = abs(other.capabilities.quality - model_quality)
                 if quality_diff <= threshold:
                     candidates.append((other_name, other.capabilities.quality))
-            
+
             candidates.sort(key=lambda x: x[1], reverse=True)
             chains[name] = [n for n, _ in candidates]
-        
+
         return chains
-    
+
     def _derive_intelligent_fallback_chains(self) -> Dict[str, List[str]]:
         """智能 fallback 链推导
         
@@ -206,46 +207,45 @@ class Config(BaseModel):
         """
         chains = {}
         threshold = self.routing.fallback.similarity_threshold
-        
+
         for name, model in self.models.items():
             same_provider = []
             cross_provider = []
             degraded = []
             model_quality = model.capabilities.quality
-            
+
             for other_name, other in self.models.items():
                 if other_name == name:
                     continue
-                
+
                 quality_diff = abs(other.capabilities.quality - model_quality)
-                
+
                 if other.provider == model.provider:
                     if quality_diff <= threshold:
                         same_provider.append((other_name, other.capabilities.quality))
-                else:
-                    if quality_diff <= threshold:
-                        cross_provider.append((other_name, other.capabilities.quality))
-                    elif other.capabilities.quality < model_quality:
-                        degraded.append((other_name, other.capabilities.quality))
-            
+                elif quality_diff <= threshold:
+                    cross_provider.append((other_name, other.capabilities.quality))
+                elif other.capabilities.quality < model_quality:
+                    degraded.append((other_name, other.capabilities.quality))
+
             same_provider.sort(key=lambda x: x[1], reverse=True)
             cross_provider.sort(key=lambda x: x[1], reverse=True)
             degraded.sort(key=lambda x: x[1], reverse=True)
-            
+
             chain = [n for n, _ in same_provider]
             chain.extend([n for n, _ in cross_provider])
             chain.extend([n for n, _ in degraded])
             chains[name] = chain
-        
+
         return chains
-    
+
     def get_provider_fallback_chain(self, model_name: str) -> List[str]:
         if model_name not in self.models:
             return []
-        
+
         original_model = self.models[model_name]
         original_provider = original_model.provider
-        
+
         same_task_candidates = []
         for name, model in self.models.items():
             if name == model_name:
@@ -253,14 +253,14 @@ class Config(BaseModel):
             if (set(original_model.supported_tasks) & set(model.supported_tasks) and
                 set(original_model.difficulty_support) & set(model.difficulty_support)):
                 same_task_candidates.append(name)
-        
-        different_provider = [n for n in same_task_candidates 
+
+        different_provider = [n for n in same_task_candidates
                             if self.models[n].provider != original_provider]
-        same_provider = [n for n in same_task_candidates 
+        same_provider = [n for n in same_task_candidates
                         if self.models[n].provider == original_provider]
-        
+
         return different_provider + same_provider
-    
+
     def is_provider_available(self, provider_name: str) -> bool:
         """检查 provider 是否配置了有效的 API Key"""
         if provider_name not in self.providers:
@@ -272,37 +272,37 @@ class Config(BaseModel):
             env_var = provider.api_key.replace("os.environ/", "")
             return os.environ.get(env_var) is not None
         return True  # 直接配置了 key
-    
+
     def is_model_available(self, model_name: str) -> bool:
         """检查模型是否可用（其 provider 的 API Key 已配置）"""
         if model_name not in self.models:
             return False
         model = self.models[model_name]
         return self.is_provider_available(model.provider)
-    
+
     def get_available_models(self) -> List[str]:
         """获取所有可用模型的名称列表"""
         return [
             name for name in self.models.keys()
             if self.is_model_available(name)
         ]
-    
+
     def get_fallback_chain(self, model_name: str) -> List[str]:
         """获取模型的 fallback 链（只包含可用模型）"""
         chain = self._fallback_chains.get(model_name, [])
         return [m for m in chain if self.is_model_available(m)]
-    
+
     def get_litellm_params(self, model_name: str) -> dict:
         """运行时组装 LiteLLM 参数"""
         model = self.models[model_name]
         provider = self.providers[model.provider]
-        
+
         # 解析 api_key（支持 os.environ/KEY_NAME 格式）
         api_key = provider.api_key
         if api_key.startswith("os.environ/"):
             env_var = api_key.replace("os.environ/", "")
             api_key = os.environ.get(env_var, "")
-        
+
         # 从 litellm_model 中提取 provider 前缀（如 openai/anthropic）
         litellm_model = model.litellm_model
         if "/" in litellm_model:
@@ -310,19 +310,19 @@ class Config(BaseModel):
         else:
             # 如果没有前缀，根据 provider 名称推断
             llm_provider = "openai"  # 默认使用 openai 兼容接口
-        
+
         params = {
             "model": litellm_model,
             "api_key": api_key,
             "api_base": provider.api_base,
             "timeout": provider.timeout,
         }
-        
+
         # 对于非官方 provider 但使用 openai 兼容接口的情况，
         # 添加 custom_llm_provider 确保 LiteLLM 正确使用 api_base
         if llm_provider == "openai" and model.provider != "openai":
             params["custom_llm_provider"] = "openai"
-        
+
         if provider.rate_limit is not None:
             params["rpm_limit"] = provider.rate_limit
         return params

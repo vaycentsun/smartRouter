@@ -1,10 +1,10 @@
 import os
-import yaml
 from pathlib import Path
-from typing import Optional
 
-from .mapping_schema import ModelMappingConfig, ModelMappingRule
+import yaml
+
 from .loader import ConfigError
+from .mapping_schema import ModelMappingConfig
 
 
 class ModelMappingLoader:
@@ -16,7 +16,7 @@ class ModelMappingLoader:
         """加载 model_mappings.yaml，返回 ModelMappingConfig"""
         if not self.filepath.exists():
             return ModelMappingConfig(enabled=False, mappings=[])
-        with open(self.filepath, "r", encoding="utf-8") as f:
+        with open(self.filepath, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return ModelMappingConfig(**data)
 
@@ -26,7 +26,7 @@ class ModelMappingLoader:
         if self.filepath.exists():
             try:
                 backup_path.write_text(self.filepath.read_text(encoding="utf-8"), encoding="utf-8")
-            except IOError:
+            except OSError:
                 pass
         try:
             with open(self.filepath, "w", encoding="utf-8") as f:
@@ -41,7 +41,7 @@ class ModelMappingLoader:
             if backup_path.exists():
                 try:
                     self.filepath.write_text(backup_path.read_text(encoding="utf-8"), encoding="utf-8")
-                except IOError:
+                except OSError:
                     pass
             raise ConfigError(f"Failed to write model_mappings.yaml: {e}") from e
         try:

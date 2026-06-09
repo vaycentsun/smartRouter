@@ -1,8 +1,7 @@
-import pytest
 import asyncio
 import json
 import time
-from pathlib import Path
+
 from smart_router.utils.token_stats import TokenStats
 
 
@@ -23,7 +22,7 @@ class TestTokenStats:
         stats_file = tmp_path / "token_stats.json"
         ts = TokenStats(stats_file=stats_file)
         asyncio.run(ts.record("gpt-4o", 100, 50, 150))
-        
+
         all_stats = ts.get_all()
         assert all_stats["gpt-4o"]["prompt_tokens"] == 100
         assert all_stats["gpt-4o"]["completion_tokens"] == 50
@@ -36,7 +35,7 @@ class TestTokenStats:
         asyncio.run(ts.record("gpt-4o", 100, 50, 150))
         asyncio.run(ts.record("claude-3-sonnet", 200, 100, 300))
         asyncio.run(ts.record("gpt-4o", 50, 25, 75))
-        
+
         all_stats = ts.get_all()
         assert all_stats["gpt-4o"]["prompt_tokens"] == 150
         assert all_stats["gpt-4o"]["request_count"] == 2
@@ -46,7 +45,7 @@ class TestTokenStats:
         stats_file = tmp_path / "token_stats.json"
         ts1 = TokenStats(stats_file=stats_file)
         asyncio.run(ts1.record("gpt-4o", 100, 50, 150))
-        
+
         ts2 = TokenStats(stats_file=stats_file)
         all_stats = ts2.get_all()
         assert all_stats["gpt-4o"]["prompt_tokens"] == 100
@@ -56,7 +55,7 @@ class TestTokenStats:
         stats_file = tmp_path / "token_stats.json"
         ts = TokenStats(stats_file=stats_file)
         asyncio.run(ts.record("gpt-4o", 100, 50, 150))
-        
+
         content = json.loads(stats_file.read_text())
         assert content["version"] == 2
         assert "records" in content
@@ -67,14 +66,14 @@ class TestTokenStats:
     def test_concurrent_record(self, tmp_path):
         stats_file = tmp_path / "token_stats.json"
         ts = TokenStats(stats_file=stats_file)
-        
+
         async def worker():
             for _ in range(10):
                 await ts.record("gpt-4o", 1, 1, 2)
-        
+
         async def run():
             await asyncio.gather(*[worker() for _ in range(5)])
-        
+
         asyncio.run(run())
         all_stats = ts.get_all()
         assert all_stats["gpt-4o"]["request_count"] == 50

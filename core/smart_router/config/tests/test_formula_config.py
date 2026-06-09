@@ -3,7 +3,11 @@
 import pytest
 from pydantic import ValidationError
 
-from smart_router.config.schema import FormulaConfig, RoutingConfig, TaskConfig, FallbackConfig
+from smart_router.config.schema import (
+    FallbackConfig,
+    FormulaConfig,
+    RoutingConfig,
+)
 
 
 class TestFormulaConfigDefaults:

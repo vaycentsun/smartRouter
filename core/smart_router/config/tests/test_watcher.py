@@ -1,9 +1,9 @@
 """ConfigWatcher 子目录监听测试"""
 
-import pytest
 import time
-from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
 
 from smart_router.config.watcher import ConfigWatcher
 

@@ -1,9 +1,10 @@
 """Tests for SmartRouterV3Adapter — 覆盖 fallback 配置注入"""
 
-import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from smart_router.router.plugin_v3_adapter import SmartRouterV3Adapter
 
@@ -13,7 +14,7 @@ def v3_config_dir():
     """创建完整的 V3 配置目录"""
     with tempfile.TemporaryDirectory() as tmpdir:
         config_dir = Path(tmpdir)
-        
+
         # providers.yaml
         (config_dir / "providers.yaml").write_text("""
 providers:
@@ -22,7 +23,7 @@ providers:
     api_key: sk-test
     timeout: 30
 """)
-        
+
         # models/
         models_dir = config_dir / "models"
         models_dir.mkdir(exist_ok=True)
@@ -50,7 +51,7 @@ models:
     supported_tasks: [chat]
     difficulty_support: [easy]
 """)
-        
+
         # routing.yaml
         (config_dir / "routing.yaml").write_text("""
 tasks:
@@ -74,7 +75,7 @@ fallback:
   mode: auto
   similarity_threshold: 2
 """)
-        
+
         yield config_dir
 
 
@@ -85,14 +86,14 @@ class TestSmartRouterV3AdapterFallbacks:
         """SmartRouterV3Adapter 应将 Config 的 fallback 链转为 LiteLLM fallbacks 格式并传入 Router"""
         with patch('smart_router.router.plugin_v3_adapter.Router.__init__', return_value=None) as mock_super:
             SmartRouterV3Adapter(config_dir=v3_config_dir)
-            
+
             call_kwargs = mock_super.call_args.kwargs
             assert "fallbacks" in call_kwargs, "fallbacks 参数应传入 Router.__init__"
-            
+
             fallbacks = call_kwargs["fallbacks"]
             assert isinstance(fallbacks, list), "fallbacks 应为列表"
             assert len(fallbacks) > 0, "fallbacks 不应为空（存在 quality 差异 <=2 的模型）"
-            
+
             # 验证格式: [{"model-a": ["model-b"]}]
             model_a_entry = next((f for f in fallbacks if "model-a" in f), None)
             assert model_a_entry is not None, "model-a 的 fallback 条目应存在"
@@ -120,7 +121,7 @@ class TestSmartRouterV3AdapterRouting:
     async def test_smart_router_request_uses_selector(self, adapter):
         """智能路由请求应使用 selector 选择模型"""
         from smart_router.selector.v3_selector import SelectionResult
-        
+
         with patch.object(adapter.selector, 'select') as mock_select, \
              patch('smart_router.router.plugin_v3_adapter.Router.get_available_deployment', new_callable=AsyncMock) as mock_super:
             mock_select.return_value = SelectionResult(
@@ -128,9 +129,9 @@ class TestSmartRouterV3AdapterRouting:
                 strategy='auto', score=0.9, reason='test'
             )
             mock_super.return_value = {"model": "model-a"}
-            
+
             result = await adapter.get_available_deployment("auto", messages=[{"role": "user", "content": "hi"}])
-            
+
             mock_select.assert_called_once()
             mock_super.assert_called_once()
             assert adapter.last_selected_model == "model-a"
@@ -139,7 +140,7 @@ class TestSmartRouterV3AdapterRouting:
     async def test_stage_prefix_request(self, adapter):
         """stage: 前缀请求应解析任务类型"""
         from smart_router.selector.v3_selector import SelectionResult
-        
+
         with patch.object(adapter.selector, 'select') as mock_select, \
              patch('smart_router.router.plugin_v3_adapter.Router.get_available_deployment', new_callable=AsyncMock) as mock_super:
             mock_select.return_value = SelectionResult(
@@ -147,9 +148,9 @@ class TestSmartRouterV3AdapterRouting:
                 strategy='auto', score=0.9, reason='test'
             )
             mock_super.return_value = {"model": "model-a"}
-            
+
             result = await adapter.get_available_deployment("stage:chat", messages=[{"role": "user", "content": "hi"}])
-            
+
             mock_select.assert_called_once()
             assert mock_select.call_args.kwargs['task_type'] == 'chat'
 
@@ -157,7 +158,7 @@ class TestSmartRouterV3AdapterRouting:
     async def test_no_messages_defaults_to_chat(self, adapter):
         """无 messages 时默认使用 chat 任务"""
         from smart_router.selector.v3_selector import SelectionResult
-        
+
         with patch.object(adapter.selector, 'select') as mock_select, \
              patch('smart_router.router.plugin_v3_adapter.Router.get_available_deployment', new_callable=AsyncMock) as mock_super:
             mock_select.return_value = SelectionResult(
@@ -165,9 +166,9 @@ class TestSmartRouterV3AdapterRouting:
                 strategy='auto', score=0.9, reason='test'
             )
             mock_super.return_value = {"model": "model-a"}
-            
+
             result = await adapter.get_available_deployment("auto")
-            
+
             mock_select.assert_called_once()
             assert mock_select.call_args.kwargs['task_type'] == 'chat'
 
@@ -176,10 +177,10 @@ class TestSmartRouterV3AdapterRouting:
         with patch('smart_router.router.plugin_v3_adapter.Router.__init__', return_value=None):
             adapter = SmartRouterV3Adapter(config_dir=v3_config_dir)
             model_list = adapter._build_litellm_model_list()
-            
+
             assert isinstance(model_list, list)
             assert len(model_list) > 0
-            
+
             # 验证每个条目包含 model_name 和 litellm_params
             for entry in model_list:
                 assert "model_name" in entry
@@ -189,7 +190,7 @@ class TestSmartRouterV3AdapterRouting:
         """available_models 应只包含 API Key 已配置的模型"""
         with patch('smart_router.router.plugin_v3_adapter.Router.__init__', return_value=None):
             adapter = SmartRouterV3Adapter(config_dir=v3_config_dir)
-            
+
             # 配置中使用了 sk-test（直接 key），所以模型都可用
             assert "model-a" in adapter.available_models
             assert "model-b" in adapter.available_models
@@ -199,7 +200,7 @@ class TestSmartRouterV3AdapterRouting:
         with patch('smart_router.router.plugin_v3_adapter.Router.__init__', return_value=None):
             adapter = SmartRouterV3Adapter(config_dir=v3_config_dir)
             chain = adapter.get_fallback_chain("model-a")
-            
+
             assert isinstance(chain, list)
 
     def test_init_sets_last_selected_model(self, v3_config_dir):
@@ -212,7 +213,7 @@ class TestSmartRouterV3AdapterRouting:
         """初始化时应创建 V3ModelSelector"""
         with patch('smart_router.router.plugin_v3_adapter.Router.__init__', return_value=None):
             adapter = SmartRouterV3Adapter(config_dir=v3_config_dir)
-            
+
             from smart_router.selector.v3_selector import V3ModelSelector
             assert isinstance(adapter.selector, V3ModelSelector)
 
@@ -220,7 +221,7 @@ class TestSmartRouterV3AdapterRouting:
         """初始化时应加载 ConfigV3"""
         with patch('smart_router.router.plugin_v3_adapter.Router.__init__', return_value=None):
             adapter = SmartRouterV3Adapter(config_dir=v3_config_dir)
-            
+
             from smart_router.config import Config
             assert isinstance(adapter.config, Config)
 

@@ -1,10 +1,8 @@
 """ModelMappingLoader 测试"""
 
-import os
 import pytest
-from pathlib import Path
 
-from smart_router.config.mapping_loader import ModelMappingLoader, ConfigError
+from smart_router.config.mapping_loader import ConfigError, ModelMappingLoader
 from smart_router.config.mapping_schema import ModelMappingConfig, ModelMappingRule
 
 

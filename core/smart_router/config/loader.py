@@ -4,6 +4,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Optional
+
 import yaml
 from pydantic import ValidationError
 
@@ -12,21 +13,21 @@ from .schema import Config
 
 class ConfigLoader:
     """Smart Router 配置加载器"""
-    
+
     def __init__(self, config_dir: Path):
         self.config_dir = Path(config_dir)
-    
+
     def load(self) -> Config:
         """从三文件加载配置"""
         providers = self._load_yaml("providers.yaml")
         models = self._load_models()
         routing = self._load_yaml("routing.yaml")
-        
+
         # 迁移旧配置：capability_weights -> formula.weights
         routing = self._migrate_legacy_weights(routing)
-        
+
         providers_dict = providers.get("providers", {})
-        
+
         # 自动注入 _virtual provider（如果缺失），确保虚拟模型（auto/smart-router 等）
         # 在旧版 providers.yaml（未包含 _virtual）下也能正常加载
         if "_virtual" not in providers_dict:
@@ -35,7 +36,7 @@ class ConfigLoader:
                 "api_key": "",
                 "timeout": 30,
             }
-        
+
         try:
             config = Config(
                 providers=providers_dict,
@@ -45,7 +46,7 @@ class ConfigLoader:
             return config
         except ValidationError as e:
             raise ConfigError(f"Configuration validation failed: {e}") from e
-    
+
     def _migrate_legacy_weights(self, data: dict) -> dict:
         """将旧 capability_weights 迁移为全局 formula
         
@@ -54,11 +55,11 @@ class ConfigLoader:
         """
         if "formula" in data:
             return data
-        
+
         valid_dims = {"quality", "cost", "reasoning", "creative", "context"}
-        weights_sum = defaultdict(float)
+        weights_sum: dict[str, float] = defaultdict(float)
         task_count = 0
-        
+
         for task_config in data.get("tasks", {}).values():
             cw = task_config.get("capability_weights")
             if cw:
@@ -66,7 +67,7 @@ class ConfigLoader:
                     if dim in valid_dims:
                         weights_sum[dim] += weight
                 task_count += 1
-        
+
         if task_count > 0:
             avg_weights = {
                 dim: round(total / task_count, 4)
@@ -77,9 +78,9 @@ class ConfigLoader:
                 data["formula"] = {
                     "weights": avg_weights
                 }
-        
+
         return data
-    
+
     def _load_models(self) -> dict:
         """从 models/ 目录加载所有 YAML 文件并合并
         
@@ -92,7 +93,7 @@ class ConfigLoader:
         """
         models_dir = self.config_dir / "models"
         models_yaml = self.config_dir / "models.yaml"
-        
+
         if not models_dir.exists():
             if models_yaml.exists():
                 raise ConfigError(
@@ -103,14 +104,14 @@ class ConfigLoader:
                 raise ConfigError(
                     f"Configuration directory not found: {models_dir}"
                 )
-        
+
         merged_models = {}
         yaml_files = sorted(models_dir.glob("*.yaml"))
-        
+
         for filepath in yaml_files:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
-            
+
             file_models = data.get("models", {})
             for model_name, model_config in file_models.items():
                 if model_name in merged_models:
@@ -119,18 +120,18 @@ class ConfigLoader:
                         f"发生冲突：{filepath.name}"
                     )
                 merged_models[model_name] = model_config
-        
+
         return merged_models
-    
+
     def _load_yaml(self, filename: str) -> dict:
         """加载单个 YAML 文件"""
         filepath = self.config_dir / filename
         if not filepath.exists():
             raise ConfigError(f"Configuration file not found: {filepath}")
-        
-        with open(filepath, "r", encoding="utf-8") as f:
+
+        with open(filepath, encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
-    
+
     def validate(self) -> list[str]:
         """验证配置，返回错误列表（空表示通过）"""
         errors = []
@@ -138,7 +139,7 @@ class ConfigLoader:
         # 检查文件/目录存在
         if not (self.config_dir / "providers.yaml").exists():
             errors.append("Missing configuration file: providers.yaml")
-        
+
         models_dir = self.config_dir / "models"
         models_yaml = self.config_dir / "models.yaml"
         if not models_dir.exists():
@@ -149,7 +150,7 @@ class ConfigLoader:
                 )
             else:
                 errors.append("Missing configuration directory: models/")
-        
+
         if not (self.config_dir / "routing.yaml").exists():
             errors.append("Missing configuration file: routing.yaml")
 
@@ -182,7 +183,7 @@ class ConfigLoader:
             backup_path = filepath.with_suffix(".yaml.bak")
             try:
                 backup_path.write_text(filepath.read_text(), encoding="utf-8")
-            except IOError:
+            except OSError:
                 pass  # 备份失败不影响主流程
 
         try:
@@ -204,7 +205,7 @@ class ConfigLoader:
             if backup_path.exists():
                 try:
                     filepath.write_text(backup_path.read_text(), encoding="utf-8")
-                except IOError:
+                except OSError:
                     pass
             raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
 
@@ -224,7 +225,7 @@ class ConfigLoader:
             backup_path = filepath.with_suffix(".yaml.bak")
             try:
                 backup_path.write_text(filepath.read_text(), encoding="utf-8")
-            except IOError:
+            except OSError:
                 pass
 
         try:
@@ -237,7 +238,7 @@ class ConfigLoader:
 
                 # 读取现有文件以保留注释
                 if filepath.exists():
-                    with open(filepath, "r", encoding="utf-8") as f:
+                    with open(filepath, encoding="utf-8") as f:
                         existing = yaml_inst.load(f)
                     # 合并新数据
                     existing.update(routing_raw)
@@ -265,7 +266,7 @@ class ConfigLoader:
             if backup_path.exists():
                 try:
                     filepath.write_text(backup_path.read_text(), encoding="utf-8")
-                except IOError:
+                except OSError:
                     pass
             raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
 
@@ -289,12 +290,12 @@ class ConfigLoader:
         if filepath.exists():
             try:
                 backup_path.write_text(filepath.read_text(encoding="utf-8"), encoding="utf-8")
-            except IOError:
+            except OSError:
                 pass
 
         # 读取并修改
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
         except Exception as e:
             raise ConfigError(f"Failed to read {filepath}: {e}") from e
@@ -312,7 +313,7 @@ class ConfigLoader:
             yaml_inst.preserve_quotes = True
             yaml_inst.default_flow_style = False
 
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 existing = yaml_inst.load(f)
             existing["models"][model_name]["enabled"] = enabled
 
@@ -338,7 +339,7 @@ class ConfigLoader:
             if backup_path.exists():
                 try:
                     filepath.write_text(backup_path.read_text(encoding="utf-8"), encoding="utf-8")
-                except IOError:
+                except OSError:
                     pass
             raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
 
@@ -361,12 +362,12 @@ class ConfigLoader:
         if filepath.exists():
             try:
                 backup_path.write_text(filepath.read_text(encoding="utf-8"), encoding="utf-8")
-            except IOError:
+            except OSError:
                 pass
 
         # 读取并修改
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
         except Exception as e:
             raise ConfigError(f"Failed to read {filepath}: {e}") from e
@@ -383,7 +384,7 @@ class ConfigLoader:
             ruamel_yaml = YAML()
             ruamel_yaml.preserve_quotes = True
             ruamel_yaml.width = 4096
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 doc = ruamel_yaml.load(f)
             doc["providers"][provider_name]["enabled"] = enabled
             with open(filepath, "w", encoding="utf-8") as f:
@@ -402,7 +403,7 @@ class ConfigLoader:
             if backup_path.exists():
                 try:
                     filepath.write_text(backup_path.read_text(), encoding="utf-8")
-                except IOError:
+                except OSError:
                     pass
             raise ConfigError(f"Config validation failed after save: {'; '.join(errors)}")
 
@@ -473,7 +474,7 @@ class ConfigLoader:
         # 读取或初始化文件内容
         if file_existed:
             try:
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     data = yaml.safe_load(f) or {}
             except Exception as e:
                 raise ConfigError(f"Failed to read {filepath}: {e}") from e
@@ -503,7 +504,7 @@ class ConfigLoader:
         if file_existed:
             try:
                 backup_path.write_text(filepath.read_text(encoding="utf-8"), encoding="utf-8")
-            except IOError:
+            except OSError:
                 pass
 
         # 写入文件
@@ -526,7 +527,7 @@ class ConfigLoader:
             if file_existed and backup_path.exists():
                 try:
                     filepath.write_text(backup_path.read_text(encoding="utf-8"), encoding="utf-8")
-                except IOError:
+                except OSError:
                     pass
             elif not file_existed and filepath.exists():
                 # 若文件原本不存在，直接删除新创建的文件
@@ -546,6 +547,6 @@ def load_config(config_dir: Optional[Path] = None) -> Config:
     """便捷函数：加载 V3 配置"""
     if config_dir is None:
         config_dir = Path.cwd()
-    
+
     loader = ConfigLoader(config_dir)
     return loader.load()

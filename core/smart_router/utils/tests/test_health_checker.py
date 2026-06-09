@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
-from smart_router.utils.health_checker import HealthCheckResult, ProviderHealthChecker
+import pytest
+
 from smart_router.config.schema import Config, ProviderConfig
+from smart_router.utils.health_checker import ProviderHealthChecker
 
 
 @pytest.fixture

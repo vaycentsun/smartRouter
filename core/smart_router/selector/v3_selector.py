@@ -5,8 +5,8 @@
 """
 
 import warnings
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
+from typing import Any, List, Optional, Tuple
 
 from ..config.schema import Config
 from ..exceptions import NoModelAvailableError
@@ -25,12 +25,12 @@ class SelectionResult:
 
 
 class V3ModelSelector:
-    
+
     def __init__(self, config: Config, available_models: Optional[List[str]] = None):
         self.config = config
         self.available_models = available_models
         self.evaluator = FormulaEvaluator(config.routing.formula)
-    
+
     def select(
         self,
         task_type: str,
@@ -52,12 +52,12 @@ class V3ModelSelector:
             SelectionResult
         """
         candidates = self._filter_candidates(task_type, difficulty, required_context, requires_vision)
-        
+
         if not candidates:
             raise NoModelAvailableError(
                 f"No model supports {task_type}/{difficulty}"
             )
-        
+
         # Deprecated warning for non-auto strategies
         if strategy != "auto":
             warnings.warn(
@@ -65,16 +65,16 @@ class V3ModelSelector:
                 DeprecationWarning,
                 stacklevel=2
             )
-        
+
         # 统一使用公式评分
         scored = []
         for name, model in candidates:
             score = self.evaluator.evaluate(model.capabilities)
             scored.append((name, score, model))
-        
+
         scored.sort(key=lambda x: x[1], reverse=True)
         best_name, best_score, best_model = scored[0]
-        
+
         return SelectionResult(
             model_name=best_name,
             task_type=task_type,
@@ -83,7 +83,7 @@ class V3ModelSelector:
             score=best_score,
             reason=f"Formula score: {best_score:.2f}"
         )
-    
+
     def select_ranked(
         self,
         task_type: str,
@@ -105,22 +105,22 @@ class V3ModelSelector:
             [(model_name, score), ...] 按得分降序排列
         """
         candidates = self._filter_candidates(task_type, difficulty, required_context, requires_vision)
-        
+
         scored = []
         for name, model in candidates:
             score = self.evaluator.evaluate(model.capabilities)
             scored.append((name, score))
-        
+
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored
-    
+
     def _filter_candidates(
         self,
         task_type: str,
         difficulty: str,
         required_context: int = 0,
         requires_vision: bool = False
-    ) -> List[Tuple[str, object]]:
+    ) -> List[Tuple[str, Any]]:
         """过滤符合条件的模型
         
         Args:
@@ -130,21 +130,21 @@ class V3ModelSelector:
             requires_vision: 是否需要视觉能力
         """
         candidates = []
-        
+
         for name, model in self.config.models.items():
             if self.available_models is not None and name not in self.available_models:
                 continue
-            
+
             if task_type not in model.supported_tasks:
                 continue
-            
+
             if difficulty not in model.difficulty_support:
                 continue
-            
+
             # 检查上下文窗口支持
             if required_context > 0 and model.capabilities.context < required_context:
                 continue
-            
+
             # 检查视觉能力
             if requires_vision and not getattr(model.capabilities, 'vision', False):
                 continue
@@ -159,9 +159,9 @@ class V3ModelSelector:
                 continue
 
             candidates.append((name, model))
-        
+
         return candidates
-    
+
     def get_available_models(
         self,
         task_type: str,
@@ -171,7 +171,7 @@ class V3ModelSelector:
         """获取所有符合条件的模型（用于 fallback）"""
         candidates = self._filter_candidates(task_type, difficulty, required_context)
         return [name for name, _ in candidates]
-    
+
     def get_candidates(
         self,
         task_type: str,
@@ -180,7 +180,7 @@ class V3ModelSelector:
     ) -> List[str]:
         """获取所有符合条件的模型（兼容 v2 接口别名）"""
         return self.get_available_models(task_type, difficulty, required_context)
-    
+
     def get_required_context(self, difficulty: str) -> int:
         """根据难度获取推荐的上下文窗口大小
         

@@ -1,16 +1,14 @@
 """coffee_qr 模块测试 — 覆盖 QR 路径、系统图片打开、剪贴板"""
 
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from smart_router.misc.coffee_qr import (
+    copy_to_clipboard,
     display_image_terminal,
+    get_qr_code_path,
     open_image_system,
     open_image_terminal,
-    get_qr_code_path,
-    copy_to_clipboard,
-    QR_CODE_PATH,
 )
 
 
@@ -29,7 +27,7 @@ class TestDisplayImageTerminal:
         """iTerm2 终端检测"""
         mock_open = MagicMock()
         mock_open.return_value.__enter__.return_value.read.return_value = b"test"
-        
+
         with patch.dict("os.environ", {"TERM_PROGRAM": "iTerm.app"}, clear=False), \
              patch("builtins.open", mock_open):
             result = display_image_terminal(Path("/tmp/test.png"))
@@ -89,7 +87,7 @@ class TestDisplayImageTerminal:
     def test_iterm2_read_fails(self):
         """iTerm2 读取图片失败时不应崩溃"""
         with patch.dict("os.environ", {"TERM_PROGRAM": "iTerm.app"}, clear=False), \
-             patch("builtins.open", side_effect=IOError("cannot read")):
+             patch("builtins.open", side_effect=OSError("cannot read")):
             result = display_image_terminal(Path("/tmp/test.png"))
             assert result is False
 

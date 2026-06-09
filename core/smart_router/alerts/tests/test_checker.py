@@ -1,13 +1,11 @@
 """AlertChecker 单元测试"""
 
-import time
 from unittest.mock import MagicMock
 
 import pytest
 
-from smart_router.alerts.config import AlertConfig, AlertRule, AlertCondition
 from smart_router.alerts.checker import AlertChecker
-
+from smart_router.alerts.config import AlertCondition, AlertConfig, AlertRule
 
 pytestmark = pytest.mark.asyncio
 

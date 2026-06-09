@@ -2,6 +2,7 @@
 
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Literal, Optional
 
 from .config import AlertConfig, AlertRule
@@ -61,7 +62,11 @@ class AlertChecker:
                         threshold=rule.condition.threshold,
                         current_value=round(value, 4),
                         timestamp=now,
-                        message=f"Smart Router 告警：{rule.name} — {rule.condition.metric} 当前值 {value:.4f} {rule.condition.operator} 阈值 {rule.condition.threshold}",
+                        message=(
+                            f"Smart Router 告警：{rule.name} — {rule.condition.metric} "
+                            f"当前值 {value:.4f} {rule.condition.operator} "
+                            f"阈值 {rule.condition.threshold}"
+                        ),
                     )
                 )
 
@@ -81,9 +86,6 @@ class AlertChecker:
             return None
 
         # 获取最近 days 天的每日数据
-        import time
-        from datetime import datetime, timedelta
-
         now = datetime.utcnow()
         total = 0.0
 
@@ -94,9 +96,9 @@ class AlertChecker:
             if not daily:
                 continue
 
-            for model, entry in daily.items():
+            for entry in daily.values():
                 if metric == "daily_cost":
-                    # cost 需要模型单价，这里简化为不计算（或基于已有数据无法直接计算 cost）
+                    # cost 需要模型单价，这里简化为不计算
                     # 根据需求描述，daily_cost 应该是 sum(成本)，但 token_stats 中没有 cost 字段
                     # 这里我们用 request_count 作为 proxy 或者返回 0
                     # 实际上根据 batch1 的 TokenStats 结构，daily_records 包含 prompt_tokens 等

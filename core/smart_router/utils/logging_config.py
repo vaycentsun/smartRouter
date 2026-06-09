@@ -23,30 +23,30 @@ def setup_logging(
     """
     log_file = Path(log_file)
     log_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     formatter = logging.Formatter(
         fmt="%(asctime)s,%(msecs)03d - %(name)s - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
     )
-    
+
     file_handler = logging.FileHandler(log_file, encoding="utf-8")
     file_handler.setFormatter(formatter)
-    
+
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
-    
+
     if logger_name:
         logger = logging.getLogger(logger_name)
     else:
         logger = logging.getLogger()
-    
+
     # 清除已有 handler，避免重复
     logger.handlers.clear()
-    
+
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
     logger.setLevel(level)
-    
+
     return logger
 
 

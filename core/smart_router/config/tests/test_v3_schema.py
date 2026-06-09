@@ -4,17 +4,17 @@ import pytest
 from pydantic import ValidationError
 
 from smart_router.config import (
-    ProviderConfig, 
-    ModelCapabilities, 
-    ModelConfig,
-    TaskConfig,
+    ConfigV3,
     DifficultyConfig,
-    StrategyConfig,
     FallbackConfig,
+    ModelCapabilities,
+    ModelConfig,
+    ProviderConfig,
     RoutingConfig,
-    Config,
-    ConfigV3
+    StrategyConfig,
+    TaskConfig,
 )
+
 
 class TestConfig:
     @pytest.fixture
@@ -71,12 +71,12 @@ class TestConfig:
                 fallback=FallbackConfig(similarity_threshold=2)
             )
         )
-    
+
     def test_valid_config_v3(self, sample_config):
         assert "openai" in sample_config.providers
         assert "gpt-4o" in sample_config.models
         assert "chat" in sample_config.routing.tasks
-    
+
     def test_provider_reference_validation(self):
         with pytest.raises(ValidationError) as exc_info:
             ConfigV3(
@@ -104,50 +104,50 @@ class TestConfig:
                     fallback=FallbackConfig()
                 )
             )
-        
+
         assert "unknown provider" in str(exc_info.value).lower()
-    
+
     def test_fallback_chain_derivation(self, sample_config, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic-test")
-        
+
         gpt4o_chain = sample_config.get_fallback_chain("gpt-4o")
         assert "claude-3-opus" in gpt4o_chain
-        
+
         opus_chain = sample_config.get_fallback_chain("claude-3-opus")
         assert "gpt-4o" in opus_chain
-    
+
     def test_fallback_chain_filters_unavailable(self, sample_config):
         gpt4o_chain = sample_config.get_fallback_chain("gpt-4o")
         assert gpt4o_chain == []
-    
+
     def test_litellm_params_generation(self, sample_config, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
-        
+
         params = sample_config.get_litellm_params("gpt-4o")
-        
+
         assert params["model"] == "openai/gpt-4o"
         assert params["api_key"] == "sk-openai-test"
         assert params["api_base"] == "https://api.openai.com/v1"
         assert params["timeout"] == 30
-    
+
     def test_litellm_params_with_direct_key(self, sample_config):
         sample_config.providers["openai"].api_key = "sk-direct-key"
-        
+
         params = sample_config.get_litellm_params("gpt-4o")
         assert params["api_key"] == "sk-direct-key"
-    
+
     def test_get_provider_fallback_chain(self, sample_config, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic-test")
-        
+
         chain = sample_config.get_provider_fallback_chain("gpt-4o")
         assert "claude-3-opus" in chain
-    
+
     def test_get_provider_fallback_chain_different_provider_priority(self, sample_config, monkeypatch):
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic-test")
-        
+
         chain = sample_config.get_provider_fallback_chain("gpt-4o")
         first_provider = sample_config.models[chain[0]].provider
         assert first_provider == "anthropic"

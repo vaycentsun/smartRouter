@@ -1,6 +1,5 @@
 """daemon 模块单元测试"""
 
-import pytest
 import os
 import signal
 import subprocess
@@ -8,29 +7,29 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from smart_router.gateway.daemon import (
-    _get_pid,
-    _is_process_running,
-    _write_pid,
-    _remove_pid,
-    _ensure_pid_dir,
-    _get_python_executable,
-    start_daemon,
-    stop_daemon,
-    restart_daemon,
-    check_status,
-    view_logs,
-    DEFAULT_PID_DIR,
-    DEFAULT_PID_FILE,
-    _get_pid_from_file,
-    _write_pid_to_file,
-    _remove_pid_file,
-    _kill_orphan_process,
-    start_dashboard_daemon,
-    stop_dashboard_daemon,
-    check_dashboard_status,
     DASHBOARD_PID_FILE,
-    DASHBOARD_PORT,
+    DEFAULT_PID_FILE,
+    _ensure_pid_dir,
+    _get_pid,
+    _get_pid_from_file,
+    _get_python_executable,
+    _is_process_running,
+    _kill_orphan_process,
+    _remove_pid,
+    _remove_pid_file,
+    _write_pid,
+    _write_pid_to_file,
+    check_dashboard_status,
+    check_status,
+    restart_daemon,
+    start_daemon,
+    start_dashboard_daemon,
+    stop_daemon,
+    stop_dashboard_daemon,
+    view_logs,
 )
 
 
@@ -124,8 +123,9 @@ class TestPortInUse:
 
     def test_port_in_use(self):
         """端口被占用时返回 True"""
-        from smart_router.gateway.daemon import _is_port_in_use
         import socket
+
+        from smart_router.gateway.daemon import _is_port_in_use
         # 绑定一个临时端口，然后检查
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("127.0.0.1", 0))
@@ -135,8 +135,9 @@ class TestPortInUse:
 
     def test_port_not_in_use(self):
         """端口未被占用时返回 False"""
-        from smart_router.gateway.daemon import _is_port_in_use
         import socket
+
+        from smart_router.gateway.daemon import _is_port_in_use
         # 找一个未使用的端口
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("127.0.0.1", 0))
@@ -276,7 +277,7 @@ class TestStopDaemon:
     def test_stop_success(self, capsys):
         """成功停止服务"""
         import time
-        
+
         # 使用 callable 来动态返回进程状态
         call_count = [0]
         def mock_is_running(pid):
@@ -287,7 +288,7 @@ class TestStopDaemon:
             if call_count[0] <= 5:
                 return True
             return False
-        
+
         with patch("smart_router.gateway.daemon._get_pid", return_value=12345), \
              patch("smart_router.gateway.daemon._is_process_running", side_effect=mock_is_running), \
              patch("smart_router.gateway.daemon.os.kill") as mock_kill, \
@@ -402,26 +403,26 @@ class TestPortInUseEdgeCases:
 
     def test_port_check_socket_error(self):
         """socket 错误时返回 False"""
+
         from smart_router.gateway.daemon import _is_port_in_use
-        import socket
-        
+
         with patch("socket.socket") as mock_socket:
             mock_instance = MagicMock()
-            mock_instance.connect_ex.side_effect = socket.error("Connection error")
+            mock_instance.connect_ex.side_effect = OSError("Connection error")
             mock_socket.return_value.__enter__.return_value = mock_instance
-            
+
             result = _is_port_in_use(4000)
             assert result is False
 
     def test_port_check_os_error(self):
         """OSError 时返回 False"""
         from smart_router.gateway.daemon import _is_port_in_use
-        
+
         with patch("socket.socket") as mock_socket:
             mock_instance = MagicMock()
             mock_instance.connect_ex.side_effect = OSError("OS error")
             mock_socket.return_value.__enter__.return_value = mock_instance
-            
+
             result = _is_port_in_use(4000)
             assert result is False
 
@@ -489,7 +490,7 @@ class TestCheckStatusEdgeCases:
         with patch("smart_router.gateway.daemon._get_pid", return_value=12345), \
              patch("smart_router.gateway.daemon._is_process_running", return_value=True), \
              patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", tmp_path), \
-             patch("pathlib.Path.read_text", side_effect=IOError("Read error")):
+             patch("pathlib.Path.read_text", side_effect=OSError("Read error")):
             result = check_status()
             captured = capsys.readouterr()
             assert result is True
@@ -505,7 +506,7 @@ class TestViewLogsEdgeCases:
         log_file.write_text("test\n")
 
         with patch("smart_router.gateway.daemon.DEFAULT_PID_DIR", tmp_path), \
-             patch("builtins.open", side_effect=IOError("Cannot read")):
+             patch("builtins.open", side_effect=OSError("Cannot read")):
             view_logs()
             captured = capsys.readouterr()
             assert "读取日志失败" in captured.out
@@ -537,7 +538,6 @@ class TestViewLogsWithLevelFilter:
 
     def test_view_logs_with_level_error(self, tmp_path, capsys):
         """只显示 ERROR 级别日志"""
-        import logging
         log_file = tmp_path / "smart-router.log"
         # 写入不同级别的日志
         log_content = """2026-05-07 14:23:01,234 - smart_router - INFO - This is info
@@ -557,7 +557,6 @@ class TestViewLogsWithLevelFilter:
 
     def test_view_logs_with_level_info(self, tmp_path, capsys):
         """显示 INFO 及以上级别日志"""
-        import logging
         log_file = tmp_path / "smart-router.log"
         log_content = """2026-05-07 14:23:01,234 - smart_router - INFO - This is info
 2026-05-07 14:23:02,234 - smart_router - ERROR - This is error

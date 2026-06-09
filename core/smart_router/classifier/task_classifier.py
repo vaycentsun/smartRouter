@@ -12,12 +12,12 @@
 
 import re
 from collections import OrderedDict
-from typing import Dict, List, Optional
 from dataclasses import dataclass
+from typing import Dict, List, Optional
 
-from .types import ClassificationResult, get_default_classification
-from .difficulty_classifier import DifficultyClassifier, DifficultyResult
+from .difficulty_classifier import DifficultyClassifier
 from .embedding_matcher import SimpleEmbeddingMatcher
+from .types import ClassificationResult, get_default_classification
 
 
 @dataclass
@@ -55,7 +55,7 @@ class TaskTypeClassifier:
     
     基于关键词匹配和示例相似度进行任务类型分类。
     """
-    
+
     def __init__(self, task_types: Dict[str, Dict]):
         """
         Args:
@@ -69,17 +69,17 @@ class TaskTypeClassifier:
         """
         self.task_types = task_types
         self.default_type = "chat"
-        
+
         # 构建示例映射用于 Embedding 匹配
         self.examples_map = {
             task_type: config.get("examples", [])
             for task_type, config in task_types.items()
             if config.get("examples")
         }
-        
+
         # 初始化 Embedding 匹配器（阈值 0.28 适合短中文文本）
         self._embedding_matcher = SimpleEmbeddingMatcher(threshold=0.28)
-    
+
     def classify(self, messages: List[Dict]) -> TaskTypeResult:
         """
         分类任务类型
@@ -101,69 +101,69 @@ class TaskTypeClassifier:
             if msg.get("role") == "user":
                 user_content += _extract_text_content(msg.get("content", "")) + " "
         user_content = user_content.strip().lower()
-        
+
         if not user_content:
             return TaskTypeResult(
                 task_type=self.default_type,
                 confidence=0.0,
                 source="default"
             )
-        
+
         # L1: 关键词匹配
         keyword_result = self._classify_by_keywords(user_content)
         if keyword_result is not None:
             return keyword_result
-        
+
         # L2: 示例相似度匹配
         embedding_result = self._classify_by_embedding(user_content)
         if embedding_result is not None:
             return embedding_result
-        
+
         # 默认返回 chat
         return TaskTypeResult(
             task_type=self.default_type,
             confidence=0.0,
             source="default"
         )
-    
+
     def _classify_by_keywords(self, text: str) -> Optional[TaskTypeResult]:
         """L1: 基于关键词匹配"""
         best_match = None
         best_score = 0.0
-        
+
         for task_type, config in self.task_types.items():
             keywords = config.get("keywords", [])
             score = self._calculate_keyword_score(text, keywords)
-            
+
             if score > best_score:
                 best_score = score
                 best_match = task_type
-        
+
         if best_match and best_score > 0:
             return TaskTypeResult(
                 task_type=best_match,
                 confidence=min(best_score, 1.0),
                 source="keyword"
             )
-        
+
         return None
-    
+
     def _classify_by_embedding(self, text: str) -> Optional[TaskTypeResult]:
         """L2: 基于示例相似度匹配"""
         if not self.examples_map:
             return None
-        
+
         task_type, score = self._embedding_matcher.find_best_match(text, self.examples_map)
-        
+
         if task_type is not None:
             return TaskTypeResult(
                 task_type=task_type,
                 confidence=min(score, 1.0),
                 source="embedding"
             )
-        
+
         return None
-    
+
     def _calculate_keyword_score(self, text: str, keywords: List[str]) -> float:
         """计算关键词匹配分数
         
@@ -171,7 +171,7 @@ class TaskTypeClassifier:
         """
         if not keywords:
             return 0.0
-        
+
         matched = []
         for keyword in keywords:
             # 支持正则表达式
@@ -182,15 +182,15 @@ class TaskTypeClassifier:
                 # 普通字符串匹配
                 if keyword.lower() in text:
                     matched.append(keyword)
-        
+
         if not matched:
             return 0.0
-        
+
         # 基础分：匹配率
         base_score = len(matched) / len(keywords)
         # 多关键词匹配 bonus：每多匹配一个关键词加 0.15
         bonus = 0.15 * (len(matched) - 1)
-        
+
         return base_score + bonus
 
 
@@ -240,7 +240,7 @@ class TaskClassifier:
     2. L2 Embedding: 基于配置中的 examples 进行相似度匹配
     3. L3 Rules: 回退到旧的规则引擎（向后兼容）
     """
-    
+
     def __init__(
         self,
         rules: List[Dict],
@@ -262,10 +262,10 @@ class TaskClassifier:
         self.embedding_config = embedding_config
         self.default_type = "chat"
         self.default_difficulty = "medium"
-        
+
         # 构建 task_types 供 TaskTypeClassifier 使用
         task_types = {}
-        
+
         if task_configs:
             # 使用新的 task_configs（包含 keywords 和 examples）
             for task_type, config in task_configs.items():
@@ -284,16 +284,16 @@ class TaskClassifier:
                     pattern = rule.get("pattern", "")
                     if pattern:
                         task_types[task_type]["keywords"].append(pattern)
-        
+
         self._type_classifier = TaskTypeClassifier(task_types)
-        
+
         # 初始化动态难度评估器
         self._difficulty_classifier = DifficultyClassifier(DEFAULT_DIFFICULTY_RULES)
-        
+
         # 分类结果缓存（LRU，基于用户输入文本 + 消息轮数）
         self._cache: OrderedDict[str, ClassificationResult] = OrderedDict()
         self._max_cache_size = 128
-    
+
     def classify(self, messages: List[Dict]) -> ClassificationResult:
         """
         分类任务
@@ -320,35 +320,35 @@ class TaskClassifier:
                     user_content += content + " "
                     user_message_count += 1
         user_content = user_content.strip().lower()
-        
+
         if not user_content:
             return get_default_classification()
-        
+
         # 检查分类缓存（LRU，基于用户输入文本 + 消息轮数）
         cache_key = f"{user_content}|{user_message_count}"
         if cache_key in self._cache:
             self._cache.move_to_end(cache_key)
             return self._cache[cache_key]
-        
+
         # 任务类型分类（L1 keywords / L2 embedding）
         type_result = self._type_classifier.classify(messages)
         task_type = type_result.task_type
-        
+
         # 动态难度评估
         difficulty_result = self._difficulty_classifier.classify(user_content, task_type=task_type)
-        difficulty = difficulty_result.difficulty
-        
+        difficulty: str = difficulty_result.difficulty
+
         # 多轮对话提升难度：超过 3 轮 user 消息，难度升一档
         if user_message_count > 3:
             difficulty = self._bump_difficulty(difficulty)
-        
+
         # 计算置信度
         confidence = type_result.confidence
         if type_result.source == "keyword":
             confidence = max(confidence, 0.9)
         elif type_result.source == "embedding":
             confidence = max(confidence, 0.6)
-        
+
         # 确定 source（向后兼容）
         # 如果任务类型已明确分类（keyword/embedding），保留其 source
         # 只有当任务类型是默认回退且难度评估器命中了规则时，才使用 dynamic_difficulty
@@ -356,21 +356,21 @@ class TaskClassifier:
             source = "dynamic_difficulty"
         else:
             source = type_result.source
-        
+
         result = ClassificationResult(
             task_type=task_type,
             estimated_difficulty=difficulty,
             confidence=confidence,
             source=source
         )
-        
+
         # 写入缓存（LRU 淘汰）
         if len(self._cache) >= self._max_cache_size:
             self._cache.popitem(last=False)
         self._cache[cache_key] = result
-        
+
         return result
-    
+
     DIFFICULTY_ORDER = ["easy", "medium", "hard", "expert"]
 
     def _adjust_difficulty(self, difficulty: str, delta: int) -> str:
@@ -400,7 +400,7 @@ class TaskClassifier:
     def _lower_difficulty(self, difficulty: str) -> str:
         """降低难度一档"""
         return self._adjust_difficulty(difficulty, -1)
-    
+
     def _match_pattern(self, text: str, pattern: str) -> bool:
         """匹配正则模式"""
         try:

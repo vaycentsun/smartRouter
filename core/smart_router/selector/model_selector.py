@@ -6,8 +6,8 @@
     此文件保留仅作为备用，将在未来版本中移除。
 """
 
-from typing import Dict, List, Optional, Literal
 from dataclasses import dataclass
+from typing import Dict, List
 
 
 @dataclass
@@ -28,7 +28,7 @@ class ModelSelector:
     2. 按优先级排序
     3. 返回优先级最高的模型
     """
-    
+
     def __init__(self, model_pool: Dict):
         """
         Args:
@@ -58,7 +58,7 @@ class ModelSelector:
         # 如果默认模型不在可用列表中，使用可用列表中第一个
         if self.default_model not in self.capabilities and self.capabilities:
             self.default_model = next(iter(self.capabilities))
-    
+
     def _is_eligible(
         self,
         capability: Dict,
@@ -81,19 +81,19 @@ class ModelSelector:
         supported_difficulties = capability.get("difficulties", [])
         if difficulty not in supported_difficulties:
             return False
-        
+
         # 检查任务类型支持（如果没指定，则支持所有）
         supported_tasks = capability.get("task_types", [])
         if supported_tasks and task_type not in supported_tasks:
             return False
-        
+
         # 检查上下文窗口支持
         model_context = capability.get("context", 0)
         if required_context > 0 and model_context > 0 and model_context < required_context:
             return False
-        
+
         return True
-    
+
     def select(
         self,
         task_type: str,
@@ -120,7 +120,7 @@ class ModelSelector:
         # 筛选符合条件的模型
         candidates = []
         context_filtered = []
-        
+
         for model_name, capability in self.capabilities.items():
             if self._is_eligible(capability, task_type, difficulty, required_context):
                 candidates.append({
@@ -136,7 +136,7 @@ class ModelSelector:
                 if model_context > 0 and model_context < required_context:
                     if self._is_eligible(capability, task_type, difficulty, 0):
                         context_filtered.append(model_name)
-        
+
         # 如果没有候选（因上下文过滤导致），回退到默认模型
         if not candidates and context_filtered:
             return ModelSelectionResult(
@@ -146,7 +146,7 @@ class ModelSelector:
                 confidence=0.3,
                 reason=f"上下文不足：需要 {required_context} tokens，无模型满足，使用默认"
             )
-        
+
         # 如果没有候选（因任务/难度不匹配），使用默认模型
         if not candidates:
             return ModelSelectionResult(
@@ -156,7 +156,7 @@ class ModelSelector:
                 confidence=0.3,
                 reason=f"无匹配模型，使用默认 (task={task_type}, difficulty={difficulty})"
             )
-        
+
         # 根据策略排序
         if strategy == "cost":
             # 成本优先：cost 越高越便宜
@@ -168,11 +168,11 @@ class ModelSelector:
             candidates.sort(key=lambda x: x["priority"])
             selected = candidates[0]
             reason = f"自动策略: priority={selected['priority']}"
-        
+
         # 添加上下文信息到 reason
         if required_context > 0:
             reason += f", 上下文需求: {required_context}"
-        
+
         return ModelSelectionResult(
             model_name=selected["model_name"],
             task_type=task_type,
@@ -180,7 +180,7 @@ class ModelSelector:
             confidence=0.9 if len(candidates) > 0 else 0.5,
             reason=reason
         )
-    
+
     def get_candidates(
         self,
         task_type: str,

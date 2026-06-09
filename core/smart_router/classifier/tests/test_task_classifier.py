@@ -1,13 +1,17 @@
 """任务分类器测试 — 合并 TaskTypeClassifier 与 TaskClassifier 测试"""
 
 import pytest
-from smart_router.classifier.task_classifier import TaskTypeClassifier, TaskTypeResult, TaskClassifier
+
+from smart_router.classifier.task_classifier import (
+    TaskClassifier,
+    TaskTypeClassifier,
+)
 from smart_router.classifier.types import ClassificationResult
 
 
 class TestTaskTypeClassifier:
     """任务类型分类器测试"""
-    
+
     @pytest.fixture
     def classifier(self):
         return TaskTypeClassifier({
@@ -24,37 +28,37 @@ class TestTaskTypeClassifier:
                 "description": "普通对话"
             }
         })
-    
+
     def test_classify_writing(self, classifier):
         """测试写作任务分类"""
         messages = [{"role": "user", "content": "帮我写一封邮件"}]
         result = classifier.classify(messages)
-        
+
         assert result.task_type == "writing"
         assert result.source == "keyword"
         assert result.confidence > 0
-    
+
     def test_classify_code_review(self, classifier):
         """测试代码审查分类"""
         messages = [{"role": "user", "content": "review 这段代码"}]
         result = classifier.classify(messages)
-        
+
         assert result.task_type == "code_review"
         assert result.source == "keyword"
-    
+
     def test_classify_default_chat(self, classifier):
         """测试默认分类为 chat"""
         messages = [{"role": "user", "content": "随便说点什么"}]
         result = classifier.classify(messages)
-        
+
         assert result.task_type == "chat"
         assert result.source == "default"
-    
+
     def test_classify_empty_input(self, classifier):
         """测试空输入"""
         messages = [{"role": "user", "content": ""}]
         result = classifier.classify(messages)
-        
+
         assert result.task_type == "chat"
         assert result.source == "default"
         assert result.confidence == 0.0
@@ -62,7 +66,7 @@ class TestTaskTypeClassifier:
 
 class TestTaskTypeClassifierWithKeywords:
     """TaskTypeClassifier 使用 keywords 的测试"""
-    
+
     @pytest.fixture
     def classifier(self):
         return TaskTypeClassifier({
@@ -79,36 +83,36 @@ class TestTaskTypeClassifierWithKeywords:
                 "examples": []
             }
         })
-    
+
     def test_classify_by_keyword(self, classifier):
         """关键词匹配"""
         messages = [{"role": "user", "content": "帮我写一封邮件"}]
         result = classifier.classify(messages)
-        
+
         assert result.task_type == "writing"
         assert result.source == "keyword"
         assert result.confidence > 0
-    
+
     def test_classify_by_example(self, classifier):
         """示例相似度匹配"""
         messages = [{"role": "user", "content": "请帮我起草一份项目报告"}]
         result = classifier.classify(messages)
-        
+
         assert result.task_type == "writing"
         assert result.source == "embedding"
-    
+
     def test_classify_default(self, classifier):
         """默认分类"""
         messages = [{"role": "user", "content": "随便说点什么"}]
         result = classifier.classify(messages)
-        
+
         assert result.task_type == "chat"
         assert result.source == "default"
 
 
 class TestTaskClassifierWithKeywords:
     """使用 keywords 进行任务分类的测试"""
-    
+
     @pytest.fixture
     def classifier_with_keywords(self):
         """创建带有 keywords 的分类器"""
@@ -129,7 +133,7 @@ class TestTaskClassifierWithKeywords:
                 "difficulty": "easy"
             },
         ]
-        
+
         # 带有 keywords 的任务配置
         task_configs = {
             "writing": {
@@ -149,83 +153,83 @@ class TestTaskClassifierWithKeywords:
                 "examples": ["帮我写一个快速排序", "实现一个单例模式", "这段代码怎么优化"]
             },
         }
-        
+
         return TaskClassifier(
             rules=rules,
             embedding_config={"enabled": True, "threshold": 0.6, "default_task": "chat"},
             task_configs=task_configs
         )
-    
+
     def test_classify_by_keyword_hit(self, classifier_with_keywords):
         """关键词直接命中时应正确分类"""
         messages = [{"role": "user", "content": "帮我写一封求职邮件"}]
         result = classifier_with_keywords.classify(messages)
-        
+
         assert result.task_type == "writing"
         assert result.source == "keyword"
         assert result.confidence > 0.5
-    
+
     def test_classify_by_keyword_code_review(self, classifier_with_keywords):
         """代码审查关键词命中"""
         messages = [{"role": "user", "content": "review 一下这段代码有没有 bug"}]
         result = classifier_with_keywords.classify(messages)
-        
+
         assert result.task_type == "code_review"
         assert result.source == "keyword"
-    
+
     def test_classify_by_keyword_coding(self, classifier_with_keywords):
         """编程关键词命中"""
         # "实现" 和 "算法" 都是 coding 的明确关键词，不含 writing 的强关键词
         messages = [{"role": "user", "content": "实现一个二叉树遍历算法"}]
         result = classifier_with_keywords.classify(messages)
-        
+
         assert result.task_type == "coding"
         assert result.source == "keyword"
-    
+
     def test_classify_by_example_similarity(self, classifier_with_keywords):
         """无关键词命中时，通过 examples 相似度匹配"""
         # 文本与 coding 示例相似，但不包含任何明确的 keywords
         messages = [{"role": "user", "content": "来个快速排序吧"}]
         result = classifier_with_keywords.classify(messages)
-        
+
         # 由于示例匹配，应该被分类为 coding
         assert result.task_type == "coding"
         assert result.source == "embedding"
-    
+
     def test_classify_by_example_explanation(self, classifier_with_keywords):
         """通过 examples 相似度匹配 explanation"""
         messages = [{"role": "user", "content": "给我讲讲递归是什么"}]
         result = classifier_with_keywords.classify(messages)
-        
+
         assert result.task_type == "explanation"
         assert result.source == "embedding"
-    
+
     def test_keyword_priority_over_embedding(self, classifier_with_keywords):
         """关键词命中应优先于 embedding 匹配"""
         # "写" 是 writing 的关键词，但文本也有点像 coding
         messages = [{"role": "user", "content": "写一篇关于快速排序的文章"}]
         result = classifier_with_keywords.classify(messages)
-        
+
         # keywords 应该优先
         assert result.task_type == "writing"
         assert result.source == "keyword"
-    
+
     def test_classify_default_chat(self, classifier_with_keywords):
         """无匹配时应回退到 chat"""
         messages = [{"role": "user", "content": "今天天气怎么样"}]
         result = classifier_with_keywords.classify(messages)
-        
+
         assert result.task_type == "chat"
         assert result.confidence < 0.5
-    
+
     def test_classify_empty_input(self, classifier_with_keywords):
         """空输入应返回默认分类"""
         messages = [{"role": "user", "content": ""}]
         result = classifier_with_keywords.classify(messages)
-        
+
         assert result.task_type == "chat"
         assert result.confidence == 0.0
-    
+
     def test_classify_multiple_user_messages(self, classifier_with_keywords):
         """多个 user 消息应合并处理"""
         messages = [
@@ -234,7 +238,7 @@ class TestTaskClassifierWithKeywords:
             {"role": "user", "content": "帮我review一下这段代码"}
         ]
         result = classifier_with_keywords.classify(messages)
-        
+
         assert result.task_type == "code_review"
 
 
@@ -276,7 +280,7 @@ class TestTaskClassifierWithKeywords:
 
             classifier_with_keywords.classify(msg2)
             assert mock_type.call_count == 2, (
-                f"不同输入不应命中缓存，应再次调用分类器"
+                "不同输入不应命中缓存，应再次调用分类器"
             )
 
     def test_classify_cache_respects_message_count(self, classifier_with_keywords):
@@ -301,7 +305,7 @@ class TestTaskClassifierWithKeywords:
 
             r2 = classifier_with_keywords.classify(msg_4turns)
             assert mock_type.call_count == 2, (
-                f"不同消息轮数不应命中缓存，应再次调用分类器"
+                "不同消息轮数不应命中缓存，应再次调用分类器"
             )
 
         # 4 轮对话应提升难度
@@ -312,7 +316,7 @@ class TestTaskClassifierWithKeywords:
 
 class TestTaskClassifierBackwardCompatibility:
     """向后兼容性测试：无 task_configs 时仍能正常工作"""
-    
+
     def test_without_task_configs(self):
         """不传入 task_configs 时应使用旧的规则匹配"""
         rules = [
@@ -322,15 +326,15 @@ class TestTaskClassifierBackwardCompatibility:
                 "difficulty": "medium"
             },
         ]
-        
+
         classifier = TaskClassifier(
             rules=rules,
             embedding_config={"enabled": True, "threshold": 0.6, "default_task": "chat"}
         )
-        
+
         messages = [{"role": "user", "content": "帮我写一篇文章"}]
         result = classifier.classify(messages)
-        
+
         assert result.task_type == "writing"
         assert result.confidence > 0
 

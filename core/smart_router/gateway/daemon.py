@@ -4,9 +4,9 @@ Smart Router 守护进程管理
 """
 import os
 import signal
-import sys
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Optional
@@ -41,7 +41,7 @@ def get_start_time() -> Optional[float]:
     if START_TIME_FILE.exists():
         try:
             return float(START_TIME_FILE.read_text().strip())
-        except (ValueError, IOError):
+        except (OSError, ValueError):
             return None
     return None
 
@@ -63,7 +63,7 @@ def _is_port_in_use(port: int = DEFAULT_PORT) -> bool:
             s.settimeout(1)
             result = s.connect_ex(("127.0.0.1", port))
             return result == 0
-    except (OSError, socket.error):
+    except OSError:
         return False
 
 
@@ -151,7 +151,7 @@ def _get_pid() -> Optional[int]:
     if DEFAULT_PID_FILE.exists():
         try:
             return int(DEFAULT_PID_FILE.read_text().strip())
-        except (ValueError, IOError):
+        except (OSError, ValueError):
             return None
     return None
 
@@ -190,14 +190,14 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
     master_key = os.environ.get("SMART_ROUTER_MASTER_KEY")
     if not master_key:
         console.print("[yellow]警告: 未设置 SMART_ROUTER_MASTER_KEY，服务将无认证运行[/yellow]")
-    
+
     # 检查是否已在运行（通过 PID 文件）
     existing_pid = _get_pid()
     if existing_pid and _is_process_running(existing_pid):
         console.print(f"[yellow]Smart Router 已在运行 (PID: {existing_pid})[/yellow]")
-        console.print(f"[dim]使用 `smart-router stop` 停止服务[/dim]")
+        console.print("[dim]使用 `smart-router stop` 停止服务[/dim]")
         return
-    
+
     # 检查端口是否被占用（PID 文件丢失时的兜底检测）
     if _is_port_in_use(DEFAULT_PORT):
         # 尝试自动清理孤儿进程
@@ -205,18 +205,18 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
             pass  # 清理成功，继续启动
         else:
             console.print(f"[yellow]端口 {DEFAULT_PORT} 仍被占用，可能已有 Smart Router 实例在运行[/yellow]")
-            console.print(f"[dim]使用 `smart-router stop` 停止服务，或手动 kill 占用端口的进程[/dim]")
+            console.print("[dim]使用 `smart-router stop` 停止服务，或手动 kill 占用端口的进程[/dim]")
             console.print(f"[dim]排查: lsof -i :{DEFAULT_PORT}[/dim]")
             return
-    
+
     # 清理旧的 PID 文件
     _remove_pid()
-    
+
     # 设置日志文件
     if log_file is None:
         _ensure_pid_dir()
         log_file = DEFAULT_PID_DIR / "smart-router.log"
-    
+
     # 构建启动命令 - 使用虚拟环境的 Python
     python_exe = _get_python_executable()
     cmd = [python_exe, "-m", "smart_router.gateway.server_main"]
@@ -224,9 +224,9 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
     cmd.extend(["--log-level", log_level])
     if config_path:
         cmd.extend(["--config", str(config_path)])
-    
+
     console.print(f"[dim]使用 Python: {python_exe}[/dim]")
-    
+
     # 启动后台进程
     try:
         with open(log_file, "w") as log:
@@ -236,18 +236,18 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
                 stderr=subprocess.STDOUT,
                 start_new_session=True,  # 创建新会话，脱离终端
             )
-        
+
         # 写入 PID 文件和启动时间
         _write_pid(process.pid)
         _write_start_time()
-        
-        console.print(f"[green]✓[/green] Smart Router 已启动")
+
+        console.print("[green]✓[/green] Smart Router 已启动")
         console.print(f"  PID: {process.pid}")
         console.print(f"  日志: {log_file}")
-        console.print(f"  服务: http://127.0.0.1:4000")
-        console.print(f"\n[dim]使用 `smart-router status` 查看状态[/dim]")
-        console.print(f"[dim]使用 `smart-router stop` 停止服务[/dim]")
-        
+        console.print("  服务: http://127.0.0.1:4000")
+        console.print("\n[dim]使用 `smart-router status` 查看状态[/dim]")
+        console.print("[dim]使用 `smart-router stop` 停止服务[/dim]")
+
     except Exception as e:
         console.print(f"[red]启动失败: {e}[/red]")
         sys.exit(1)
@@ -256,37 +256,37 @@ def start_daemon(config_path: Optional[Path] = None, log_file: Optional[Path] = 
 def stop_daemon():
     """停止 Smart Router 服务"""
     pid = _get_pid()
-    
+
     if not pid:
         console.print("[yellow]Smart Router 未运行[/yellow]")
         return
-    
+
     if not _is_process_running(pid):
         console.print("[yellow]Smart Router 进程已不存在[/yellow]")
         _remove_pid()
         return
-    
+
     # 尝试优雅终止
     try:
         console.print(f"[cyan]正在停止 Smart Router (PID: {pid})...[/cyan]")
         os.kill(pid, signal.SIGTERM)
-        
+
         # 等待进程结束
         import time
         for _ in range(10):  # 最多等待 5 秒
             time.sleep(0.5)
             if not _is_process_running(pid):
                 break
-        
+
         # 如果还在运行，强制终止
         if _is_process_running(pid):
             os.kill(pid, signal.SIGKILL)
-            console.print(f"[yellow]已强制终止进程[/yellow]")
-        
+            console.print("[yellow]已强制终止进程[/yellow]")
+
         _remove_pid()
         _remove_start_time()
         console.print("[green]✓[/green] Smart Router 已停止")
-        
+
     except Exception as e:
         console.print(f"[red]停止失败: {e}[/red]")
         sys.exit(1)
@@ -302,38 +302,38 @@ def restart_daemon(config_path: Optional[Path] = None):
 def check_status():
     """检查 Smart Router 运行状态"""
     pid = _get_pid()
-    
+
     if not pid:
         # PID 文件丢失，检查端口是否被占用
         if _is_port_in_use(DEFAULT_PORT):
             console.print(f"[yellow]●[/yellow] Smart Router 端口 {DEFAULT_PORT} 被占用（PID 文件丢失）")
-            console.print(f"[dim]  可能有一个遗留进程在运行[/dim]")
+            console.print("[dim]  可能有一个遗留进程在运行[/dim]")
             console.print(f"[dim]  排查: lsof -i :{DEFAULT_PORT}[/dim]")
             return True  # 端口被占用，认为服务在运行
-        
+
         console.print("[yellow]●[/yellow] Smart Router 未运行")
         return False
-    
+
     if _is_process_running(pid):
         # 获取日志文件路径
         log_file = DEFAULT_PID_DIR / "smart-router.log"
-        
+
         console.print("[green]●[/green] Smart Router 运行中")
         console.print(f"  PID: {pid}")
-        console.print(f"  服务: http://127.0.0.1:4000")
+        console.print("  服务: http://127.0.0.1:4000")
         console.print(f"  日志: {log_file}")
-        
+
         # 显示最近日志
         if log_file.exists():
             try:
                 lines = log_file.read_text().splitlines()
                 if lines:
-                    console.print(f"\n[dim]最近日志:[/dim]")
+                    console.print("\n[dim]最近日志:[/dim]")
                     for line in lines[-3:]:
                         console.print(f"  {line}")
-            except IOError:
+            except OSError:
                 pass
-        
+
         return True
     else:
         console.print("[red]●[/red] Smart Router 进程已不存在（可能异常退出）")
@@ -351,8 +351,9 @@ def view_logs(lines: int = 50, follow: bool = False, level: str = "ALL"):
         level: 日志等级筛选（ALL/DEBUG/INFO/WARNING/ERROR/CRITICAL）
     """
     import logging
+
     from smart_router.utils.log_parser import parse_log_line
-    
+
     log_file = DEFAULT_PID_DIR / "smart-router.log"
 
     if not log_file.exists():
@@ -371,11 +372,11 @@ def view_logs(lines: int = 50, follow: bool = False, level: str = "ALL"):
         # 持续跟踪模式
         try:
             import time
-            with open(log_file, "r") as f:
+            with open(log_file) as f:
                 # 跳到文件末尾
                 f.seek(0, 2)
 
-                console.print(f"[dim]正在跟踪日志 (按 Ctrl+C 退出)...[/dim]\n")
+                console.print("[dim]正在跟踪日志 (按 Ctrl+C 退出)...[/dim]\n")
                 while True:
                     line = f.readline()
                     if line:
@@ -392,31 +393,29 @@ def view_logs(lines: int = 50, follow: bool = False, level: str = "ALL"):
     else:
         # 显示最后 N 行
         try:
-            with open(log_file, "r", encoding="utf-8") as f:
+            with open(log_file, encoding="utf-8") as f:
                 all_lines = f.readlines()
-            
+
             # 解析并筛选
             filtered_lines = []
             for line in all_lines:
                 parsed = parse_log_line(line)
-                if level_filter is None:
-                    filtered_lines.append(line.rstrip())
-                elif parsed.levelno >= level_filter:
+                if level_filter is None or parsed.levelno >= level_filter:
                     filtered_lines.append(line.rstrip())
                 elif parsed.timestamp is None:
                     # 无法解析的行视为 INFO
                     if level_filter <= logging.INFO:
                         filtered_lines.append(line.rstrip())
-            
+
             # 取最后 N 行
             display_lines = filtered_lines[-lines:] if lines > 0 else filtered_lines
-            
+
             level_display = level if level_filter is None else logging.getLevelName(level_filter)
             console.print(f"[dim]显示最后 {len(display_lines)} 行日志 (level>={level_display}):[/dim]\n")
             for line in display_lines:
                 console.print(line)
-                
-        except IOError as e:
+
+        except OSError as e:
             console.print(f"[red]读取日志失败: {e}[/red]")
 
 
@@ -432,7 +431,7 @@ def _get_pid_from_file(pid_file: Path) -> Optional[int]:
     if pid_file.exists():
         try:
             return int(pid_file.read_text().strip())
-        except (ValueError, IOError):
+        except (OSError, ValueError):
             return None
     return None
 
@@ -495,7 +494,7 @@ def start_dashboard_daemon(
     existing_pid = _get_pid_from_file(DASHBOARD_PID_FILE)
     if existing_pid and _is_process_running(existing_pid):
         console.print(f"[yellow]Dashboard 已在运行 (PID: {existing_pid})[/yellow]")
-        console.print(f"[dim]使用 `smr dashboard --stop` 停止[/dim]")
+        console.print("[dim]使用 `smr dashboard --stop` 停止[/dim]")
         return
 
     # 检查端口占用
@@ -510,6 +509,7 @@ def start_dashboard_daemon(
     if foreground:
         # 前台模式：直接运行 uvicorn
         import uvicorn
+
         from smart_router.utils.logging_config import get_uvicorn_log_config
 
         # 配置 uvicorn 日志
@@ -558,12 +558,12 @@ def start_dashboard_daemon(
 
             _write_pid_to_file(DASHBOARD_PID_FILE, process.pid)
 
-            console.print(f"[green]✓[/green] Dashboard 已启动")
+            console.print("[green]✓[/green] Dashboard 已启动")
             console.print(f"  PID: {process.pid}")
             console.print(f"  日志: {DASHBOARD_LOG_FILE}")
             console.print(f"  服务: http://{host}:{port}")
-            console.print(f"\n[dim]使用 `smr dashboard --status` 查看状态[/dim]")
-            console.print(f"[dim]使用 `smr dashboard --stop` 停止服务[/dim]")
+            console.print("\n[dim]使用 `smr dashboard --status` 查看状态[/dim]")
+            console.print("[dim]使用 `smr dashboard --stop` 停止服务[/dim]")
 
         except Exception as e:
             console.print(f"[red]Dashboard 启动失败: {e}[/red]")
@@ -594,7 +594,7 @@ def stop_dashboard_daemon():
 
         if _is_process_running(pid):
             os.kill(pid, signal.SIGKILL)
-            console.print(f"[yellow]已强制终止进程[/yellow]")
+            console.print("[yellow]已强制终止进程[/yellow]")
 
         _remove_pid_file(DASHBOARD_PID_FILE)
         console.print("[green]✓[/green] Dashboard 已停止")
