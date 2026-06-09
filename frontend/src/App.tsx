@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { Route, Switch, useLocation, Redirect } from 'wouter'
 import { useDashboardStore } from './store/useDashboardStore'
 import { useTranslation } from './i18n/useTranslation'
@@ -7,10 +7,14 @@ import { ModelOverrideBar } from './components/ModelOverrideBar'
 import { DashboardPage } from './components/DashboardPage'
 import { ModelsExplorer } from './components/ModelsExplorer'
 import { LogsPanel } from './components/LogsPanel'
-import { AnalyticsPage } from './components/AnalyticsPage'
 import { AlertsPage } from './components/AlertsPage'
 import { FormulaBuilder } from './components/FormulaBuilder'
 import { ModelMappingTab } from './components/ModelMappingTab'
+
+// Lazy load AnalyticsPage to reduce main bundle size (recharts is ~200KB)
+const AnalyticsPage = lazy(() =>
+  import('./components/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage }))
+)
 
 function App() {
   const { fetchAll, error, clearError } = useDashboardStore()
@@ -104,18 +108,20 @@ function App() {
         </div>
 
         {/* Page Content */}
-        <Switch>
-          <Route path="/dashboard" component={DashboardPage} />
-          <Route path="/models" component={ModelsExplorer} />
-          <Route path="/logs" component={LogsPanel} />
-          <Route path="/analytics" component={AnalyticsPage} />
-          <Route path="/alerts" component={AlertsPage} />
-          <Route path="/formula" component={FormulaBuilder} />
-          <Route path="/mappings" component={ModelMappingTab} />
-          <Route path="/">
-            <Redirect to="/dashboard" />
-          </Route>
-        </Switch>
+        <Suspense fallback={<div className="text-center py-12 text-[#636366] font-mono text-sm">{t('LOADING')}...</div>}>
+          <Switch>
+            <Route path="/dashboard" component={DashboardPage} />
+            <Route path="/models" component={ModelsExplorer} />
+            <Route path="/logs" component={LogsPanel} />
+            <Route path="/analytics" component={AnalyticsPage} />
+            <Route path="/alerts" component={AlertsPage} />
+            <Route path="/formula" component={FormulaBuilder} />
+            <Route path="/mappings" component={ModelMappingTab} />
+            <Route path="/">
+              <Redirect to="/dashboard" />
+            </Route>
+          </Switch>
+        </Suspense>
       </main>
 
       {/* Footer */}
