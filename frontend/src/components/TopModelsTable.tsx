@@ -1,9 +1,20 @@
 import { useState } from 'react'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useTranslation } from '../i18n/useTranslation'
 import { useDashboardStore } from '../store/useDashboardStore'
 import type { AnalyticsTopModelItem } from '../types'
 
 type SortKey = keyof AnalyticsTopModelItem
+
+interface SortIconProps {
+  column: SortKey
+  sortKey: SortKey
+  sortAsc: boolean
+}
+
+function SortIcon({ column, sortKey, sortAsc }: SortIconProps) {
+  if (sortKey !== column) return <span className="text-[#636366] ml-1 font-mono text-xs">↕</span>
+  return <span className="text-[#00d4aa] ml-1 font-mono text-xs">{sortAsc ? '▲' : '▼'}</span>
+}
 
 export function TopModelsTable() {
   const { analyticsTopModels } = useDashboardStore()
@@ -27,11 +38,6 @@ export function TopModelsTable() {
       setSortKey(key)
       setSortAsc(false)
     }
-  }
-
-  const SortIcon = ({ column }: { column: SortKey }) => {
-    if (sortKey !== column) return <span className="text-[#636366] ml-1 font-mono text-xs">↕</span>
-    return <span className="text-[#00d4aa] ml-1 font-mono text-xs">{sortAsc ? '▲' : '▼'}</span>
   }
 
   if (analyticsTopModels.length === 0) {
@@ -61,49 +67,49 @@ export function TopModelsTable() {
                 className="text-left py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('model')}
               >
-                {t('Model')} <SortIcon column="model" />
+                {t('Model')} <SortIcon column="model" sortKey={sortKey} sortAsc={sortAsc} />
               </th>
               <th
                 className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('prompt_tokens')}
               >
-                {t('Input')} <SortIcon column="prompt_tokens" />
+                {t('Input')} <SortIcon column="prompt_tokens" sortKey={sortKey} sortAsc={sortAsc} />
               </th>
               <th
                 className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('completion_tokens')}
               >
-                {t('Output')} <SortIcon column="completion_tokens" />
+                {t('Output')} <SortIcon column="completion_tokens" sortKey={sortKey} sortAsc={sortAsc} />
               </th>
               <th
                 className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('reasoning_tokens')}
               >
-                {t('Reason')} <SortIcon column="reasoning_tokens" />
+                {t('Reason')} <SortIcon column="reasoning_tokens" sortKey={sortKey} sortAsc={sortAsc} />
               </th>
               <th
                 className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('cached_tokens')}
               >
-                {t('Cache')} <SortIcon column="cached_tokens" />
+                {t('Cache')} <SortIcon column="cached_tokens" sortKey={sortKey} sortAsc={sortAsc} />
               </th>
               <th
                 className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('total_tokens')}
               >
-                {t('Total')} <SortIcon column="total_tokens" />
+                {t('Total')} <SortIcon column="total_tokens" sortKey={sortKey} sortAsc={sortAsc} />
               </th>
               <th
                 className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('cost')}
               >
-                {t('Cost')} <SortIcon column="cost" />
+                {t('Cost')} <SortIcon column="cost" sortKey={sortKey} sortAsc={sortAsc} />
               </th>
               <th
                 className="text-right py-3 px-2 text-[10px] text-[#636366] font-mono uppercase tracking-widest cursor-pointer select-none"
                 onClick={() => handleSort('request_count')}
               >
-                {t('Req')} <SortIcon column="request_count" />
+                {t('Req')} <SortIcon column="request_count" sortKey={sortKey} sortAsc={sortAsc} />
               </th>
             </tr>
           </thead>

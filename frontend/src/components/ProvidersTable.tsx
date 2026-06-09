@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from '../i18n/useTranslation'
 import { useDashboardStore } from '../store/useDashboardStore'
 
 interface EditableProvider {
@@ -27,8 +27,8 @@ export function ProvidersTable() {
   const { t } = useTranslation()
   const { providers, saveProviders, isSavingProviders, toast, clearToast } = useDashboardStore()
   const [edits, setEdits] = useState<Record<string, EditableProvider>>({})
-  const [hasChanges, setHasChanges] = useState(false)
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const initial: Record<string, EditableProvider> = {}
     providers.forEach((p) => {
@@ -45,11 +45,9 @@ export function ProvidersTable() {
     })
     setEdits(initial)
   }, [providers])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  useEffect(() => {
-    const dirty = Object.values(edits).some((e) => e.dirty)
-    setHasChanges(dirty)
-  }, [edits])
+  const hasChanges = useMemo(() => Object.values(edits).some((e) => e.dirty), [edits])
 
   useEffect(() => {
     if (toast) {

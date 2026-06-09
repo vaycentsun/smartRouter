@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useDashboardStore } from '../store/useDashboardStore'
 import type { ModelInfo, ProviderInfo } from '../types'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useTranslation } from '../i18n/useTranslation'
 
 function SortIcon({ active, asc }: { active: boolean; asc: boolean }) {
   if (!active) return <span className="text-[#636366] ml-1 text-xs font-mono">↕</span>

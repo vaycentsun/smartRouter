@@ -1,5 +1,5 @@
 import { useDashboardStore } from '../store/useDashboardStore'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useTranslation } from '../i18n/useTranslation'
 
 export function Header() {
   const { fetchAll, stopService, isLoading, clearError, status } = useDashboardStore()

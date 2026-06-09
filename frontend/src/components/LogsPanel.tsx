@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useDashboardStore } from '../store/useDashboardStore'
 import type { LogSource } from '../types'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useTranslation } from '../i18n/useTranslation'
 
 const LOG_SOURCES: { key: LogSource; label: string }[] = [
   { key: 'service', label: 'SERVICE' },
@@ -44,6 +44,7 @@ export function LogsPanel() {
     setLogSource(activeSource)
     setLogLevel(activeLevel)
     fetchLogs(activeSource, activeLevel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSource, activeLevel])
 
   // 轮询：每 10 秒获取新日志

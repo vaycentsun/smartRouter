@@ -1,4 +1,4 @@
-import { useTranslation } from '../i18n/I18nProvider'
+import { useTranslation } from '../i18n/useTranslation'
 import { TokenStatsOverview } from './TokenStatsOverview'
 import { TokenStatsTable } from './TokenStatsTable'
 import { TokenStatsChart } from './TokenStatsChart'

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import type { CreateProviderRequest } from '../types'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useTranslation } from '../i18n/useTranslation'
 
 interface AddProviderModalProps {
   isOpen: boolean
@@ -18,16 +18,15 @@ export function AddProviderModal({ isOpen, onClose, onSubmit, isSaving }: AddPro
   const [showKey, setShowKey] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (isOpen) {
-      setName('')
-      setApiBase('')
-      setApiKey('')
-      setTimeout(30)
-      setShowKey(false)
-      setError('')
-    }
-  }, [isOpen])
+  const handleClose = useCallback(() => {
+    setName('')
+    setApiBase('')
+    setApiKey('')
+    setTimeout(30)
+    setShowKey(false)
+    setError('')
+    onClose()
+  }, [onClose])
 
   if (!isOpen) return null
 
@@ -56,11 +55,6 @@ export function AddProviderModal({ isOpen, onClose, onSubmit, isSaving }: AddPro
       api_key: apiKey,
       timeout: timeoutNum,
     })
-  }
-
-  const handleClose = () => {
-    setError('')
-    onClose()
   }
 
   return (

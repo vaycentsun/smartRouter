@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { ProviderInfo, ProviderUpdate } from '../types'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useTranslation } from '../i18n/useTranslation'
 
 interface ProviderEditModalProps {
   provider: ProviderInfo | null
@@ -17,6 +17,7 @@ export function ProviderEditModal({ provider, isOpen, onClose, onSave, isSaving 
   const [timeout, setTimeout] = useState(30)
   const [showKey, setShowKey] = useState(false)
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (provider) {
       setApiBase(provider.api_base)
@@ -25,6 +26,7 @@ export function ProviderEditModal({ provider, isOpen, onClose, onSave, isSaving 
       setShowKey(false)
     }
   }, [provider])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!isOpen || !provider) return null
 

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Route, Switch, useLocation, Redirect } from 'wouter'
 import { useDashboardStore } from './store/useDashboardStore'
-import { useTranslation } from './i18n/I18nProvider'
+import { useTranslation } from './i18n/useTranslation'
 import { Header } from './components/Header'
 import { ModelOverrideBar } from './components/ModelOverrideBar'
 import { DashboardPage } from './components/DashboardPage'

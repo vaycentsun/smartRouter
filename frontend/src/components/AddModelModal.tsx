@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { AddModelRequest } from '../types'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useTranslation } from '../i18n/useTranslation'
 
 interface AddModelModalProps {
   providerName: string

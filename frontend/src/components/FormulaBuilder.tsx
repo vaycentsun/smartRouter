@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useTranslation } from '../i18n/useTranslation'
 import { api } from '../api/client'
 import { useDashboardStore } from '../store/useDashboardStore'
 import { PlaygroundModelCard } from './PlaygroundModelCard'
@@ -61,7 +61,10 @@ export function FormulaBuilder() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [hasChanges, setHasChanges] = useState(false)
+  const hasChanges = useMemo(
+    () => DIMENSIONS.some((d) => weights[d.key] !== originalWeights[d.key]),
+    [weights, originalWeights]
+  )
 
   // Playground 嵌入状态
   const [showPlayground, setShowPlayground] = useState(false)
@@ -76,16 +79,11 @@ export function FormulaBuilder() {
         setWeights(loaded)
         setOriginalWeights(loaded)
       })
-      .catch((err) => {
-        setMessage({ type: 'error', text: `${t('LOAD FAILED')}: ${err.message}` })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err)
+        setMessage({ type: 'error', text: `${t('LOAD FAILED')}: ${msg}` })
       })
   }, [t])
-
-  // 检测变化
-  useEffect(() => {
-    const changed = DIMENSIONS.some((d) => weights[d.key] !== originalWeights[d.key])
-    setHasChanges(changed)
-  }, [weights, originalWeights])
 
   const handleWeightChange = useCallback((key: string, value: number) => {
     setWeights((prev) => ({ ...prev, [key]: value }))
@@ -107,8 +105,9 @@ export function FormulaBuilder() {
     try {
       const data = await api.previewFormula({ weights, prompt: testPrompt })
       setPreviewModels(data.models)
-    } catch (err: any) {
-      setMessage({ type: 'error', text: `${t('PREVIEW FAILED')}: ${err.message}` })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setMessage({ type: 'error', text: `${t('PREVIEW FAILED')}: ${msg}` })
     } finally {
       setLoading(false)
     }
@@ -125,8 +124,9 @@ export function FormulaBuilder() {
       } else {
         setMessage({ type: 'error', text: `${t('SAVE FAILED')}: ${result.errors?.join(', ') || t('UNKNOWN')}` })
       }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: `${t('SAVE FAILED')}: ${err.message}` })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setMessage({ type: 'error', text: `${t('SAVE FAILED')}: ${msg}` })
     } finally {
       setSaving(false)
     }

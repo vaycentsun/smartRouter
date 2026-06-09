@@ -5,7 +5,7 @@ import { AlertRulesTable } from './AlertRulesTable'
 import { AlertRuleEditor } from './AlertRuleEditor'
 import { AlertHistoryTable } from './AlertHistoryTable'
 import type { AlertRule } from '../types'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useTranslation } from '../i18n/useTranslation'
 
 export function AlertsPage() {
   const { t } = useTranslation()

@@ -1,22 +1,6 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-
-type Lang = 'zh' | 'en'
-
-interface I18nContextType {
-  lang: Lang
-  setLang: (lang: Lang) => void
-  t: (key: string) => string
-}
-
-const I18nContext = createContext<I18nContextType>({
-  lang: 'zh',
-  setLang: () => {},
-  t: (key: string) => key,
-})
-
-export function useTranslation() {
-  return useContext(I18nContext)
-}
+import { useState, useCallback, type ReactNode } from 'react'
+import { I18nContext } from './I18nContext'
+import type { Lang } from './I18nContext'
 
 // 完整翻译字典
 const dict: Record<string, Record<Lang, string>> = {

@@ -60,7 +60,9 @@ client.interceptors.request.use((config) => {
         config.headers['X-Smart-Router-Override-Provider'] = override.provider
         config.headers['X-Smart-Router-Override-Model'] = override.model
       }
-    } catch {}
+    } catch {
+      /* ignore invalid override JSON */
+    }
   }
   return config
 })

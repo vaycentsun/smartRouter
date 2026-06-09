@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useTranslation } from '../i18n/I18nProvider'
+import { useTranslation } from '../i18n/useTranslation'
 import { api } from '../api/client'
 import type { ModelMappingConfig, ModelMappingRule } from '../types'
 
@@ -214,9 +214,10 @@ export function ModelMappingTab() {
           setConfig(configData)
           setYamlText(yamlData.yaml)
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          setError(`${t('LOAD FAILED')}: ${err.message}`)
+          const msg = err instanceof Error ? err.message : String(err)
+          setError(`${t('LOAD FAILED')}: ${msg}`)
         }
       } finally {
         if (!cancelled) {
@@ -253,8 +254,9 @@ export function ModelMappingTab() {
       } else {
         setError(t('SAVE FAILED'))
       }
-    } catch (err: any) {
-      setError(`${t('SAVE FAILED')}: ${err.message}`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(`${t('SAVE FAILED')}: ${msg}`)
     } finally {
       setLoading(false)
     }
@@ -271,8 +273,9 @@ export function ModelMappingTab() {
       } else {
         setError(t('SAVE FAILED'))
       }
-    } catch (err: any) {
-      setError(`${t('SAVE FAILED')}: ${err.message}`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(`${t('SAVE FAILED')}: ${msg}`)
     } finally {
       setLoading(false)
     }

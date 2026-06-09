@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useDashboardStore } from '../store/useDashboardStore'
 import type { ProviderUpdate } from '../types'
 import { ProviderSidebar } from './ProviderSidebar'
@@ -8,24 +8,25 @@ import { AddProviderModal } from './AddProviderModal'
 import { AddModelModal } from './AddModelModal'
 export function ModelsExplorer() {
   const { providers, models, saveProviders, isSavingProviders, toast, clearToast, checkProviderHealth, isCheckingHealth, createProvider, addModel, isLoading } = useDashboardStore()
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(
+    providers.length > 0 ? providers[0].name : null
+  )
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [addProviderOpen, setAddProviderOpen] = useState(false)
   const [addModelOpen, setAddModelOpen] = useState(false)
 
-  // 默认选中第一个 provider
-  useEffect(() => {
-    if (providers.length > 0 && !selectedProvider) {
-      setSelectedProvider(providers[0].name)
-    }
-  }, [providers, selectedProvider])
-
   // 若当前选中的 provider 已不存在，回退到第一个
+  const selectedProviderRef = useRef(selectedProvider)
   useEffect(() => {
-    if (selectedProvider && providers.length > 0 && !providers.find((p) => p.name === selectedProvider)) {
+    selectedProviderRef.current = selectedProvider
+  })
+  useEffect(() => {
+    if (providers.length === 0) return
+    const current = selectedProviderRef.current
+    if (!current || !providers.find((p) => p.name === current)) {
       setSelectedProvider(providers[0].name)
     }
-  }, [providers, selectedProvider])
+  }, [providers])
 
   const modelsCount = useMemo(() => {
     const count: Record<string, number> = {}
