@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import typer
 from rich import box
@@ -123,7 +123,7 @@ def init(
         from importlib.resources import files
         templates_dir = files("smart_router") / "templates"
         models_templates_dir = templates_dir / models_dir_name
-        if templates_dir.exists() and models_templates_dir.exists():
+        if templates_dir.exists() and models_templates_dir.exists():  # type: ignore[attr-defined]
             import shutil
             for item in items_to_generate:
                 if item == models_dir_name:
@@ -135,7 +135,7 @@ def init(
                 else:
                     src = templates_dir / item
                     dst = output_dir / item
-                    if src.exists():
+                    if src.exists():  # type: ignore[attr-defined]
                         shutil.copy2(str(src), dst)
             console.print(f"[green]✓[/green] 配置文件已生成: {output_dir.absolute()}")
         else:
@@ -485,6 +485,7 @@ def dry_run(
     }
     task_classifier = TaskTypeClassifier(task_types_config)
 
+    task_result: Any
     if markers.stage:
         task_result = type('obj', (object,), {
             'task_type': markers.stage,
@@ -495,6 +496,7 @@ def dry_run(
         task_result = task_classifier.classify(messages)
 
     # 2. 难度评估
+    difficulty_result: Any
     if markers.difficulty:
         difficulty_result = type('obj', (object,), {
             'difficulty': markers.difficulty,

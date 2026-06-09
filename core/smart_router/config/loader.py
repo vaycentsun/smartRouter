@@ -41,7 +41,7 @@ class ConfigLoader:
             config = Config(
                 providers=providers_dict,
                 models=models,
-                routing=routing
+                routing=routing  # type: ignore[arg-type]
             )
             return config
         except ValidationError as e:

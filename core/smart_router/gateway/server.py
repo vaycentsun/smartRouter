@@ -371,22 +371,22 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
 
             try:
                 # 确定统计模型名（按优先级）
-                model_name: Optional[str] = getattr(request.state, 'smart_router_selected', None)
-                if not model_name:
-                    model_name = getattr(request.state, 'smart_router_override_model', None)
-                if not model_name:
+                stats_model: Optional[str] = getattr(request.state, 'smart_router_selected', None)
+                if not stats_model:
+                    stats_model = getattr(request.state, 'smart_router_override_model', None)
+                if not stats_model:
                     # 回退：从请求体解析原始 model 字段
                     try:
                         req_body = await request.body()
                         if req_body:
                             req_data = json.loads(req_body)
-                            model_name = req_data.get("model", None)
+                            stats_model = req_data.get("model", None)
                     except Exception as e:
                         console.print(f"[yellow]Failed to parse request body: {e}[/yellow]")
 
-                console.print(f"[dim]Model name resolved: {model_name}[/dim]")
+                console.print(f"[dim]Model name resolved: {stats_model}[/dim]")
 
-                if model_name:
+                if stats_model:
                     # 消费响应 body
                     body_bytes = b""
                     if hasattr(response, "body_iterator"):
@@ -447,11 +447,11 @@ class SmartRouterMiddleware(BaseHTTPMiddleware):
                         if prompt_details:
                             cached_tokens = prompt_details.get("cached_tokens", 0)
 
-                        console.print(f"[green]✓ Recording tokens: {model_name} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens} reasoning:{reasoning_tokens} cached:{cached_tokens}[/green]")
+                        console.print(f"[green]✓ Recording tokens: {stats_model} - prompt:{prompt_tokens} completion:{completion_tokens} total:{total_tokens} reasoning:{reasoning_tokens} cached:{cached_tokens}[/green]")
 
                         token_stats = request.app.state.token_stats
                         await token_stats.record(
-                            model_name, prompt_tokens, completion_tokens, total_tokens,
+                            stats_model, prompt_tokens, completion_tokens, total_tokens,
                             reasoning_tokens=reasoning_tokens, cached_tokens=cached_tokens
                         )
                     else:

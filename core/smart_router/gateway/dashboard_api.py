@@ -868,7 +868,8 @@ async def preview_formula(request: Request, body: FormulaPreviewRequest):
                 score = evaluator.evaluate(model.capabilities)
                 models.append({"name": name, "score": round(score, 2)})
 
-        models.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+        from typing import Any
+        models.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)  # type: ignore[arg-type]
 
         return {
             "task_type": "chat",

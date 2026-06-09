@@ -7,7 +7,7 @@
 import threading
 import time
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 try:
     from watchdog.events import FileSystemEventHandler
@@ -39,7 +39,7 @@ class ConfigWatcher:
         self.on_reload = on_reload
         self.debounce_seconds = debounce_seconds
 
-        self._observer: Optional[Observer] = None
+        self._observer: Optional[Any] = None
         self._last_reload = 0.0
         self._lock = threading.Lock()
 
@@ -51,7 +51,7 @@ class ConfigWatcher:
             return
 
         event_handler = _ConfigFileHandler(self._on_file_changed)
-        self._observer = Observer()
+        self._observer = Observer()  # type: ignore[possibly-undefined]
         self._observer.schedule(event_handler, str(self.config_dir), recursive=False)
         self._observer.start()
 
@@ -89,7 +89,7 @@ class ConfigWatcher:
 
 
 if HAS_WATCHDOG:
-    class _ConfigFileHandler(FileSystemEventHandler):
+    class _ConfigFileHandler(FileSystemEventHandler):  # type: ignore[possibly-undefined]
         """内部事件处理器"""
 
         def __init__(self, callback):
