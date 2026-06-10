@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type SyntheticEvent } from 'react'
 import { useTranslation } from '../i18n/useTranslation'
 import { useDashboardStore } from '../store/useDashboardStore'
 import type { AlertRule, AlertCondition, AlertChannel } from '../types'
@@ -31,7 +31,7 @@ export function AlertRuleEditor({ rule, onClose }: AlertRuleEditorProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [testResult, setTestResult] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsSaving(true)
     if (isEditing) {

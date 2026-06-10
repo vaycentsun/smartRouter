@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type SyntheticEvent } from 'react'
 import { useTranslation } from '../i18n/useTranslation'
 import { api } from '../api/client'
 import type { ModelMappingConfig, ModelMappingRule } from '../types'
@@ -43,7 +43,7 @@ function RuleFormModal({ rule, onClose, onSave }: RuleFormModalProps) {
   const isEditing = !!rule
   const [form, setForm] = useState<ModelMappingRule>(rule ? { ...rule } : { ...EMPTY_RULE })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
     onSave(form)
   }
